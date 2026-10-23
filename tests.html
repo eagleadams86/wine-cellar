@@ -51,7 +51,7 @@
    go MISSING look exactly like tests that pass — a suite that quietly shrank to
    three checks still says "all 3 tests pass". RAISE THIS when you add tests, and
    lower it only when you retire one deliberately. */
-const EXPECTED = 173;
+const EXPECTED = 178;
 
 /* ── It refuses to run anywhere but localhost, and that is load-bearing ──────
    GitHub Pages publishes this page BESIDE the app, where the iframe below would
@@ -1308,15 +1308,16 @@ function define() {
     const src = stripComments(APP_SRC);
     ok(/confirm\('Delete “' \+ wineLabel\(it\)/.test(src),
        'a bare "Are you sure?" is a dialog people learn to click through');
-    ok(/cannot be undone/.test(src), 'and it says what is lost');
+    ok(/Undo \(↩ in the header\) brings it back/.test(src), 'and it says how to get it back');
     /* Delete-all is confirmed in a DIALOG, not a confirm(): it is the family's
        shared window — PAPTrack's, to the pixel — and a confirm() cannot hold the
        "Download Backup First" button that makes the answer safe to give. */
     ok(/<dialog id="clearDialog"/.test(src), 'Delete All confirms in its own dialog');
     ok(/id="clearBackupBtn"[^>]*class="safety"/.test(src),
        'and offers the backup that is the only way back');
-    ok(/There is no undo — a downloaded backup is the only way/.test(src),
-       'and says so in the family\'s words');
+    ok(/Undo \(↩ in the header\) brings it all back until you reload or close this page/.test(src)
+       && /a downloaded backup is the only way/.test(src),
+       'and says how far Undo reaches, and what is left after that — Undo is this sitting only');
     ok(/Restore ' \+ plural\(incoming\.wines\.length/.test(src),
        'and a restore says what the file holds before replacing anything');
   });
@@ -2168,6 +2169,65 @@ function define() {
     const rows = H.tableToRows(W.document.getElementById('cellarTable'));
     eq(rows[0].length, H.COLUMNS.length, 'every column, and no label text from the cards in any cell');
     ok(!rows.slice(1).some((r) => r.some((c) => /^(Region|Grape|Window)\s/.test(c))), 'a ::before label never reaches an export');
+  });
+
+  group('undo — Money Map’s ring, ported');
+  t('the ring keeps the last twenty, oldest dropped first', () => {
+    let ring = [];
+    for (let i = 0; i < 25; i++) ring = H.pushSnapshot(ring, 's' + i, 20);
+    eq(ring.length, 20);
+    eq([ring[0], ring[19]], ['s5', 's24']);
+    eq(H.pushSnapshot(['a'], '', 20), ['a'], 'nothing to bank, nothing banked');
+  });
+  t('a save banks only a real change, and an undo never banks', () => {
+    eq(H.undoBankable('b', 'a', false), true, 'a change is a step');
+    eq(H.undoBankable('a', 'a', false), false, 'saving the same cellar again is not');
+    eq(H.undoBankable('b', 'a', true), false,
+       'an undo consumes history — if it minted a step, two presses would seesaw');
+  });
+  t('undo walks back through real changes, one Save at a time', () => {
+    /* save() writes the reader's storage; this suite never does, so the write
+       is stubbed for the walk and put back after. On the PROTOTYPE: assigning
+       `localStorage.setItem = …` does not replace the method — Storage turns it
+       into a saved item named "setItem" and the real write still happens. */
+    const D = W.document, realConfirm = W.confirm, proto = W.Storage.prototype;
+    const realStore = proto.setItem;
+    let writes = 0;
+    proto.setItem = function () { writes++; };
+    W.confirm = () => true;
+    try {
+      H.__plant(FIXTURE);
+      ok(D.getElementById('undoBtn').hidden, 'nothing to undo yet, so no button');
+      const qty = () => H.__state().wines.find((w) => w.id === 'fx-hold').qty;
+      W.openDrink('fx-hold'); D.getElementById('openSave').click();
+      W.openDrink('fx-hold'); D.getElementById('openSave').click();
+      eq([qty(), H.__state().opened.length], [4, 3], 'two bottles opened');
+      ok(!D.getElementById('undoBtn').hidden, 'and Undo appears');
+      D.getElementById('undoBtn').click();
+      eq([qty(), H.__state().opened.length], [5, 2], 'one press, one step back — the log line goes with the bottle');
+      W.undoLast();
+      eq([qty(), H.__state().opened.length], [6, 1], 'and the next step, not a seesaw');
+      ok(D.getElementById('undoBtn').hidden, 'and with nothing left, the button goes');
+      ok(writes > 0, 'the walk really went through save(), into the stub');
+    } finally {
+      proto.setItem = realStore; W.confirm = realConfirm;
+      H.__plant(FIXTURE);
+    }
+  });
+  t('⌘Z belongs to the browser in a text box and in an open window', () => {
+    const src = stripComments(APP_SRC);
+    const fn = (src.match(/if \(\(e\.key !== 'z' && e\.key !== 'Z'\)[\s\S]*?undoLast\(\);/) || [''])[0];
+    ok(/INPUT\|TEXTAREA\|SELECT/.test(fn), 'not while typing — the browser undoes the typing');
+    ok(/dialog\[open\]/.test(fn), 'not with a window open');
+    ok(/if \(!confirm\('Undo the last change\?/.test(src), 'and the BUTTON asks, because there is no redo');
+  });
+  t('another tab’s or device’s cellar starts the ring over', () => {
+    const src = stripComments(APP_SRC);
+    const listener = (src.match(/addEventListener\('storage'[\s\S]*?\n\}\);/) || [''])[0];
+    ok(/undoStartOver\(\)/.test(listener), 'a step back past another tab’s work would overwrite it');
+    const adopt = (src.match(/window\.wcAdopt = [\s\S]*?\n\};/) || [''])[0];
+    ok(/undoStartOver\(\)/.test(adopt), 'and past another device’s, under a newer timestamp, everywhere');
+    ok(/\['syncBtn', 'undoBtn'/.test(src), 'a shared view has no Undo — it writes nothing to undo');
   });
 
   group('the editor never saves a number the reader did not type');

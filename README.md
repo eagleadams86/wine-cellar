@@ -22,6 +22,12 @@ cellar on your other devices.
 - **Opened One** beside each wine takes a bottle off the count and writes a line in that log.
   Removing a line puts the bottle back, so a mistaken press is easy to undo.
 - **Paste a List** reads the table Claude writes when you ask it to look wines up — see below.
+- **↩ Undo** (⌘Z / Ctrl+Z) walks back through this sitting's changes, one Save at a time —
+  Money Map's undo, ported. Up to twenty steps; an edit, an Opened One, a pasted list, a
+  restore and even Delete All Data are each one step. The button asks first, because there
+  is no redo; ⌘Z goes straight back. The history lives in memory, so a reload starts it
+  fresh, and it clears when another tab or another signed-in device changes the cellar —
+  undoing past their work would overwrite it.
 - **Find** (⌘K), **Settings**, **Back Up** (JSON and CSV, Restore, Delete All), **Share**
   (a read-only link with the data inside it), four themes plus Auto — the family's chrome.
 
@@ -129,7 +135,7 @@ characters, opened-bottle notes at 140.
 python3 -m http.server 8025
 ```
 
-Open `http://localhost:8025/` for the app and `/tests.html` for the suite (173 tests; the
+Open `http://localhost:8025/` for the app and `/tests.html` for the suite (178 tests; the
 `EXPECTED` floor in the file fails the run if any go missing). CI runs the same page headless
 on every push, plus CodeQL.
 

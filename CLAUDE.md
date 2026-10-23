@@ -59,6 +59,18 @@ the family doesn't.
   one, and a test checks every cell. The name `<th>` leads (`order: -2`), the Status pill rides
   its line (`order: -1`), sortable headings become Sort-by chips. The family had no phone table
   pattern before this one.
+- **Undo is Money Map's in-memory ring** (`undoRing`/`undoSnapshot`, cap 20; `pushSnapshot`
+  and `undoBankable` pure and pinned). save() banks the state it REPLACES unless the save is
+  itself an undo (the `undoing` latch) or nothing changed (`coreOf`, which ignores `version`).
+  Every window here saves once, so one window is one step without Money Map's per-field
+  latch — keep it that way: a window that saved per field would need that latch.
+  `undoStartOver()` runs at boot, in the storage listener and in `wcAdopt`: a step back past
+  another tab's or device's work would overwrite it. Never persisted, no redo; the button
+  confirms, ⌘Z doesn't and is gated off fields and open windows. Delete All's and a wine
+  delete's wording says Undo brings it back THIS SITTING — keep the words true.
+- **Tests that stub storage stub `W.Storage.prototype.setItem`**, never
+  `localStorage.setItem = …`, which Chrome stores as an item named "setItem" while the real
+  write still happens.
 - **The table's own order is drinking order** — past the window, drink soon, ready, hold,
   none; then the window that closes soonest. The Wine column sorts by name, then vintage.
 
@@ -72,6 +84,6 @@ commented copy in the repo.
 
 ## Tests
 
-`tests.html`, `EXPECTED = 173`. Run it headless (Playwright) rather than in the Browser pane:
+`tests.html`, `EXPECTED = 178`. Run it headless (Playwright) rather than in the Browser pane:
 the pane throttles hidden timers and its focus heuristics turn the 705px keyboard-focus check
 red on untouched code.

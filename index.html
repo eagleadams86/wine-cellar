@@ -1425,6 +1425,11 @@ html[data-booting] footer { visibility: hidden; }
          the row sideways. Visible in the markup, so it is there at first paint;
          the sync module hides it when sync is not available here. -->
     <button class="no-print" id="syncBtn" title="Sign in with Google to see the same cellar on all your devices">☁️ Sign In to Sync</button>
+    <!-- Undo sits beside sync, Money Map's place for it: it is hidden until
+         there is something to undo THIS SITTING, and a button that appears at
+         the left-hand end of a right-aligned row only ever pushes into space
+         rather than shoving its neighbours. -->
+    <button class="no-print" id="undoBtn" hidden title="Put things back the way they were before the last change — asks first (⌘Z / Ctrl+Z goes straight back)"><span aria-hidden="true">↩</span> Undo</button>
     <!-- Find sits toward the left-hand end of the row, before the controls that
          change the data — the family's header order. -->
     <button class="no-print" id="findBtn" title="Search everything (⌘K / Ctrl+K)"><span aria-hidden="true">⌕</span> Find</button>
@@ -2317,8 +2322,17 @@ function load() {
 function save() {
   if (viewOnly) { render(); return; }   /* the single write path, and the single place to stop it */
   state.version = SCHEMA;
+  /* Bank the state this save is REPLACING — unless the save is itself an undo
+     (which must consume history, not mint it), or nothing changed. */
+  const core = coreOf(state);
+  if (undoBankable(core, undoCore, undoing)) {
+    undoRing = pushSnapshot(undoRing, undoSnapshot, UNDO_CAP);
+  }
+  undoCore = core;
+  undoSnapshot = JSON.stringify(state);
+  updateUndoBtn();
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    localStorage.setItem(STORAGE_KEY, undoSnapshot);
     localStorage.setItem(UPDATED_KEY, String(Date.now()));
   } catch (e) {
     toast('Could not save — this browser refused to store the data.');
@@ -2337,8 +2351,80 @@ addEventListener('storage', (e) => {
   try { incoming = JSON.parse(e.newValue || 'null'); } catch (err) { return; }
   if (incoming && Number(incoming.version || 1) > SCHEMA) haltForNewerData(incoming.version);
   state = normalizeState(incoming);
+  undoStartOver();
   render();
 });
+
+/* ── Undo ───────────────────────────────────────────────────────────────────
+   Money Map's, ported (2026-10-23, Charles: "let's add the undo feature that my
+   money map has"). A ring of the last few SAVED states, in memory only and
+   deliberately so: "undo covers this sitting" is an honest promise, where a
+   persisted history would be a second copy of the cellar waiting to drift.
+   Every save() banks the state it is overwriting; undo pops one, walks the
+   cellar back, and saves — which banks nothing (the `undoing` latch), so
+   repeated presses walk straight back through history instead of oscillating
+   between the last two states. No redo, and that is the trade: linear and
+   predictable beats a two-state seesaw.
+
+   ONE WINDOW IS ONE STEP here without Money Map's latch, because every window
+   in this app saves once, on its own Save — an edit, an Opened One, a whole
+   pasted list, a restore and a Delete All are each a single step back.
+
+   THE RING STARTS OVER when another tab's or another device's cellar is
+   adopted (the storage listener and wcAdopt call undoStartOver): every
+   snapshot in it predates that work, so one ⌘Z would write the old cellar over
+   it — and, signed in, push it to every device under a newer timestamp. */
+const UNDO_CAP = 20;
+let undoRing = [];
+let undoSnapshot = JSON.stringify(state);   // the state as of the last save or load
+/* What decides whether a save is worth banking. `version` is left out, so the
+   stamp save() writes is never "a change". Pure and pinned. */
+function coreOf(st) {
+  return JSON.stringify(Object.assign({}, st, { version: null }));
+}
+let undoCore = coreOf(state);
+let undoing = false;
+
+/* Pure, pinned by tests: append and trim to the cap, oldest dropped first. */
+function pushSnapshot(ring, snap, cap) {
+  if (!snap) return ring;
+  const out = [...ring, snap];
+  return out.length > cap ? out.slice(out.length - cap) : out;
+}
+/* Whether THIS save mints history. Pure and pinned, because both halves are
+   load-bearing: an undo must consume history rather than mint it, and a save
+   that changed nothing must bank nothing. */
+function undoBankable(coreNow, corePrev, isUndoing) {
+  return !isUndoing && coreNow !== corePrev;
+}
+function updateUndoBtn() {
+  const btn = document.getElementById('undoBtn');
+  if (btn) btn.hidden = viewOnly || !undoRing.length;
+}
+/* A new baseline with no history behind it: boot, and adopting a copy this
+   window did not write. */
+function undoStartOver() {
+  undoRing = [];
+  undoSnapshot = JSON.stringify(state);
+  undoCore = coreOf(state);
+  updateUndoBtn();
+}
+function undoLast() {
+  if (viewOnly || !undoRing.length) return;
+  const snap = undoRing.pop();
+  /* Its own serialization a moment ago — still through the same allowlist
+     every outside shape passes. */
+  let raw = null;
+  try { raw = JSON.parse(snap); } catch (e) { raw = null; }
+  state = normalizeState(raw);
+  undoing = true;
+  save();
+  undoing = false;
+  toast(undoRing.length
+    ? 'Put back the way it was — ' + plural(undoRing.length, 'more change') + ' can be undone'
+    : 'Put back the way it was — that was the oldest change this sitting');
+  updateUndoBtn();
+}
 
 /* ═══════════════════════════ Figures and formatting ═══════════════════════ */
 
@@ -3949,7 +4035,7 @@ function onWineTableClick(e) {
   if (!it) { render(); return; }   /* gone since the list was drawn */
   /* NAMES the record and says what is lost. */
   if (!confirm('Delete “' + wineLabel(it) + '” (' + plural(it.qty, 'bottle') + ')?\n\n'
-             + 'Bottles you already opened stay in the Opened list. This cannot be undone.')) return;
+             + 'Bottles you already opened stay in the Opened list. Undo (↩ in the header) brings it back.')) return;
   state.wines = state.wines.filter((x) => x.id !== id);
   save();
   toast('Wine deleted');
@@ -4144,7 +4230,8 @@ $('clearBtn').addEventListener('click', () => {
     + plural(state.opened.length, 'opened-bottle record') + '. Your settings and your theme are kept. '
     + (window.wcSignedIn && window.wcSignedIn()
       ? 'You are signed in, so your other devices are cleared too. ' : '')
-    + 'There is no undo — a downloaded backup is the only way to get any of it back.';
+    + 'Undo (↩ in the header) brings it all back until you reload or close this page — '
+    + 'after that, a downloaded backup is the only way to get any of it back.';
   openModal(clearDialog);
 });
 
@@ -4227,6 +4314,29 @@ $('shareOpenBtn').addEventListener('click', () => {
 $('shareCloseBtn').addEventListener('click', () => $('shareDialog').close());
 
 $('themeSel').addEventListener('change', (e) => setTheme(e.target.value));
+
+/* Asks first, because there is no redo: a mis-click in the header would walk
+   the cellar back a step the reader then has to redo from memory. ⌘Z does NOT
+   ask — a modifier chord is not something a hand lands on by accident, and it
+   is the way to walk back several steps at a time. Money Map's, both halves. */
+$('undoBtn').addEventListener('click', () => {
+  if (viewOnly || !undoRing.length) return;
+  if (!confirm('Undo the last change?\n\nThe cellar goes back to how it was before it. There is '
+    + 'no redo — the only way forward again is to make the change yourself.')) return;
+  undoLast();
+});
+/* ⌘Z / Ctrl+Z, everywhere a browser undo isn't already the right answer: not
+   while typing in a field (the browser's own undo owns that), not with a
+   window open (half-typed form state is not the app's to discard). */
+document.addEventListener('keydown', (e) => {
+  if ((e.key !== 'z' && e.key !== 'Z') || !(e.metaKey || e.ctrlKey) || e.shiftKey || e.altKey) return;
+  const t = e.target;
+  if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
+  if (document.querySelector('dialog[open]')) return;
+  if (viewOnly || !undoRing.length) return;
+  e.preventDefault();
+  undoLast();
+});
 
 $('findBtn').addEventListener('click', () => {
   /* Through openModal like every other dialog — and the focus() below then takes
@@ -4627,6 +4737,7 @@ window.wcAdopt = (incoming, updatedAt) => {
   } catch (e) {
     console.warn('Could not write saved data', e);
   }
+  undoStartOver();
   render();
 };
 /* ═══════════════════════════════ Boot ═════════════════════════════════════ */
@@ -4656,7 +4767,7 @@ async function boot() {
   /* Every edit surface goes in a shared view. The table already renders
      read-only above; these are the buttons that would write. */
   if (viewOnly) {
-    ['syncBtn', 'settingsBtn', 'dataBtn', 'shareBtn', 'addBtn', 'pasteBtn', 'sampleBtn'].forEach((id) => {
+    ['syncBtn', 'undoBtn', 'settingsBtn', 'dataBtn', 'shareBtn', 'addBtn', 'pasteBtn', 'sampleBtn'].forEach((id) => {
       const el = $(id);
       if (el) el.hidden = true;
     });
@@ -4665,6 +4776,8 @@ async function boot() {
      else's snapshot is a reasonable thing to want. goToSearchHit() already
      declines to open the editor there. It is hidden when there is nothing to
      search, which is the welcome card's whole state. */
+  /* Undo's baseline is the cellar as loaded — nothing behind it yet. */
+  undoStartOver();
   render();
   /* The page is now drawn where it belongs, so let it be seen. In the SAME TASK
      as the render above — a frame later and the reveal is itself the flash. The
@@ -4688,7 +4801,7 @@ boot();
    this suite is read-only about storage and has to stay that way: it runs
    against the reader's own copy of the app. */
 window.__wineTestHooks = {
-  __plant: function (next) { state = normalizeState(next); render(); },
+  __plant: function (next) { state = normalizeState(next); undoStartOver(); render(); },
   __state: function () { return state; },
   SCHEMA: SCHEMA, ID_RE: ID_RE, STORAGE_KEY: STORAGE_KEY, THEME_KEY: THEME_KEY,
   TAB_KEY: TAB_KEY, TABS: TABS, SHARE_FORMAT: SHARE_FORMAT, SHARE_PAYLOAD_V: SHARE_PAYLOAD_V,
@@ -4704,6 +4817,7 @@ window.__wineTestHooks = {
   nextSort: nextSort, COLUMNS: COLUMNS, tableToRows: tableToRows, cellText: cellText,
   toCsv: toCsv, toTsv: toTsv, FORMULA_LEAD: FORMULA_LEAD, PLAIN_NUMBER: PLAIN_NUMBER,
   searchApp: searchApp, SEARCH_CAP: SEARCH_CAP,
+  pushSnapshot: pushSnapshot, undoBankable: undoBankable,
 };
 </script>
 <script type="module">
