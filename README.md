@@ -37,8 +37,10 @@ cellar on your other devices.
 the web for a wine and come back with its value, drinking window, region, grape and colour, plus
 the pages it used.
 
-- **It fills only what is empty.** Anything you typed or pasted stays; the wine window says what
-  it kept and offers to use Claude's answer for those too. Nothing is saved until you press Save
+- **It fills only what is empty.** Anything you typed or pasted stays. In the wine window each
+  line of Claude's answer — value, window, region, grape, colour — has its own **Use this**, so you
+  can take its value and keep your window; a line that already matches says "✓ in the box", and
+  **Use all of Claude's answer** takes everything. Nothing is saved until you press Save
   or Add, and a one-line "Looked up…" note records when and on whose word.
 - **It says how sure it is** — sure of the match, probably the right wine, or could not find it
   (then it fills nothing rather than guess).
@@ -162,7 +164,7 @@ characters, opened-bottle notes at 140.
 python3 -m http.server 8025
 ```
 
-Open `http://localhost:8025/` for the app and `/tests.html` for the suite (184 tests; the
+Open `http://localhost:8025/` for the app and `/tests.html` for the suite (185 tests; the
 `EXPECTED` floor in the file fails the run if any go missing). CI runs the same page headless
 on every push, plus CodeQL.
 

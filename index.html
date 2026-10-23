@@ -867,6 +867,11 @@
   .lookup-panel strong { color: var(--text-primary); }
   .lookup-panel ul { margin: 4px 0 0; padding-left: 18px; }
   .lookup-panel a { color: var(--accent); overflow-wrap: anywhere; }
+  /* A line of the panel, with its "Use this" (or ✓) at the right-hand end. */
+  .lookup-panel .lookline { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; }
+  .lookup-panel .lookline > span:first-child { flex: 1 1 16rem; min-width: 0; }
+  .lookup-panel .lookline .link { flex: none; }
+  .lookup-panel .lookdone { flex: none; font-size: var(--fs-xs); color: var(--text-muted); }
 
   /* ── On a phone, every list is a stack of CARDS (2026-10-23) ──────────────
      Charles, from his iPhone: "let's make these lists more mobile friendly".
@@ -4206,26 +4211,38 @@ function lookupStop() {
   const b = $('lookupBtn');
   if (b) b.innerHTML = '<span aria-hidden="true">✦</span> Look Up with Claude';
 }
+/* One row per thing a lookup can fill: [key, label, is the box empty, put
+   Claude's answer in, did Claude find one, does the box already say it]. */
+const sameText = (a, b) => String(a || '').trim().toLowerCase() === String(b || '').trim().toLowerCase();
+const boxNum = (id) => ($(id).value === '' ? null : Number($(id).value));
 const LOOKUP_BOXES = [
   ['value', 'Value', () => $('f_low').value === '' && $('f_high').value === '',
    (r) => { $('f_low').value = r.valueLow == null ? '' : r.valueLow;
             $('f_high').value = r.valueHigh == null ? '' : r.valueHigh; $('f_est').checked = r.valueEst; },
-   (r) => r.valueLow != null],
+   (r) => r.valueLow != null,
+   (r) => boxNum('f_low') === r.valueLow && (boxNum('f_high') == null ? r.valueHigh == null : boxNum('f_high') === r.valueHigh)],
   ['window', 'Window', () => $('f_from').value === '' && $('f_to').value === '',
    (r) => { $('f_from').value = r.drinkFrom == null ? '' : r.drinkFrom;
             $('f_to').value = r.drinkTo == null ? '' : r.drinkTo; },
-   (r) => r.drinkFrom != null || r.drinkTo != null],
-  ['region', 'Region', () => !$('f_region').value.trim(), (r) => { $('f_region').value = r.region; }, (r) => !!r.region],
-  ['grape', 'Grape', () => !$('f_grape').value.trim(), (r) => { $('f_grape').value = r.grape; }, (r) => !!r.grape],
+   (r) => r.drinkFrom != null || r.drinkTo != null,
+   (r) => boxNum('f_from') === r.drinkFrom && boxNum('f_to') === r.drinkTo],
+  ['region', 'Region', () => !$('f_region').value.trim(), (r) => { $('f_region').value = r.region; },
+   (r) => !!r.region, (r) => sameText($('f_region').value, r.region)],
+  ['grape', 'Grape', () => !$('f_grape').value.trim(), (r) => { $('f_grape').value = r.grape; },
+   (r) => !!r.grape, (r) => sameText($('f_grape').value, r.grape)],
   /* Colour has no empty state — a new wine starts as red — so a lookup sets
      it on a NEW wine and only offers it on one already saved. */
-  ['color', 'Colour', () => !editingId, (r) => { $('f_color').value = r.color; }, (r) => !!r.color],
+  ['color', 'Colour', () => !editingId, (r) => { $('f_color').value = r.color; },
+   (r) => !!r.color, (r) => $('f_color').value === r.color],
 ];
-function applyLookup(r, all) {
+/* Puts Claude's answer into the boxes: the empty ones (a lookup's first
+   pass), every one (`all`), or just the keys named (one "Use this"). */
+function applyLookup(r, all, only) {
   const filled = [], kept = [];
-  LOOKUP_BOXES.forEach(([, label, empty, put, has]) => {
-    if (!has(r)) return;
-    if (all || empty()) { put(r); filled.push(label); } else kept.push(label);
+  LOOKUP_BOXES.forEach(([key, label, empty, put, has, same]) => {
+    if (!has(r) || same(r)) return;
+    if (only ? only.indexOf(key) !== -1 : (all || empty())) { put(r); filled.push(label); }
+    else kept.push(label);
   });
   /* When, and on whose word, goes in the notes — once, and only while there
      is room, because the notes are the reader's. */
@@ -4235,30 +4252,57 @@ function applyLookup(r, all) {
     $('f_notes').value = notes ? notes + '\n' + line : line;
   return { filled: filled, kept: kept };
 }
-function renderLookupPanel(r, done) {
+/* The panel: what Claude found, ONE LINE PER BOX, each with its own
+   "Use this" while the box still says something else — Charles, 2026-10-23,
+   on taking Claude's value for Snowden without its region and grape. A line
+   whose box already holds the same answer says so instead. */
+function renderLookupPanel(r) {
   const panel = $('lookupPanel');
   const conf = { high: ['ok', 'Sure of the match'], medium: ['warn', 'Probably the right wine'],
                  low: ['err', 'Could not find this exact wine'] }[r.confidence];
+  const shown = {
+    value: r.valueLow != null ? fmtRange(r.valueLow, r.valueHigh) + (r.valueEst ? ' est.' : '') : '',
+    window: r.drinkFrom != null || r.drinkTo != null ? fmtWindow(r) : '',
+    region: r.region, grape: r.grape, color: r.color ? COLOR_LABEL[r.color] : '',
+  };
+  const basis = { value: r.valueBasis, window: r.windowBasis };
+  let differ = 0;
   /* Everything that came back is text and is escaped; a source is a link only
      because readLookup() already proved it an http(s) address. */
+  const lines = LOOKUP_BOXES.map(([key, label, , , has, same]) => {
+    if (!has(r)) return key === 'value' || key === 'window'
+      ? '<p>' + esc(label) + ': none found.</p>' : '';
+    const isSame = same(r);
+    if (!isSame && r.confidence !== 'low') differ++;
+    return '<p class="lookline"><span>' + esc(label) + ' <strong>' + esc(shown[key]) + '</strong>'
+      + (basis[key] ? ' — ' + esc(basis[key]) : '') + '</span>'
+      + (isSame ? '<span class="lookdone">✓ in the box</span>'
+        : r.confidence === 'low' ? ''
+        : '<button type="button" class="link" data-use="' + key + '">Use this</button>') + '</p>';
+  }).join('');
   panel.innerHTML = '<p><strong>' + esc(r.matched || 'No match') + '</strong> '
     + '<span class="pill ' + conf[0] + '">' + esc(conf[1]) + '</span></p>'
-    + (r.valueLow != null ? '<p>Value ' + esc(fmtRange(r.valueLow, r.valueHigh)) + (r.valueEst ? ' est.' : '')
-      + (r.valueBasis ? ' — ' + esc(r.valueBasis) : '') + '</p>' : '<p>No value found.</p>')
-    + (r.drinkFrom != null || r.drinkTo != null ? '<p>Drink ' + esc(fmtWindow(r))
-      + (r.windowBasis ? ' — ' + esc(r.windowBasis) : '') + '</p>' : '<p>No drinking window found.</p>')
+    + lines
     + (r.sources.length ? '<p>Sources:</p><ul>' + r.sources.map((x) => '<li><a href="' + esc(x.url)
       + '" target="_blank" rel="noopener noreferrer">' + esc(x.title) + '</a></li>').join('') + '</ul>' : '')
-    + (done.kept.length ? '<p style="margin-top:8px">Kept yours: ' + esc(done.kept.join(', ')) + '. '
-      + '<button type="button" class="link" id="lookupUseAll">Use Claude’s for these too</button></p>' : '');
+    + (differ > 1 ? '<p style="margin-top:8px"><button type="button" class="link" id="lookupUseAll">'
+      + 'Use all of Claude’s answer</button></p>' : '');
   panel.hidden = false;
-  const all = $('lookupUseAll');
-  if (all) all.addEventListener('click', () => {
-    applyLookup(r, true);
-    renderLookupPanel(r, { filled: [], kept: [] });
-    $('lookupNote').textContent = 'Claude’s answer is in every box. Nothing is saved until you press Save.';
-  });
 }
+/* One delegated listener, so the links survive every re-render of the panel. */
+$('lookupPanel').addEventListener('click', (e) => {
+  const one = e.target.closest('[data-use]');
+  const all = e.target.closest('#lookupUseAll');
+  if (!lookupLast || (!one && !all)) return;
+  const done = applyLookup(lookupLast, !!all, one ? [one.dataset.use] : null);
+  renderLookupPanel(lookupLast);
+  $('lookupNote').textContent = (done.filled.length ? 'Using Claude’s ' + done.filled.join(', ').toLowerCase()
+    + '. ' : '') + 'Nothing is saved until you press Save.';
+  /* The link pressed has gone with the re-render, so the keyboard goes to the
+     next one still offered, or to Save. */
+  const next = $('lookupPanel').querySelector('[data-use], #lookupUseAll') || $('wineSave');
+  next.focus();
+});
 $('lookupBtn').addEventListener('click', async () => {
   if (lookupCtl) { lookupStop(); $('lookupNote').textContent = 'Stopped.'; return; }
   const name = cleanLine($('f_name').value, 80);
@@ -4281,8 +4325,9 @@ $('lookupBtn').addEventListener('click', async () => {
     $('lookupNote').textContent = r.confidence === 'low'
       ? 'Claude could not find this exact wine, so nothing was filled in.'
       : done.filled.length ? 'Filled ' + done.filled.join(', ').toLowerCase() + '. Check it, then Save.'
-        : 'Nothing was empty to fill.';
-    renderLookupPanel(r, done);
+        : done.kept.length ? 'Your boxes were all filled in, so nothing changed — pick what to use below.'
+        : 'Claude’s answer matches what you have.';
+    renderLookupPanel(r);
   } catch (e) {
     if (lookupCtl === ctl && !(e && e.name === 'AbortError')) $('lookupNote').textContent = e.message;
   } finally {

@@ -95,6 +95,6 @@ commented copy in the repo.
 
 ## Tests
 
-`tests.html`, `EXPECTED = 184`. Run it headless (Playwright) rather than in the Browser pane:
+`tests.html`, `EXPECTED = 185`. Run it headless (Playwright) rather than in the Browser pane:
 the pane throttles hidden timers and its focus heuristics turn the 705px keyboard-focus check
 red on untouched code.

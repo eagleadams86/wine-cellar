@@ -51,7 +51,7 @@
    go MISSING look exactly like tests that pass — a suite that quietly shrank to
    three checks still says "all 3 tests pass". RAISE THIS when you add tests, and
    lower it only when you retire one deliberately. */
-const EXPECTED = 184;
+const EXPECTED = 185;
 
 /* ── It refuses to run anywhere but localhost, and that is load-bearing ──────
    GitHub Pages publishes this page BESIDE the app, where the iframe below would
@@ -2285,6 +2285,36 @@ function define() {
     ok(/if \(out\.valueLow == null && r\.valueLow != null\)/.test(src), 'a pasted value is never replaced');
     ok(/if \(!out\.colorKnown && r\.color\) out\.color = r\.color;/.test(src), 'a guessed colour gives way to Claude’s, a given one does not');
     ok(/r\.confidence === 'low'\) return row/.test(src), 'and a wine Claude could not find changes nothing');
+  });
+  t('each line of a lookup can be taken on its own, and nothing else moves', async () => {
+    /* Charles, 2026-10-23: take Claude's value for Snowden without its region
+       and grape. Driven through the real button with Claude faked and the key
+       read from a stubbed getItem — the suite never writes storage. */
+    const D = W.document, proto = W.Storage.prototype, realGet = proto.getItem, realFetch = W.fetch;
+    proto.getItem = function (k) { return k === H.LOOKUP_KEY_STORE ? 'sk-ant-test' : realGet.call(this, k); };
+    W.fetch = async () => ({ ok: true, status: 200, json: async () => ({ stop_reason: 'tool_use', usage: {},
+      content: [{ type: 'tool_use', name: 'record_wine', id: 't', input: { matched_wine: 'Charlie Cabernet 2021',
+        confidence: 'high', color: 'red', region: 'Napa', grape: 'Cabernet Sauvignon', value_low: 30, value_high: 40,
+        value_is_estimate: true, value_basis: 'listings', drink_from: 2099, drink_to: 2110, window_basis: 'x',
+        sources: [] } }] }) });
+    try {
+      H.__plant(FIXTURE);
+      W.openWine('fx-hold');
+      D.getElementById('lookupBtn').click();
+      for (let i = 0; i < 50 && D.getElementById('lookupPanel').hidden; i++) await new Promise((r) => setTimeout(r, 20));
+      const offered = [...D.querySelectorAll('#lookupPanel [data-use]')].map((b) => b.dataset.use);
+      eq(offered, ['value', 'region'], 'only the lines that differ from the boxes are offered');
+      eq(D.querySelectorAll('#lookupPanel .lookdone').length, 3, 'the rest say they are already in the box');
+      D.querySelector('#lookupPanel [data-use="value"]').click();
+      eq([D.getElementById('f_low').value, D.getElementById('f_high').value, D.getElementById('f_est').checked],
+         ['30', '40', true], 'Use this put in the value and its estimate flag');
+      eq(D.getElementById('f_region').value, 'Napa Valley', 'and touched nothing else');
+      eq([...D.querySelectorAll('#lookupPanel [data-use]')].map((b) => b.dataset.use), ['region'], 'the value line is done');
+    } finally {
+      proto.getItem = realGet; W.fetch = realFetch;
+      D.getElementById('wineDialog').close();
+      H.__plant(FIXTURE);
+    }
   });
   t('the key lives in its own storage key, and never in the cellar', () => {
     const src = stripComments(APP_SRC);
