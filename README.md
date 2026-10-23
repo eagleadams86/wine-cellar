@@ -28,6 +28,7 @@ cellar on your other devices.
 - **Opened One** beside each wine takes a bottle off the count and writes a line in that log.
   Removing a line puts the bottle back, so a mistaken press is easy to undo.
 - **Paste a List** reads the table Claude writes when you ask it to look wines up — see below.
+- **✦ Check All Wines** looks every wine with bottles left up with Claude at once — see below.
 - **↩ Undo** (⌘Z / Ctrl+Z) walks back through this sitting's changes, one Save at a time —
   Money Map's undo, ported. Up to twenty steps; an edit, an Opened One, a pasted list, a
   restore and even Delete All Data are each one step. The button asks first, because there
@@ -64,6 +65,23 @@ the pages it used.
   effort per wine; the paste window runs three lookups at a time. **Closing the window stops
   them** — Cancel, Escape or a click outside — so nothing keeps running (or billing) behind it.
   A key Claude rejects stops the whole paste at once and says why.
+
+### Check All Wines
+
+**✦ Check All Wines** under the Cellar table runs the same lookup on every wine with bottles
+left (finished wines are skipped), three at a time.
+
+- **It says the cost first** — how many wines, about how many dollars and minutes — and looks
+  nothing up until you press **Start Checking**. **Stop Checking** keeps what has come back.
+- **Then you choose, line by line.** Each wine gets a panel with one ticked line per thing Claude
+  says differently. A box that is **empty** starts ticked; anything **you entered** starts
+  unticked, so nothing of yours is replaced unless you tick it. Colour is never pre-ticked. A wine
+  Claude could not find offers nothing, and one that already matches says so.
+- **Save Ticked Changes** saves it all at once, so one **Undo** takes the whole check back. Each
+  changed wine's "Looked up…" note line is replaced with today's, not stacked.
+- **Closing the window stops the lookups but keeps the answers** for as long as the page is open,
+  so reopening it carries on from where it was — you never pay twice for the same wine. A wine
+  renamed since is looked up afresh. A key Claude rejects stops the check at once and says why.
 
 Only the wine's vintage, name, region and grape are sent, and only when you press the button.
 The page calls `https://api.anthropic.com` directly — the one host added to its security policy

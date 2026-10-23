@@ -885,7 +885,7 @@
   td.rowacts .btn-small { margin-right: var(--sp-3); }
   td.rowacts .btn-small:disabled { opacity: .45; cursor: not-allowed; }
   .stars { color: var(--warn); letter-spacing: 1px; }
-  #wineDialog, #pasteDialog { max-width: 700px; }
+  #wineDialog, #pasteDialog, #checkDialog { max-width: 700px; }
   textarea { resize: vertical; }
   #pasteBox { font-family: var(--font-mono); font-size: var(--fs-xs); }
   #pastePreview table { margin-top: var(--sp-3); }
@@ -926,6 +926,10 @@
   .lookup-panel .lookline > span:first-child { flex: 1 1 16rem; min-width: 0; }
   .lookup-panel .lookline .link { flex: none; }
   .lookup-panel .lookdone { flex: none; font-size: var(--fs-xs); color: var(--text-muted); }
+  /* Check All Wines: one panel per wine, tighter, and a ticked line per change. */
+  #checkList .lookup-panel { padding: 8px 12px; margin: 0 0 var(--sp-4); }
+  #checkList .lookup-panel > :last-child { margin-bottom: 0; }
+  #checkList .checkline { margin-bottom: 4px; font-size: var(--fs-sm); color: var(--text-secondary); }
 
   /* ── On a phone, every list is a stack of CARDS (2026-10-23) ──────────────
      Charles, from his iPhone: "let's make these lists more mobile friendly".
@@ -1677,6 +1681,7 @@ html[data-booting] footer { visibility: hidden; }
       <div class="row-actions no-print" style="justify-content:flex-start">
         <button type="button" class="primary" id="addBtn">＋ Add Wine</button>
         <button type="button" id="pasteBtn">Paste a List</button>
+        <button type="button" id="checkBtn"><span aria-hidden="true">✦</span> Check All Wines</button>
         <button type="button" id="sampleBtn">Load Sample Data</button>
       </div>
     </div>
@@ -1933,6 +1938,19 @@ html[data-booting] footer { visibility: hidden; }
     <span class="spacer"></span>
     <button type="button" id="pasteCancel">Cancel</button>
     <button type="button" class="primary" id="pasteAdd" disabled>Add Wines</button>
+  </div>
+</dialog>
+
+<dialog id="checkDialog" aria-labelledby="checkTitle">
+  <h2 id="checkTitle">Check All Wines</h2>
+  <p id="checkIntro"></p>
+  <div id="checkList"></div>
+  <p class="hint" id="checkNote" role="status"></p>
+  <div class="row-actions">
+    <button type="button" id="checkStart"><span aria-hidden="true">✦</span> Start Checking</button>
+    <span class="spacer"></span>
+    <button type="button" id="checkCancel">Cancel</button>
+    <button type="button" class="primary" id="checkSave" disabled>Save Ticked Changes</button>
   </div>
 </dialog>
 
@@ -4364,6 +4382,8 @@ function lookupStop() {
 }
 /* One row per thing a lookup can fill: [key, label, is the box empty, put
    Claude's answer in, did Claude find one, does the box already say it]. */
+const LOOKUP_CONF = { high: ['ok', 'Sure of the match'], medium: ['warn', 'Probably the right wine'],
+                      low: ['err', 'Could not find this exact wine'] };
 const sameText = (a, b) => String(a || '').trim().toLowerCase() === String(b || '').trim().toLowerCase();
 const boxNum = (id) => ($(id).value === '' ? null : Number($(id).value));
 const LOOKUP_BOXES = [
@@ -4409,8 +4429,7 @@ function applyLookup(r, all, only) {
    whose box already holds the same answer says so instead. */
 function renderLookupPanel(r) {
   const panel = $('lookupPanel');
-  const conf = { high: ['ok', 'Sure of the match'], medium: ['warn', 'Probably the right wine'],
-                 low: ['err', 'Could not find this exact wine'] }[r.confidence];
+  const conf = LOOKUP_CONF[r.confidence];
   const shown = {
     value: r.valueLow != null ? fmtRange(r.valueLow, r.valueHigh) + (r.valueEst ? ' est.' : '') : '',
     window: r.drinkFrom != null || r.drinkTo != null ? fmtWindow(r) : '',
@@ -4717,6 +4736,211 @@ $('pasteLookup').addEventListener('click', async () => {
   }
 });
 $('pasteBtn').addEventListener('click', openPaste);
+
+/* ── Check All Wines ───────────────────────────────────────────────────────
+   Every wine with bottles left, looked up a few at a time, then a review:
+   one ticked line per thing Claude says differently. A box that is EMPTY now
+   starts ticked (Look Up's "fill only what is empty"); a line that would
+   REPLACE something already entered starts unticked, and colour is never
+   pre-ticked, because a saved wine's colour was chosen. Nothing is saved until
+   Save Ticked Changes, and that is ONE save, so one Undo takes it all back.
+
+   The answers are kept for as long as the page is open, keyed by wine id AND
+   its vintage and name, so a window closed by accident (Escape, a click
+   outside) has not thrown away lookups already paid for — and a wine renamed
+   since is looked up again rather than shown someone else's answer. */
+const LOOKUP_FIELDS = [
+  ['value', 'Value', (w) => w.valueLow == null, (r) => r.valueLow != null,
+   (w, r) => w.valueLow === r.valueLow && (w.valueHigh == null ? r.valueHigh == null : w.valueHigh === r.valueHigh),
+   (w) => fmtValue(w),
+   (w, r) => { w.valueLow = r.valueLow; w.valueHigh = r.valueHigh; w.valueEst = r.valueEst; }],
+  ['window', 'Window', (w) => w.drinkFrom == null && w.drinkTo == null, (r) => r.drinkFrom != null || r.drinkTo != null,
+   (w, r) => w.drinkFrom === r.drinkFrom && w.drinkTo === r.drinkTo,
+   (w) => fmtWindow(w), (w, r) => { w.drinkFrom = r.drinkFrom; w.drinkTo = r.drinkTo; }],
+  ['region', 'Region', (w) => !String(w.region || '').trim(), (r) => !!r.region,
+   (w, r) => sameText(w.region, r.region), (w) => w.region, (w, r) => { w.region = r.region; }],
+  ['grape', 'Grape', (w) => !String(w.grape || '').trim(), (r) => !!r.grape,
+   (w, r) => sameText(w.grape, r.grape), (w) => w.grape, (w, r) => { w.grape = r.grape; }],
+  ['color', 'Colour', () => false, (r) => !!r.color,
+   (w, r) => w.color === r.color, (w) => COLOR_LABEL[w.color] || '', (w, r) => { w.color = r.color; }],
+];
+/* What Claude says differently about a SAVED wine, one entry per field — and
+   nothing at all when Claude could not find this exact wine. */
+function lookupDiffs(w, r) {
+  if (!r || r.confidence === 'low') return [];
+  return LOOKUP_FIELDS.filter(([, , , has, same]) => has(r) && !same(w, r))
+    .map(([key, label, empty, , , shown]) => ({ key: key, label: label, yours: shown(w),
+      claude: shown(Object.assign({}, w, r, { color: r.color })), tick: empty(w) }));
+}
+/* Puts the named fields of Claude's answer onto the wine. The "Looked up…"
+   line is written once: a newer check REPLACES the older line rather than
+   stacking a second, and is added only while the notes have room. */
+function applyLookupTo(w, r, keys) {
+  let changed = 0;
+  LOOKUP_FIELDS.forEach(([key, , , has, same, , put]) => {
+    if (keys.indexOf(key) !== -1 && has(r) && !same(w, r)) { put(w, r); changed++; }
+  });
+  if (!changed) return 0;
+  const line = lookupNoteLine(r, todayISO());
+  const notes = String(w.notes || '');
+  const lines = notes.split('\n');
+  const at = lines.findIndex((l) => l.indexOf('Looked up ') === 0);
+  if (at !== -1) { lines[at] = line; if (lines.join('\n').length <= 300) w.notes = lines.join('\n'); }
+  else if ((notes ? notes + '\n' + line : line).length <= 300) w.notes = notes ? notes + '\n' + line : line;
+  return changed;
+}
+/* Which wines a check covers: every one with bottles left, by name. */
+function checkWines(st) {
+  return st.wines.filter((w) => w.qty > 0)
+    .sort((a, b) => wineLabel(a).localeCompare(wineLabel(b)));
+}
+const checkFound = new Map();    /* wine id → { key, r } */
+const checkFailed = new Map();   /* wine id → why it could not be checked */
+const checkTicks = new Map();    /* 'id|field' → ticked, so a re-render keeps your choices */
+let checkCtl = null;
+const checkAnswer = (w) => {
+  const got = checkFound.get(w.id);
+  return got && got.key === wineKey(w) ? got.r : null;
+};
+const checkTicked = (id, d) => (checkTicks.has(id + '|' + d.key) ? checkTicks.get(id + '|' + d.key) : d.tick);
+function checkStop() {
+  if (checkCtl) checkCtl.abort();
+  checkCtl = null;
+  $('checkStart').innerHTML = '<span aria-hidden="true">✦</span> Start Checking';
+  checkButtons();
+}
+function checkButtons() {
+  const ticked = checkWines(state).some((w) => {
+    const r = checkAnswer(w);
+    return r && lookupDiffs(w, r).some((d) => checkTicked(w.id, d));
+  });
+  $('checkSave').disabled = !!checkCtl || !ticked;
+}
+/* One wine's panel. Everything Claude sent is text and escaped; a source is
+   a link only because readLookup() proved it an http(s) address. */
+function checkBlock(w) {
+  const r = checkAnswer(w), why = checkFailed.get(w.id);
+  const head = '<p><strong>' + esc(wineLabel(w)) + '</strong> ';
+  if (!r) return head + '<span class="lookdone">' + esc(why ? 'Could not check: ' + why
+    : checkCtl ? 'Waiting…' : 'Not checked yet') + '</span></p>';
+  const conf = LOOKUP_CONF[r.confidence];
+  const diffs = lookupDiffs(w, r);
+  const hosts = r.sources.map((x) => '<a href="' + esc(x.url) + '" target="_blank" rel="noopener noreferrer">'
+    + esc(new URL(x.url).hostname.replace(/^www\./, '')) + '</a>');
+  return head + '<span class="pill ' + conf[0] + '">' + esc(conf[1]) + '</span>'
+    + (r.matched && r.confidence !== 'low' ? ' <span class="lookdone">' + esc(r.matched) + '</span>' : '') + '</p>'
+    + (r.confidence === 'low' ? '<p>Nothing to change — Claude did not guess.</p>'
+      : !diffs.length ? '<p>✓ Claude’s answer matches what you have.</p>'
+      : diffs.map((d) => {
+        const basis = d.key === 'value' ? r.valueBasis : d.key === 'window' ? r.windowBasis : '';
+        return '<label class="checkline"><input type="checkbox" data-tick="' + esc(w.id + '|' + d.key) + '"'
+          + (checkTicked(w.id, d) ? ' checked' : '') + '><span>' + esc(d.label) + ' <strong>' + esc(d.claude)
+          + '</strong> ' + (d.yours && d.yours !== '—' ? '(yours: ' + esc(d.yours) + ')' : '(empty now)')
+          + (basis ? ' — ' + esc(basis) : '') + '</span></label>';
+      }).join(''))
+    + (hosts.length ? '<p>Sources: ' + hosts.join(', ') + '</p>' : '');
+}
+function renderCheck() {
+  const wines = checkWines(state);
+  const todo = wines.filter((w) => !checkAnswer(w)).length;
+  const mins = Math.max(1, Math.ceil(todo * 36 / LOOKUP_PARALLEL / 60));
+  $('checkIntro').textContent = !wines.length ? 'There are no wines with bottles left to check.'
+    : todo ? 'Claude looks up ' + plural(todo, 'wine') + ' with bottles left — about $'
+      + (todo * 0.14).toFixed(2) + ' from your API account and ' + plural(mins, 'minute')
+      + ', three at a time. Then tick what to change: empty boxes start ticked, anything you entered '
+      + 'starts unticked. Nothing changes until you save.'
+    : 'Every wine with bottles left has been checked. Tick what to change, then save.';
+  $('checkList').innerHTML = wines.map((w) => '<div class="lookup-panel" data-check="' + esc(w.id) + '">'
+    + checkBlock(w) + '</div>').join('');
+  if (!checkCtl) $('checkStart').disabled = !todo;
+  checkButtons();
+}
+/* A wine coming back redraws only its OWN panel, so a box you are ticking
+   further down is not swept away under the pointer. */
+function renderCheckOne(w) {
+  const el = [...$('checkList').children].find((x) => x.dataset.check === w.id);
+  if (el) el.innerHTML = checkBlock(w);
+  checkButtons();
+}
+$('checkList').addEventListener('change', (e) => {
+  const box = e.target.closest('[data-tick]');
+  if (!box) return;
+  checkTicks.set(box.dataset.tick, box.checked);
+  checkButtons();
+});
+function openCheck() {
+  $('checkNote').textContent = lookupKey() ? '' : 'Add your Claude API key in Settings first.';
+  renderCheck();
+  openModal($('checkDialog'));
+}
+$('checkStart').addEventListener('click', async () => {
+  if (checkCtl) { checkStop(); renderCheck(); $('checkNote').textContent = 'Stopped — what came back is kept.'; return; }
+  const key = lookupKey();
+  if (!key) { $('checkNote').textContent = 'Add your Claude API key in Settings first.'; return; }
+  const todo = checkWines(state).filter((w) => !checkAnswer(w));
+  if (!todo.length) return;
+  const ctl = new AbortController();
+  checkCtl = ctl;
+  todo.forEach((w) => checkFailed.delete(w.id));
+  $('checkStart').textContent = 'Stop Checking';
+  renderCheck();
+  let done = 0, failed = 0, next = 0, lastError = '';
+  const say = () => { $('checkNote').textContent = 'Checking ' + Math.min(done + 1, todo.length) + ' of '
+    + todo.length + '… (each takes up to a minute)'
+    + (failed ? ' ' + plural(failed, 'lookup') + ' failed: ' + lastError : ''); };
+  say();
+  const worker = async () => {
+    while (next < todo.length && checkCtl === ctl) {
+      const w = todo[next++];
+      try {
+        const got = await lookupWine(w, key, { signal: ctl.signal });
+        if (checkCtl !== ctl) return;
+        checkFound.set(w.id, { key: wineKey(w), r: readLookup(got.found) });
+      } catch (e) {
+        if (e && e.name === 'AbortError') return;
+        failed++; lastError = e.message;
+        checkFailed.set(w.id, e.message);
+        /* A key the API rejects will be rejected for every wine: stop at once. */
+        if (/API key|credit|permissions/.test(e.message)) {
+          checkStop();
+          renderCheck();
+          $('checkNote').textContent = 'Stopped: ' + lastError;
+          return;
+        }
+      }
+      done++;
+      if (checkCtl === ctl) { renderCheckOne(w); say(); }
+    }
+  };
+  await Promise.all(Array.from({ length: LOOKUP_PARALLEL }, worker));
+  if (checkCtl === ctl) {
+    checkStop();
+    renderCheck();
+    $('checkNote').textContent = plural(done - failed, 'wine') + ' checked'
+      + (failed ? ', ' + failed + ' failed (' + lastError + ') — Start Checking tries those again' : '')
+      + '. Tick what to change, then save.';
+  }
+});
+$('checkSave').addEventListener('click', () => {
+  if (checkCtl) return;
+  let wines = 0;
+  /* Read against each wine as it is NOW: one deleted since is simply gone,
+     and one edited since is compared afresh. */
+  checkWines(state).forEach((w) => {
+    const r = checkAnswer(w);
+    if (!r) return;
+    const keys = lookupDiffs(w, r).filter((d) => checkTicked(w.id, d)).map((d) => d.key);
+    if (keys.length && applyLookupTo(w, r, keys)) wines++;
+  });
+  checkTicks.clear();
+  $('checkDialog').close();
+  if (!wines) { toast('Nothing was ticked, so nothing changed'); return; }
+  state = normalizeState(state);
+  save();
+  toast('Changed ' + plural(wines, 'wine') + ' — Undo takes it back', 5000);
+});
+$('checkCancel').addEventListener('click', () => $('checkDialog').close());
+$('checkBtn').addEventListener('click', openCheck);
 
 /* ONE delegated listener per table, so the row, its actions and its headings
    cannot drift apart into separate handlers. The most specific target is
@@ -5133,7 +5357,7 @@ document.addEventListener('keydown', (e) => {
    is declared further down registers beside its own wiring instead — the share
    dialog in two apps shipped un-dismissable for exactly that reason: adding it
    to a list like this would have read it inside its temporal dead zone. */
-['wineDialog', 'openDialog', 'pasteDialog', 'settingsDialog', 'dataDialog', 'clearDialog',
+['wineDialog', 'openDialog', 'pasteDialog', 'checkDialog', 'settingsDialog', 'dataDialog', 'clearDialog',
  'shareDialog', 'helpDialog', 'searchDialog'].forEach((id) => closeOnBackdropClick($(id)));
 
 /* A lookup outlives its window unless the CLOSE stops it — and Cancel is only one
@@ -5142,7 +5366,8 @@ document.addEventListener('keydown', (e) => {
    no window, with Add still disabled when it reopened. Watched through the `open`
    attribute rather than the `close` event, which some engines never deliver
    (the family's rule for a hook whose failure is silent). */
-[['wineDialog', () => lookupStop()], ['pasteDialog', () => pasteLookupStop()]]
+[['wineDialog', () => lookupStop()], ['pasteDialog', () => pasteLookupStop()],
+ ['checkDialog', () => checkStop()]]
   .forEach(([id, stop]) => {
     new MutationObserver(() => { if (!$(id).open) stop(); })
       .observe($(id), { attributes: true, attributeFilter: ['open'] });
@@ -5651,7 +5876,7 @@ async function boot() {
   /* Every edit surface goes in a shared view. The table already renders
      read-only above; these are the buttons that would write. */
   if (viewOnly) {
-    ['syncBtn', 'undoBtn', 'settingsBtn', 'dataBtn', 'shareBtn', 'addBtn', 'pasteBtn', 'sampleBtn'].forEach((id) => {
+    ['syncBtn', 'undoBtn', 'settingsBtn', 'dataBtn', 'shareBtn', 'addBtn', 'pasteBtn', 'checkBtn', 'sampleBtn'].forEach((id) => {
       const el = $(id);
       if (el) el.hidden = true;
     });
@@ -5685,7 +5910,11 @@ boot();
    this suite is read-only about storage and has to stay that way: it runs
    against the reader's own copy of the app. */
 window.__wineTestHooks = {
-  __plant: function (next) { state = normalizeState(next); undoStartOver(); render(); },
+  __plant: function (next) {
+    state = normalizeState(next); undoStartOver();
+    checkFound.clear(); checkFailed.clear(); checkTicks.clear();   /* a planted cellar is a new one */
+    render();
+  },
   __state: function () { return state; },
   SCHEMA: SCHEMA, ID_RE: ID_RE, STORAGE_KEY: STORAGE_KEY, THEME_KEY: THEME_KEY,
   TAB_KEY: TAB_KEY, TABS: TABS, SHARE_FORMAT: SHARE_FORMAT, SHARE_PAYLOAD_V: SHARE_PAYLOAD_V,
@@ -5703,7 +5932,8 @@ window.__wineTestHooks = {
   searchApp: searchApp, SEARCH_CAP: SEARCH_CAP,
   pushSnapshot: pushSnapshot, undoBankable: undoBankable,
   buildLookupRequest: buildLookupRequest, lookupWine: lookupWine, readLookup: readLookup,
-  lookupErrorMessage: lookupErrorMessage, lookupNoteLine: lookupNoteLine, LOOKUP_TOOL: LOOKUP_TOOL,
+  lookupErrorMessage: lookupErrorMessage, lookupNoteLine: lookupNoteLine,
+  lookupDiffs: lookupDiffs, applyLookupTo: applyLookupTo, checkWines: checkWines, LOOKUP_TOOL: LOOKUP_TOOL,
   LOOKUP_KEY_STORE: LOOKUP_KEY_STORE, SHARE_MAX_BYTES: SHARE_MAX_BYTES, b64urlEncode: b64urlEncode,
 };
 </script>

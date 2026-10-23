@@ -82,6 +82,14 @@ the family doesn't.
   window stops its lookups** — a `MutationObserver` on `open`, not the `close` event (which some
   engines never deliver), because Escape and a click outside never pass through Cancel; before
   2026-10-23 a closed paste window went on billing through every row.
+- **Check All Wines** (2026-10-23) reuses that lookup across every wine with `qty > 0`.
+  `lookupDiffs`/`applyLookupTo` are the saved-wine twins of `LOOKUP_BOXES`/`applyLookup` (those
+  read the FORM; these read a wine) — change a field's rule in both. Pre-tick rule: an EMPTY
+  field starts ticked, a replacement unticked, colour never. Answers live in `checkFound`
+  (wine id → `{key: wineKey, r}`) for the page's life so a stray close never re-bills; ticks in
+  `checkTicks` so a re-render keeps them, and an arriving answer redraws only its own panel.
+  Save is one `save()` = one Undo step; it re-reads each wine by id at save time. `__plant`
+  clears all three maps.
 - **An installed iPhone draws under the status bar** (black-translucent), so the header pads by
   `env(safe-area-inset-top)`, a fixed `body::before` band in `--surface` keeps scrolled content
   out from under the clock (the header is not sticky on a phone), and a dialog's max-height takes
@@ -114,6 +122,6 @@ commented copy in the repo.
 
 ## Tests
 
-`tests.html`, `EXPECTED = 202`. Run it headless (Playwright) rather than in the Browser pane:
+`tests.html`, `EXPECTED = 209`. Run it headless (Playwright) rather than in the Browser pane:
 the pane throttles hidden timers and its focus heuristics turn the 705px keyboard-focus check
 red on untouched code.
