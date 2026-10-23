@@ -11,7 +11,7 @@ cellar on your other devices.
 ## What It Does
 
 - **Cellar tab** — tiles for bottles, value, and how many bottles are *drink soon*, *ready*
-  and *holding*; a **Drink Next** list of what to open first; the full cellar table (sortable,
+  and *holding*; a **Drink Next** list of what to open first and where each bottle is; the full cellar table (sortable,
   filterable by status, with Copy and CSV); and a chart of how many bottles are inside their
   drinking window in each of the coming years.
 - **Enter saves** the wine window, Opened a Bottle, Paste a List and Check All Wines — anywhere
@@ -23,7 +23,7 @@ cellar on your other devices.
   year** and give only the year.
 - **Point at a row to see the rest of the wine** — the bubble (Money Map's row tip) lists every
   field the table has no column for: colour, where it came from and when it was added in the
-  Cellar table, plus region, grape, value and where in the shorter Drink Next table. Then the
+  Cellar table, plus region, grape and value in the shorter Drink Next table. Then the
   wine's notes, if it has any; a small dot after the name still says it has notes. On a phone,
   tap the wine to see it all in its window.
 - **Opened tab** — every bottle you have opened, with the date, your 1–5 rating and a note.

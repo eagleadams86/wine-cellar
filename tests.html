@@ -2312,8 +2312,12 @@ function define() {
     eq(row('fx-ready').dataset.tip.split('\n\n').length, 2, 'no note: the hint and the fields, no empty block');
     ok(!row('fx-ready').querySelector('.notedot'), 'and no dot — the dot still means a note');
     const next = W.document.querySelector('#nextTable tr[data-open="fx-ready"]').dataset.tip;
-    ok(/Region: Sonoma Coast\nGrape: Pinot Noir\nValue each: .*\nWhere: Rack A\nColour: Red/.test(next),
-       'Drink Next has fewer columns, so its tip carries more', next);
+    ok(/Region: Sonoma Coast\nGrape: Pinot Noir\nValue each: .*\nColour: Red/.test(next) && !/Where:/.test(next),
+       'Drink Next has fewer columns, so its tip carries more — but not Where, which it shows', next);
+    const nrow = W.document.querySelector('#nextTable tr[data-open="fx-ready"]');
+    eq([...W.document.querySelectorAll('#nextTable thead th')].map((h) => h.textContent),
+       ['Wine', 'Window', 'Status', 'Where', 'Bottles'], 'Drink Next says where each bottle is');
+    eq(nrow.querySelector('td[data-label="Where"]').textContent, 'Rack A');
     eq(H.wineFacts({ color: 'red', source: 'bogus', added: 'x', region: '', grape: '' }, []), 'Colour: Red',
        'a blank or unknown field is left out, never shown as "undefined"');
     ok(!W.document.querySelector('#cellarTable [title], #nextTable [title]'),

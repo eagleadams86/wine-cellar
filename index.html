@@ -2840,8 +2840,8 @@ function noteDot(note) {
 /* A row's hover carries every field its table has NO column for — Charles,
    2026-10-23 — one "Label: value" per line, then the notes as their own block.
    `shown` is the table's column keys, so the Cellar grid's tip adds colour,
-   where it came from and when it was added, and Drink Next's (four columns)
-   adds region, grape, value and where as well. A blank field is left out. The
+   where it came from and when it was added, and Drink Next's (five columns)
+   adds region, grape and value as well. A blank field is left out. The
    labels and words are the wine window's own. The dot still means notes only. */
 const SOURCE_WORDS = { wineaccess: 'Wine Access', cellar: 'Already in the cellar', other: 'Somewhere else' };
 function wineFacts(w, shown) {
@@ -2856,7 +2856,7 @@ function wineFacts(w, shown) {
     fmtAdded(w.added) ? 'Added: ' + fmtAdded(w.added) : '',
   ].filter(Boolean).join('\n');
 }
-const NEXT_COLUMNS = ['wine', 'window', 'status', 'qty'];
+const NEXT_COLUMNS = ['wine', 'window', 'status', 'location', 'qty'];
 const wineTip = (w, shown) => rowTip(viewOnly ? '' : 'Click to edit',
   [wineFacts(w, shown), (w.notes || '').trim()].filter(Boolean).join('\n\n'));
 
@@ -2870,7 +2870,7 @@ function renderNext(c) {
   }
   wrap.innerHTML = '<div class="table-scroll"><table id="nextTable" class="cards"><thead><tr>'
     + '<th scope="col">Wine</th><th scope="col">Window</th><th scope="col">Status</th>'
-    + '<th scope="col" class="num">Bottles</th></tr></thead><tbody>'
+    + '<th scope="col">Where</th><th scope="col" class="num">Bottles</th></tr></thead><tbody>'
     + c.next.map((r) => '<tr' + (viewOnly ? '' : ' class="rowlink" data-open="' + esc(r.w.id) + '"')
       + wineTip(r.w, NEXT_COLUMNS) + '>'
       + '<th scope="row">' + (viewOnly ? esc(wineLabel(r.w))
@@ -2878,6 +2878,9 @@ function renderNext(c) {
           + esc(wineLabel(r.w)) + '</button>') + noteDot(r.w.notes) + '</th>'
       + '<td class="nowrap" data-label="Window">' + esc(fmtWindow(r.w)) + '</td>'
       + '<td data-label="Status">' + pillFor(r.status) + '</td>'
+      /* Where, so the list that says what to open also says where to find it
+         (Charles, 2026-10-23). */
+      + '<td data-label="Where">' + esc(r.w.location) + '</td>'
       + '<td class="num" data-label="Bottles">' + esc(r.w.qty) + '</td></tr>').join('')
     + '</tbody></table></div>';
 }
