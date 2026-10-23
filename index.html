@@ -1100,9 +1100,10 @@
   /* A tall window on an installed iPhone reached up under the status bar, its
      heading behind the clock. A dialog is centred, so the room is taken from
      BOTH ends by the larger inset — that is what keeps the top edge clear of
-     the notch. Zero wherever there is no notch. dvh, not vh: in Safari 100vh is
-     the screen with its toolbar hidden, so the window ran on behind it. */
-  dialog { max-height: calc(100dvh - var(--sp-8)
+     the notch. Zero wherever there is no notch. vh, not dvh: dvh resolves to 0
+     in some embedded engines (Golf Handicap and PAPTrack record it), which
+     would shut every window to nothing. */
+  dialog { max-height: calc(100vh - var(--sp-8)
              - 2 * max(env(safe-area-inset-top), env(safe-area-inset-bottom))); }
   dialog::backdrop { background: rgba(0, 0, 0, 0.55); }
   dialog:focus { outline: none; }

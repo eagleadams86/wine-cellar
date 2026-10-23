@@ -1358,7 +1358,7 @@ function define() {
        'the header clears the status bar');
     ok(/body::before \{[^}]*position: fixed;[^}]*height: env\(safe-area-inset-top\)/.test(css),
        'a pinned band keeps scrolled content out from under the clock');
-    ok(/dialog \{ max-height: calc\(100dvh[^}]*max\(env\(safe-area-inset-top\), env\(safe-area-inset-bottom\)\)/.test(css),
+    ok(/dialog \{ max-height: calc\(100vh[^}]*max\(env\(safe-area-inset-top\), env\(safe-area-inset-bottom\)\)/.test(css),
        'and a tall window stops short of it');
   });
   t('the footer sits in the same column as a card’s text, both sides', () => {

@@ -85,7 +85,7 @@ the family doesn't.
 - **An installed iPhone draws under the status bar** (black-translucent), so the header pads by
   `env(safe-area-inset-top)`, a fixed `body::before` band in `--surface` keeps scrolled content
   out from under the clock (the header is not sticky on a phone), and a dialog's max-height takes
-  the larger inset off BOTH ends, in `dvh`. And `openModal()` sends focus to the dialog on touch
+  the larger inset off BOTH ends (in `vh` — `dvh` is 0 in some embedded engines). And `openModal()` sends focus to the dialog on touch
   for anything `opensOnFocus()` — a `<select>` too, because iOS 26 opens a focused select's menu
   at once. All three found on Charles's iPhone, 2026-10-23.
 - **Tests that stub storage stub `W.Storage.prototype.setItem`**, never
