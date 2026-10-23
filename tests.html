@@ -2592,6 +2592,15 @@ function define() {
         ok(!D.querySelector('#checkList [data-tick^="fx-ready|"]'), 'nothing offered for a wine Claude could not find');
         ok(/matches what you have/.test(D.querySelector('#checkList [data-check="fx-past"]').textContent), 'a matching wine says so');
         ok(!D.getElementById('checkSave').hidden, 'Save appears once something is ticked');
+        ok(D.getElementById('checkStart').hidden, 'and Start goes, with nothing left to look up');
+        const all = D.getElementById('checkAll'), boxes = () => [...D.querySelectorAll('#checkList [data-tick]')];
+        eq(all.textContent, 'Tick All');
+        all.click();
+        ok(boxes().every((b) => b.checked) && all.textContent === 'Untick All', 'Tick All ticks every line, then offers the reverse');
+        all.click();
+        ok(boxes().every((b) => !b.checked) && D.getElementById('checkSave').hidden, 'Untick All clears them, and Save goes');
+        all.click(); all.click();   /* back to none, then put the defaults back by hand */
+        ['fx-empty|value', 'fx-empty|window', 'fx-empty|region', 'fx-empty|grape'].forEach((k) => box(k).click());
         box('fx-hold|value').click();
         box('fx-empty|grape').click();   /* untick one */
         D.getElementById('checkSave').click();

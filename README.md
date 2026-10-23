@@ -75,7 +75,7 @@ left (finished wines are skipped), three at a time.
   nothing up until you press **Start Checking**. **Stop Checking** keeps what has come back.
 - **Then you choose, line by line.** Each wine gets a panel with one ticked line per thing Claude
   says differently. A box that is **empty** starts ticked; anything **you entered** starts
-  unticked, so nothing of yours is replaced unless you tick it. Colour is never pre-ticked. A wine
+  unticked, so nothing of yours is replaced unless you tick it. Colour is never pre-ticked. **Tick All** ticks every line on offer and then becomes **Untick All**. A wine
   Claude could not find offers nothing, and one that already matches says so.
 - **Save Ticked Changes** appears once something is ticked, and saves it all at once, so one **Undo** takes the whole check back. Each
   changed wine's "Looked up…" note line is replaced with today's, not stacked.

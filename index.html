@@ -1948,6 +1948,7 @@ html[data-booting] footer { visibility: hidden; }
   <p class="hint" id="checkNote" role="status"></p>
   <div class="row-actions">
     <button type="button" id="checkStart"><span aria-hidden="true">✦</span> Start Checking</button>
+    <button type="button" id="checkAll" hidden>Tick All</button>
     <span class="spacer"></span>
     <button type="button" id="checkCancel">Cancel</button>
     <button type="button" class="primary" id="checkSave" hidden>Save Ticked Changes</button>
@@ -4809,14 +4810,24 @@ function checkStop() {
   $('checkStart').innerHTML = '<span aria-hidden="true">✦</span> Start Checking';
   checkButtons();
 }
-function checkButtons() {
-  const ticked = checkWines(state).some((w) => {
+/* Every line on offer, as [wine id, diff]. */
+function checkOffered() {
+  const out = [];
+  checkWines(state).forEach((w) => {
     const r = checkAnswer(w);
-    return r && lookupDiffs(w, r).some((d) => checkTicked(w.id, d));
+    if (r) lookupDiffs(w, r).forEach((d) => out.push([w.id, d]));
   });
+  return out;
+}
+function checkButtons() {
+  const offered = checkOffered();
+  const ticked = offered.filter(([id, d]) => checkTicked(id, d)).length;
   /* Hidden, not just disabled, until there is something ticked to save —
      Charles, 2026-10-23: a Save with nothing behind it reads as a step to take. */
   $('checkSave').hidden = !!checkCtl || !ticked;
+  /* Tick All flips to Untick All once everything on offer is ticked. */
+  $('checkAll').hidden = !!checkCtl || !offered.length;
+  $('checkAll').textContent = offered.length && ticked === offered.length ? 'Untick All' : 'Tick All';
 }
 /* One wine's panel. Everything Claude sent is text and escaped; a source is
    a link only because readLookup() proved it an http(s) address. */
@@ -4854,7 +4865,8 @@ function renderCheck() {
     : 'Every wine with bottles left has been checked. Tick what to change, then save.';
   $('checkList').innerHTML = wines.map((w) => '<div class="lookup-panel" data-check="' + esc(w.id) + '">'
     + checkBlock(w) + '</div>').join('');
-  if (!checkCtl) $('checkStart').disabled = !todo;
+  /* Nothing left to look up: no Start to press, same as Save with nothing ticked. */
+  if (!checkCtl) $('checkStart').hidden = !todo;
   checkButtons();
 }
 /* A wine coming back redraws only its OWN panel, so a box you are ticking
@@ -4940,6 +4952,12 @@ $('checkSave').addEventListener('click', () => {
   state = normalizeState(state);
   save();
   toast('Changed ' + plural(wines, 'wine') + ' — Undo takes it back', 5000);
+});
+$('checkAll').addEventListener('click', () => {
+  const on = $('checkAll').textContent === 'Tick All';
+  checkOffered().forEach(([id, d]) => checkTicks.set(id + '|' + d.key, on));
+  $('checkList').querySelectorAll('[data-tick]').forEach((b) => { b.checked = on; });
+  checkButtons();
 });
 $('checkCancel').addEventListener('click', () => $('checkDialog').close());
 $('checkBtn').addEventListener('click', openCheck);
