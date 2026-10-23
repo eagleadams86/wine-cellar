@@ -82,7 +82,7 @@ footer { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; }
        stays an ordinary <div> rather than becoming the <main>. -->
   <main>
     <h1>Wine Cellar — Privacy Policy</h1>
-    <p class="meta">Effective October 23, 2026</p>
+    <p class="meta">Effective October 23, 2026 · updated the same day for Look Up with Claude</p>
 
     <p>Wine Cellar runs entirely in your browser. This page sets out exactly what data exists,
     where it goes, and who can see it.</p>
@@ -111,6 +111,16 @@ footer { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; }
       records your Google account's email address and display name. Security rules confine
       every account to its own document — no other signed-in user can read yours. This only
       ever happens if you sign in; the app never does it on its own.</p>
+    </div>
+    <div class="card">
+      <p><strong>Look Up with Claude (optional, off until you add your own key).</strong> If you put
+      your own Claude API key in Settings and press <strong>Look Up</strong>, the wine's vintage,
+      name, region and grape — nothing else from your cellar — are sent to Anthropic's Claude API,
+      which searches the web and sends back a value, a drinking window and its sources. It is billed
+      to <em>your</em> API account and handled under
+      <a href="https://www.anthropic.com/legal/privacy" rel="noopener noreferrer">Anthropic's
+      privacy policy</a>. The key itself stays in this browser: it is never synced, backed up or put
+      in a share link, and nothing is sent to Anthropic until you press the button.</p>
     </div>
     <div class="card">
       <p><strong>Backups you download.</strong> “Download Backup” writes a JSON file straight to

@@ -38,6 +38,11 @@
      module), and firebaseapp.com and apis.google.com are deliberately absent —
      sign-in goes through Google Identity Services, which never loads them.
 
+     AND api.anthropic.com, in connect-src only, for Look Up with Claude
+     (2026-10-23). Nothing is fetched from it unless the reader has put their
+     own API key in Settings and presses Look Up; it is a data call, never a
+     script, so script-src is untouched.
+
      manifest-src and worker-src are SPELLED OUT rather than left to fall back.
      manifest-src falls back to default-src, which is 'none' here, so without it
      the manifest fetch is refused and "Install app" silently stops being offered
@@ -49,7 +54,7 @@
      form-action is 'self' rather than 'none' because dialogs submit with
      method="dialog", which some browsers have checked against form-action.
      frame-ancestors is ignored in a meta tag; it needs a real header. -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'unsafe-inline' https://www.gstatic.com https://accounts.google.com; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://www.googleapis.com https://accounts.google.com; manifest-src 'self'; worker-src 'self'; frame-src https://accounts.google.com; base-uri 'none'; form-action 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'unsafe-inline' https://www.gstatic.com https://accounts.google.com; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://www.googleapis.com https://accounts.google.com https://api.anthropic.com; manifest-src 'self'; worker-src 'self'; frame-src https://accounts.google.com; base-uri 'none'; form-action 'self'">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <!-- NEVER maximum-scale=1 or user-scalable=no. They stop iOS zooming on a
      focused field by taking pinch-zoom from everyone, which is an accessibility
@@ -849,6 +854,19 @@
      widest. In EM, because a coarse pointer gives the header row --fs-base and
      the same label then has two widths; a pixel floor covers only one. */
   #syncBtn { min-width: 10.25em; }
+  .keyrow { display: flex; gap: var(--sp-4); }
+  .keyrow input { flex: 1 1 auto; min-width: 0; }
+  .lookupbar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-4);
+               margin: 0 0 var(--sp-5); }
+  /* What Claude found, under the bar: a quiet panel of the same family as the
+     form panels, with its sources as ordinary links. */
+  .lookup-panel { border: 1px solid var(--border); border-radius: var(--radius-sm);
+                  background: var(--surface-alt); padding: 12px 14px; margin: 0 0 var(--sp-5);
+                  font-size: var(--fs-sm); }
+  .lookup-panel p { margin: 0 0 6px; font-size: var(--fs-sm); color: var(--text-secondary); }
+  .lookup-panel strong { color: var(--text-primary); }
+  .lookup-panel ul { margin: 4px 0 0; padding-left: 18px; }
+  .lookup-panel a { color: var(--accent); overflow-wrap: anywhere; }
 
   /* ── On a phone, every list is a stack of CARDS (2026-10-23) ──────────────
      Charles, from his iPhone: "let's make these lists more mobile friendly".
@@ -1673,7 +1691,7 @@ html[data-booting] footer { visibility: hidden; }
   <div class="field">
     <label for="f_name">Wine</label>
     <input type="text" id="f_name" maxlength="80" autocomplete="off"
-           placeholder="Producer and wine, e.g. Jolie-Laide Syrah">
+           placeholder="Producer and wine, e.g. Example Ridge Syrah">
   </div>
   <div class="grid2">
     <div class="field">
@@ -1692,6 +1710,13 @@ html[data-booting] footer { visibility: hidden; }
       </select>
     </div>
   </div>
+  <!-- Look Up fills the EMPTY boxes below from what Claude finds, and says
+       what it kept of yours; the panel shows its sources. -->
+  <div class="lookupbar no-print">
+    <button type="button" id="lookupBtn"><span aria-hidden="true">✦</span> Look Up with Claude</button>
+    <span class="hint" id="lookupNote" role="status"></span>
+  </div>
+  <div class="lookup-panel" id="lookupPanel" hidden></div>
   <div class="grid2">
     <div class="field">
       <label for="f_region">Region</label>
@@ -1803,7 +1828,7 @@ html[data-booting] footer { visibility: hidden; }
   <p>One wine per line, pasted straight from a chat or a spreadsheet: the table Claude writes
     (<strong>Wine · Approx. value · Drink window · Verdict</strong>), or a CSV with a header row —
     Wine, Region, Grape, Bottles, Value, Window, Where, in any order. Each wine starts with its
-    vintage (<em>2019 Albret Lastra Reserva</em>, or <em>NV</em>). A Status or Verdict column is
+    vintage (<em>2019 Sample Hill Reserva</em>, or <em>NV</em>). A Status or Verdict column is
     not stored: the app works the status out from the window, so it stays right as the years go
     by. Colour is guessed from the grape — check it below.</p>
   <div class="field">
@@ -1829,6 +1854,8 @@ html[data-booting] footer { visibility: hidden; }
   <div class="table-scroll" id="pastePreview"></div>
   <p class="hint" id="pasteNote" role="status"></p>
   <div class="row-actions">
+    <button type="button" id="pasteLookup" disabled><span aria-hidden="true">✦</span> Look Up with Claude</button>
+    <span class="spacer"></span>
     <button type="button" id="pasteCancel">Cancel</button>
     <button type="button" class="primary" id="pasteAdd" disabled>Add Wines</button>
   </div>
@@ -1849,6 +1876,39 @@ html[data-booting] footer { visibility: hidden; }
         <option value="3">three years</option>
       </select>
     </div>
+  </fieldset>
+  <!-- The Claude key is a CREDENTIAL, marked up as one so a password manager
+       offers to save it and carries it to other devices itself (Money Map's
+       price key, the family's pattern). It is stored in this browser only —
+       never in the cellar, so never synced, backed up or shared. The form names
+       its own account in a hidden username box, or the manager files the key
+       under whatever text box sits nearby. -->
+  <fieldset class="formpanel">
+    <legend>Look Up with Claude</legend>
+    <form id="keyForm" autocomplete="on">
+      <div class="sr-only"><input type="text" autocomplete="username" value="Wine Cellar · Claude API key"
+        readonly tabindex="-1" aria-hidden="true"></div>
+      <div class="field">
+        <label for="s_key">Your Claude API key</label>
+        <div class="keyrow">
+          <input type="password" id="s_key" name="claude-api-key" autocomplete="current-password"
+                 spellcheck="false" autocapitalize="off" autocorrect="off" data-keep-caret
+                 placeholder="sk-ant-…">
+          <button type="button" id="s_keyShow" aria-pressed="false">Show</button>
+        </div>
+      </div>
+      <p class="hint" style="margin:0 0 var(--sp-4)">With a key here, <strong>Look Up</strong> in the wine
+        window and the paste window asks Claude to search the web for a wine’s value and drinking
+        window, with its sources. Each lookup is a few cents from your API account.
+        <strong>The key stays in this browser</strong> — it never syncs, and it is not in backups or
+        share links. Every page on this web address can read this browser’s storage, so make a key just
+        for this app in the Claude Console and give it a low monthly spend limit.</p>
+      <p class="warn-line" id="keyWarn" role="status"></p>
+      <div class="row" style="gap:var(--sp-4)">
+        <button type="submit" id="s_keySave">Save Key</button>
+        <button type="button" class="danger" id="s_keyRemove">Remove Key</button>
+      </div>
+    </form>
   </fieldset>
   <fieldset class="formpanel">
     <legend>Cellar Table</legend>
@@ -3731,7 +3791,7 @@ function parseWineList(text, yr) {
                 valueLow: cleanMoney(val.low), valueHigh: cleanMoney(val.high), valueEst: val.est,
                 drinkFrom: cleanYear(win.from), drinkTo: cleanYear(win.to),
                 region: cleanLine(at('region'), 60), grape: grape,
-                color: guessColor(at('color'), grape, name),
+                color: guessColor(at('color'), grape, name), colorKnown: !!at('color'),
                 location: cleanLine(at('location'), 40), notes: cleanNote(at('notes'), 300),
                 line: i + 1 });
   });
@@ -3742,6 +3802,234 @@ function parseWineList(text, yr) {
 function sameWine(a, b) {
   const k = (w) => (w.vintage || 'NV') + '|' + String(w.name).toLowerCase().replace(/\s+/g, ' ').trim();
   return k(a) === k(b);
+}
+
+/* ═══════════════════════════ Look Up with Claude ══════════════════════════
+   Charles, 2026-10-23: "Look Up in the wine editor and paste window, my own
+   key in Settings kept on this device only, web search with sources". The page
+   calls the Claude API itself — it accepts browser calls, which grapeminds'
+   API did not — with web search on, and Claude hands back what it found
+   through ONE strict tool, `record_wine`, so the app always gets the same
+   clean fields however the research went.
+
+   Raw fetch rather than Anthropic's SDK: every app in this family is one file
+   with no build step and no third-party script, and the SDK is an npm package
+   that needs bundling. The request is one POST; nothing here needs more.
+
+   THE KEY is the reader's own, typed into Settings. It lives in this browser
+   under its own storage key and NOWHERE ELSE — never in `state`, so never in
+   the cloud copy, a backup or a share link — and the field is a password field
+   so a password manager can carry it to other devices on a path this app never
+   touches (Money Map's price key, the family's pattern). Every page on this
+   origin can read it, which is why the Settings text says to give it its own
+   low spend limit in the Claude Console. */
+const LOOKUP_KEY_STORE = 'wine-claude-key';
+const LOOKUP_MODEL = 'claude-opus-5-5';
+/* Most of a lookup's cost is READING search results — every page Claude pulls
+   in is billed as input — so the search cap is the price lever: measured
+   2026-10-23, six searches on Opus at medium effort cost $0.26 for one wine. */
+const LOOKUP_EFFORT = 'low';
+const LOOKUP_SEARCHES = 3;
+const LOOKUP_URL = 'https://api.anthropic.com/v1/messages';
+/* Claude pausing a long search ("pause_turn") is resumed this many times
+   before the lookup gives up, so one wine can never loop forever. */
+const LOOKUP_MAX_ROUNDS = 4;
+/* How many wines the paste window looks up at once. Each lookup takes tens of
+   seconds of searching; three at a time keeps a 20-wine list to minutes
+   without leaning on the account's rate limit. */
+const LOOKUP_PARALLEL = 3;
+
+function lookupKey() {
+  try { return (localStorage.getItem(LOOKUP_KEY_STORE) || '').trim(); } catch (e) { return ''; }
+}
+
+const NUM_OR_NULL = { anyOf: [{ type: 'number' }, { type: 'null' }] };
+const INT_OR_NULL = { anyOf: [{ type: 'integer' }, { type: 'null' }] };
+const LOOKUP_TOOL = {
+  name: 'record_wine',
+  description: 'Record what you found about the wine. Call this exactly once, as your last step, '
+    + 'after searching. Use null for anything you could not find rather than guessing a number.',
+  strict: true,
+  input_schema: {
+    type: 'object',
+    additionalProperties: false,
+    properties: {
+      matched_wine: { type: 'string', description: 'The bottle your sources describe: producer, wine and vintage.' },
+      confidence: { type: 'string', enum: ['high', 'medium', 'low'],
+        description: 'high: sources name this exact wine and vintage. medium: right wine, nearby vintages or thin sources. low: could not find it.' },
+      color: { type: 'string', enum: ['red', 'white', 'rose', 'sparkling', 'dessert'] },
+      region: { type: 'string', description: 'Appellation and region, short, e.g. "Navarra, Spain". Empty if unknown.' },
+      grape: { type: 'string', description: 'Grape or blend, short. Empty if unknown.' },
+      value_low: NUM_OR_NULL,
+      value_high: NUM_OR_NULL,
+      value_is_estimate: { type: 'boolean', description: 'true unless the range comes from current retail listings for this vintage.' },
+      value_basis: { type: 'string', description: 'One short phrase: where the value came from.' },
+      drink_from: INT_OR_NULL,
+      drink_to: INT_OR_NULL,
+      window_basis: { type: 'string', description: 'One short phrase: whose window this is, or that it is your estimate.' },
+      sources: {
+        type: 'array',
+        items: {
+          type: 'object', additionalProperties: false,
+          properties: { title: { type: 'string' }, url: { type: 'string' } },
+          required: ['title', 'url'],
+        },
+      },
+    },
+    required: ['matched_wine', 'confidence', 'color', 'region', 'grape', 'value_low', 'value_high',
+               'value_is_estimate', 'value_basis', 'drink_from', 'drink_to', 'window_basis', 'sources'],
+  },
+};
+
+const LOOKUP_SYSTEM = [
+  'You look up wines for a personal cellar-tracking app. The reader owns the bottle and wants two',
+  'facts they can rely on: what one 750ml bottle is worth today, and the years it is best to drink.',
+  '',
+  'Search the web for the exact bottle - producer, wine and vintage. Then call record_wine once.',
+  '',
+  'Value: the current US retail price range for one bottle of THIS vintage, from merchant listings',
+  'or a price aggregator such as Wine-Searcher. If this vintage is not listed, use nearby vintages',
+  'or the release price, widen the range, and mark it an estimate. Whole US dollars.',
+  '',
+  'Drinking window: prefer a critic\'s published window for this vintage (Wine Spectator, Vinous,',
+  'Wine Advocate, Jancis Robinson, Decanter, James Suckling, or the CellarTracker community). If no',
+  'one has published one, estimate from the wine\'s style, structure and vintage, and say in',
+  'window_basis that it is your estimate. Years only.',
+  '',
+  'List the pages you actually used in sources. If you cannot find the wine, say so with',
+  'confidence "low" and null values - a wrong number is worse than none.',
+].join('\n');
+
+/* The whole request for one wine — PURE, so tests.html pins its shape, and the
+   terminal test runs exactly this body. `today` is passed in so the prompt's
+   "today" is the reader's date, not the model's guess. */
+function buildLookupRequest(w, today, tune) {
+  const t = tune || {};
+  const label = (w.vintage ? w.vintage : 'NV') + ' ' + cleanLine(w.name, 80);
+  const known = [
+    w.region ? 'Region: ' + cleanLine(w.region, 60) : '',
+    w.grape ? 'Grape: ' + cleanLine(w.grape, 60) : '',
+  ].filter(Boolean).join('\n');
+  return {
+    model: t.model || LOOKUP_MODEL,
+    max_tokens: 16000,
+    output_config: { effort: t.effort || LOOKUP_EFFORT },
+    /* If a safety check ever declines a request, the API retries it on another
+       model instead of returning nothing (the "default" routing). */
+    fallbacks: 'default',
+    system: LOOKUP_SYSTEM,
+    tools: [{ type: 'web_search_20260209', name: 'web_search', max_uses: t.maxSearches || LOOKUP_SEARCHES },
+            LOOKUP_TOOL],
+    tool_choice: { type: 'auto' },
+    messages: [{ role: 'user', content: 'Today is ' + today + '.\n\nThe bottle: ' + label
+      + (known ? '\n' + known : '') + '\n\nLook it up, then call record_wine.' }],
+  };
+}
+
+const LOOKUP_HEADERS = (key) => ({
+  'content-type': 'application/json',
+  'x-api-key': key,
+  'anthropic-version': '2026-10-21',
+  'anthropic-beta': 'server-side-fallback-2026-07-01',
+  /* Required for a call made from a web page. The "dangerous" is about the key
+     being in the page — answered above by the key being the reader's own and
+     capped by its own spend limit. */
+  'anthropic-dangerous-direct-browser-access': 'true',
+});
+
+/* What a failure says to the reader: a plain sentence and what to do. The
+   API's own message is shown as TEXT (never markup) when there is one. */
+function lookupErrorMessage(status, data) {
+  const msg = data && data.error && data.error.message ? String(data.error.message).slice(0, 160) : '';
+  if (status === 401) return 'Claude did not accept the API key. Check it in Settings.';
+  if (status === 403) return 'That API key is not allowed to do this. Check its permissions in the Claude Console.';
+  if (status === 429) return 'Too many lookups at once, or the key’s spend limit is reached. Try again in a minute.';
+  if (status === 529 || status >= 500) return 'Claude is busy right now. Try again in a minute.';
+  if (/credit balance/i.test(msg)) return 'The API account is out of credit. Add credit in the Claude Console.';
+  return 'The lookup failed' + (msg ? ': ' + msg : '.') ;
+}
+
+/* One wine, start to finish. Resumes a paused search, and asks once more if
+   Claude finished without recording anything. Resolves to the tool input
+   (unchecked — readLookup() is the boundary), plus what it cost. */
+async function lookupWine(w, key, opts) {
+  const o = opts || {};
+  const body = buildLookupRequest(w, todayISO(), o.tune);
+  const usage = { input: 0, output: 0, searches: 0, rounds: 0 };
+  let nudged = false;
+  for (let round = 0; round < LOOKUP_MAX_ROUNDS; round++) {
+    usage.rounds++;
+    let res;
+    try {
+      res = await (o.fetch || fetch)(LOOKUP_URL, { method: 'POST', headers: LOOKUP_HEADERS(key),
+        body: JSON.stringify(body), signal: o.signal });
+    } catch (e) {
+      if (e && e.name === 'AbortError') throw e;
+      throw new Error('Could not reach Claude — check the connection.');
+    }
+    let data = null;
+    try { data = await res.json(); } catch (e) { data = null; }
+    if (!res.ok || !data) throw new Error(lookupErrorMessage(res.status, data));
+    const u = data.usage || {};
+    usage.input += Number(u.input_tokens) || 0;
+    usage.output += Number(u.output_tokens) || 0;
+    usage.searches += Number(u.server_tool_use && u.server_tool_use.web_search_requests) || 0;
+    if (data.stop_reason === 'refusal') throw new Error('Claude declined to look this one up.');
+    const content = Array.isArray(data.content) ? data.content : [];
+    const call = content.find((b) => b && b.type === 'tool_use' && b.name === 'record_wine');
+    if (call) return { found: call.input, usage: usage };
+    /* Append the turn exactly as it came back: a paused search resumes from
+       its own trailing server-tool block, with no "continue" message added. */
+    body.messages.push({ role: 'assistant', content: content });
+    if (data.stop_reason === 'pause_turn') continue;
+    if (nudged) break;
+    nudged = true;
+    body.messages.push({ role: 'user', content: 'Record what you found with record_wine now.' });
+  }
+  throw new Error('Claude did not come back with an answer for this wine.');
+}
+
+/* The boundary for what came back. Claude's answer is outside input like a
+   backup or a share link, so it goes through the same cleaners, and a source
+   is kept only if it is a real http(s) address — it becomes a link. */
+function readLookup(found) {
+  const f = found && typeof found === 'object' ? found : {};
+  let low = cleanMoney(f.value_low), high = cleanMoney(f.value_high);
+  if (low == null && high != null) low = high;
+  if (low != null && high != null && high < low) { const t = low; low = high; high = t; }
+  let from = cleanYear(f.drink_from), to = cleanYear(f.drink_to);
+  if (from != null && to != null && to < from) { const t = from; from = to; to = t; }
+  const sources = (Array.isArray(f.sources) ? f.sources : []).map((s) => {
+    let url = '';
+    try {
+      const u = new URL(String((s && s.url) || ''));
+      if (u.protocol === 'https:' || u.protocol === 'http:') url = u.href;
+    } catch (e) { url = ''; }
+    return url ? { url: url, title: cleanLine(s.title, 80) || new URL(url).hostname } : null;
+  }).filter(Boolean).slice(0, 6);
+  return {
+    matched: cleanLine(f.matched_wine, 120),
+    confidence: ['high', 'medium', 'low'].indexOf(f.confidence) === -1 ? 'low' : f.confidence,
+    color: COLORS.indexOf(f.color) === -1 ? null : f.color,
+    region: cleanLine(f.region, 60),
+    grape: cleanLine(f.grape, 60),
+    valueLow: low,
+    valueHigh: high == null || high === low ? null : high,
+    valueEst: f.value_is_estimate !== false,
+    valueBasis: cleanLine(f.value_basis, 100),
+    drinkFrom: from,
+    drinkTo: to,
+    windowBasis: cleanLine(f.window_basis, 100),
+    sources: sources,
+  };
+}
+
+/* The one line a looked-up wine keeps in its notes: when, and on whose word.
+   Notes are the reader's own, so this is appended only while there is room. */
+function lookupNoteLine(r, today) {
+  const hosts = [...new Set(r.sources.map((s) => new URL(s.url).hostname.replace(/^www\./, '')))].slice(0, 3);
+  return ('Looked up ' + today + (r.windowBasis ? ' · window: ' + r.windowBasis : '')
+    + (hosts.length ? ' · ' + hosts.join(', ') : '')).slice(0, 160);
 }
 
 /* ═══════════════════════════════ Sample data ═══════════════════════════════
@@ -3834,10 +4122,15 @@ function openWine(id) {
   $('f_source').value = it ? it.source : 'wineaccess';
   $('f_notes').value = it ? it.notes : '';
   $('wineWarn').textContent = '';
+  lookupStop();
+  $('lookupNote').textContent = '';
+  $('lookupPanel').hidden = true;
+  $('lookupPanel').textContent = '';
   openModal($('wineDialog'));
 }
 
 $('wineSave').addEventListener('click', () => {
+  lookupStop();
   const warn = $('wineWarn');
   /* The message NAMES the field that is wrong and moves focus there. */
   const bad = (msg, id) => { warn.textContent = msg; $(id).focus(); };
@@ -3898,7 +4191,104 @@ $('wineSave').addEventListener('click', () => {
     ? 'Saved with no bottles left — it is hidden as finished (Settings shows it again)'
     : editingId ? 'Wine updated' : 'Wine added', fields.qty === 0 ? 6000 : 0);
 });
-$('wineCancel').addEventListener('click', () => $('wineDialog').close());
+$('wineCancel').addEventListener('click', () => { lookupStop(); $('wineDialog').close(); });
+
+/* ── Look Up, in the wine window ───────────────────────────────────────────
+   Fills the EMPTY boxes from what Claude found and leaves anything the reader
+   typed alone — a lookup is a second opinion, not an overwrite — then says
+   which boxes it filled and which it kept, with a button to take Claude's
+   answer for those too. Nothing is saved until Save, as with any edit. */
+let lookupCtl = null;
+let lookupLast = null;   /* the last answer, for "Use Claude's for these too" */
+function lookupStop() {
+  if (lookupCtl) lookupCtl.abort();
+  lookupCtl = null;
+  const b = $('lookupBtn');
+  if (b) b.innerHTML = '<span aria-hidden="true">✦</span> Look Up with Claude';
+}
+const LOOKUP_BOXES = [
+  ['value', 'Value', () => $('f_low').value === '' && $('f_high').value === '',
+   (r) => { $('f_low').value = r.valueLow == null ? '' : r.valueLow;
+            $('f_high').value = r.valueHigh == null ? '' : r.valueHigh; $('f_est').checked = r.valueEst; },
+   (r) => r.valueLow != null],
+  ['window', 'Window', () => $('f_from').value === '' && $('f_to').value === '',
+   (r) => { $('f_from').value = r.drinkFrom == null ? '' : r.drinkFrom;
+            $('f_to').value = r.drinkTo == null ? '' : r.drinkTo; },
+   (r) => r.drinkFrom != null || r.drinkTo != null],
+  ['region', 'Region', () => !$('f_region').value.trim(), (r) => { $('f_region').value = r.region; }, (r) => !!r.region],
+  ['grape', 'Grape', () => !$('f_grape').value.trim(), (r) => { $('f_grape').value = r.grape; }, (r) => !!r.grape],
+  /* Colour has no empty state — a new wine starts as red — so a lookup sets
+     it on a NEW wine and only offers it on one already saved. */
+  ['color', 'Colour', () => !editingId, (r) => { $('f_color').value = r.color; }, (r) => !!r.color],
+];
+function applyLookup(r, all) {
+  const filled = [], kept = [];
+  LOOKUP_BOXES.forEach(([, label, empty, put, has]) => {
+    if (!has(r)) return;
+    if (all || empty()) { put(r); filled.push(label); } else kept.push(label);
+  });
+  /* When, and on whose word, goes in the notes — once, and only while there
+     is room, because the notes are the reader's. */
+  const line = lookupNoteLine(r, todayISO());
+  const notes = $('f_notes').value;
+  if (filled.length && notes.indexOf('Looked up ') === -1 && (notes + '\n' + line).length <= 300)
+    $('f_notes').value = notes ? notes + '\n' + line : line;
+  return { filled: filled, kept: kept };
+}
+function renderLookupPanel(r, done) {
+  const panel = $('lookupPanel');
+  const conf = { high: ['ok', 'Sure of the match'], medium: ['warn', 'Probably the right wine'],
+                 low: ['err', 'Could not find this exact wine'] }[r.confidence];
+  /* Everything that came back is text and is escaped; a source is a link only
+     because readLookup() already proved it an http(s) address. */
+  panel.innerHTML = '<p><strong>' + esc(r.matched || 'No match') + '</strong> '
+    + '<span class="pill ' + conf[0] + '">' + esc(conf[1]) + '</span></p>'
+    + (r.valueLow != null ? '<p>Value ' + esc(fmtRange(r.valueLow, r.valueHigh)) + (r.valueEst ? ' est.' : '')
+      + (r.valueBasis ? ' — ' + esc(r.valueBasis) : '') + '</p>' : '<p>No value found.</p>')
+    + (r.drinkFrom != null || r.drinkTo != null ? '<p>Drink ' + esc(fmtWindow(r))
+      + (r.windowBasis ? ' — ' + esc(r.windowBasis) : '') + '</p>' : '<p>No drinking window found.</p>')
+    + (r.sources.length ? '<p>Sources:</p><ul>' + r.sources.map((x) => '<li><a href="' + esc(x.url)
+      + '" target="_blank" rel="noopener noreferrer">' + esc(x.title) + '</a></li>').join('') + '</ul>' : '')
+    + (done.kept.length ? '<p style="margin-top:8px">Kept yours: ' + esc(done.kept.join(', ')) + '. '
+      + '<button type="button" class="link" id="lookupUseAll">Use Claude’s for these too</button></p>' : '');
+  panel.hidden = false;
+  const all = $('lookupUseAll');
+  if (all) all.addEventListener('click', () => {
+    applyLookup(r, true);
+    renderLookupPanel(r, { filled: [], kept: [] });
+    $('lookupNote').textContent = 'Claude’s answer is in every box. Nothing is saved until you press Save.';
+  });
+}
+$('lookupBtn').addEventListener('click', async () => {
+  if (lookupCtl) { lookupStop(); $('lookupNote').textContent = 'Stopped.'; return; }
+  const name = cleanLine($('f_name').value, 80);
+  if (!name) { $('lookupNote').textContent = 'Type the wine’s name first.'; $('f_name').focus(); return; }
+  const key = lookupKey();
+  if (!key) { $('lookupNote').textContent = 'Add your Claude API key in Settings first.'; return; }
+  const w = { vintage: cleanYear($('f_vintage').value), name: name,
+              region: $('f_region').value, grape: $('f_grape').value };
+  const ctl = new AbortController();
+  lookupCtl = ctl;
+  $('lookupBtn').textContent = 'Stop Looking';
+  $('lookupNote').textContent = 'Searching the web — this can take a minute…';
+  $('lookupPanel').hidden = true;
+  try {
+    const got = await lookupWine(w, key, { signal: ctl.signal });
+    if (lookupCtl !== ctl || !$('wineDialog').open) return;   /* stopped, or the window closed */
+    const r = readLookup(got.found);
+    lookupLast = r;
+    const done = r.confidence === 'low' ? { filled: [], kept: [] } : applyLookup(r, false);
+    $('lookupNote').textContent = r.confidence === 'low'
+      ? 'Claude could not find this exact wine, so nothing was filled in.'
+      : done.filled.length ? 'Filled ' + done.filled.join(', ').toLowerCase() + '. Check it, then Save.'
+        : 'Nothing was empty to fill.';
+    renderLookupPanel(r, done);
+  } catch (e) {
+    if (lookupCtl === ctl && !(e && e.name === 'AbortError')) $('lookupNote').textContent = e.message;
+  } finally {
+    if (lookupCtl === ctl) lookupStop();
+  }
+});
 $('wineToPaste').addEventListener('click', () => { $('wineDialog').close(); openPaste(); });
 $('addBtn').addEventListener('click', () => openWine(null));
 
@@ -3938,15 +4328,40 @@ $('openCancel').addEventListener('click', () => $('openDialog').close());
 
 /* ── Paste a list ───────────────────────────────────────────────────────────── */
 let pasted = { rows: [], skipped: [] };
+/* What Claude found for each pasted wine, by vintage and name, so editing the
+   list keeps the lookups that still match a line. */
+const pasteFound = new Map();
+const wineKey = (w) => (w.vintage || 'NV') + '|' + String(w.name).toLowerCase().replace(/\s+/g, ' ').trim();
+/* A pasted row with Claude's answer folded in: Claude fills what the list left
+   EMPTY and never overrides what the list says (a colour the list did not give
+   was only a guess, so Claude's wins there). */
+function withLookup(row, r) {
+  if (!r || r.confidence === 'low') return row;
+  const out = Object.assign({}, row);
+  if (out.valueLow == null && r.valueLow != null) {
+    out.valueLow = r.valueLow; out.valueHigh = r.valueHigh; out.valueEst = r.valueEst;
+  }
+  if (out.drinkFrom == null && out.drinkTo == null) { out.drinkFrom = r.drinkFrom; out.drinkTo = r.drinkTo; }
+  if (!out.region) out.region = r.region;
+  if (!out.grape) out.grape = r.grape;
+  if (!out.colorKnown && r.color) out.color = r.color;
+  const line = lookupNoteLine(r, todayISO());
+  out.notes = out.notes ? (out.notes + '\n' + line).slice(0, 300) : line;
+  out.looked = r.confidence;
+  return out;
+}
 function openPaste() {
   $('pasteBox').value = '';
+  pasteFound.clear();
   renderPaste();
   openModal($('pasteDialog'));
 }
 function renderPaste() {
   pasted = parseWineList($('pasteBox').value, thisYear());
+  pasted.rows = pasted.rows.map((r) => withLookup(r, pasteFound.get(wineKey(r))));
   const yr = thisYear(), soon = state.settings.soonYears;
-  $('pasteAdd').disabled = !pasted.rows.length;
+  $('pasteAdd').disabled = !pasted.rows.length || !!pasteLookupCtl;
+  if (!pasteLookupCtl) $('pasteLookup').disabled = !pasted.rows.length;
   $('pasteAdd').textContent = pasted.rows.length ? 'Add ' + plural(pasted.rows.length, 'Wine') : 'Add Wines';
   $('pasteNote').textContent = (pasted.rows.length || pasted.skipped.length)
     ? plural(pasted.rows.length, 'wine') + ' read.'
@@ -3964,6 +4379,8 @@ function renderPaste() {
           + '<td class="num" data-label="Value">' + esc(fmtValue(r)) + '</td>'
           + '<td class="nowrap" data-label="Window">' + esc(fmtWindow(r)) + '</td><td data-label="Status">'
           + (had ? '<span class="pill">Adds to the one you have</span>' : pillFor(statusOf(r, yr, soon)))
+          + (r.looked ? ' <span class="pill">✦ ' + (r.looked === 'high' ? 'looked up' : 'looked up, check it')
+            + '</span>' : '')
           + '</td></tr>';
       }).join('') + '</tbody></table>'
     : '';
@@ -4002,7 +4419,59 @@ $('pasteAdd').addEventListener('click', () => {
   toast([added ? plural(added, 'wine') + ' added' : '', topped ? plural(topped, 'wine') + ' topped up' : '']
     .filter(Boolean).join(', '), 5000);
 });
-$('pasteCancel').addEventListener('click', () => $('pasteDialog').close());
+$('pasteCancel').addEventListener('click', () => { pasteLookupStop(); $('pasteDialog').close(); });
+
+/* ── Look Up, in the paste window ──────────────────────────────────────────
+   Every line not looked up yet, a few at a time, filling only what the list
+   left empty. Add is held while it runs, so a half-looked-up list is never
+   added by a stray press; Stop keeps whatever has come back. */
+let pasteLookupCtl = null;
+function pasteLookupStop() {
+  if (pasteLookupCtl) pasteLookupCtl.abort();
+  pasteLookupCtl = null;
+  $('pasteLookup').innerHTML = '<span aria-hidden="true">✦</span> Look Up with Claude';
+}
+$('pasteLookup').addEventListener('click', async () => {
+  if (pasteLookupCtl) { pasteLookupStop(); renderPaste(); $('pasteNote').textContent += ' Stopped.'; return; }
+  const key = lookupKey();
+  if (!key) { $('pasteNote').textContent = 'Add your Claude API key in Settings first.'; return; }
+  const todo = pasted.rows.filter((r) => !pasteFound.has(wineKey(r)));
+  if (!todo.length) { $('pasteNote').textContent = 'Every wine here has been looked up.'; return; }
+  const ctl = new AbortController();
+  pasteLookupCtl = ctl;
+  $('pasteLookup').textContent = 'Stop Looking';
+  $('pasteAdd').disabled = true;
+  let done = 0, failed = 0, next = 0, lastError = '';
+  const say = () => { $('pasteNote').textContent = 'Looking up ' + Math.min(done + 1, todo.length) + ' of '
+    + todo.length + '… (each takes up to a minute; three run at once)'
+    + (failed ? ' ' + plural(failed, 'lookup') + ' failed: ' + lastError : ''); };
+  say();
+  const worker = async () => {
+    while (next < todo.length && pasteLookupCtl === ctl) {
+      const w = todo[next++];
+      try {
+        const got = await lookupWine(w, key, { signal: ctl.signal });
+        if (pasteLookupCtl !== ctl) return;
+        pasteFound.set(wineKey(w), readLookup(got.found));
+      } catch (e) {
+        if (e && e.name === 'AbortError') return;
+        failed++; lastError = e.message;
+        /* A key the API rejects will be rejected for every line: stop at once. */
+        if (/API key|credit|permissions/.test(e.message)) { pasteLookupStop(); }
+      }
+      done++;
+      if (pasteLookupCtl === ctl) { renderPaste(); say(); }
+    }
+  };
+  await Promise.all(Array.from({ length: LOOKUP_PARALLEL }, worker));
+  if (pasteLookupCtl === ctl) {
+    pasteLookupStop();
+    renderPaste();
+    $('pasteNote').textContent = plural(done - failed, 'wine') + ' looked up'
+      + (failed ? ', ' + failed + ' failed (' + lastError + ')' : '')
+      + '. Claude filled only what your list left empty — check the ✦ rows, then Add.';
+  }
+});
 $('pasteBtn').addEventListener('click', openPaste);
 
 /* ONE delegated listener per table, so the row, its actions and its headings
@@ -4123,7 +4592,41 @@ document.addEventListener('click', (e) => {
 $('helpCloseBtn').addEventListener('click', () => helpDialog.close());
 
 /* ── Settings ─────────────────────────────────────────────────────────────── */
+/* ── The Claude key, in Settings ───────────────────────────────────────────
+   Read from and written to its own storage key, never `state`. Saved on the
+   form's submit, so a password manager sees a real save and offers to keep it. */
+$('keyForm').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const v = $('s_key').value.trim();
+  const warn = $('keyWarn');
+  if (!v) { warn.textContent = 'Paste the key first, or press Remove Key to clear it.'; return; }
+  if (/\s/.test(v) || !/^sk-ant-/.test(v)) {
+    warn.textContent = 'That does not look like a Claude API key — they start with sk-ant-.'; return;
+  }
+  try { localStorage.setItem(LOOKUP_KEY_STORE, v); }
+  catch (err) { warn.textContent = 'This browser refused to store the key.'; return; }
+  warn.textContent = '';
+  toast('Key saved in this browser — Look Up is ready');
+});
+$('s_keyRemove').addEventListener('click', () => {
+  try { localStorage.removeItem(LOOKUP_KEY_STORE); } catch (e) { /* nothing stored */ }
+  $('s_key').value = '';
+  $('keyWarn').textContent = '';
+  toast('Key removed from this browser');
+});
+$('s_keyShow').addEventListener('click', () => {
+  const box = $('s_key'), show = box.type === 'password';
+  box.type = show ? 'text' : 'password';
+  $('s_keyShow').textContent = show ? 'Hide' : 'Show';
+  $('s_keyShow').setAttribute('aria-pressed', String(show));
+});
+
 $('settingsBtn').addEventListener('click', () => {
+  $('s_key').value = lookupKey();
+  $('s_key').type = 'password';
+  $('s_keyShow').textContent = 'Show';
+  $('s_keyShow').setAttribute('aria-pressed', 'false');
+  $('keyWarn').textContent = '';
   $('s_soon').value = String(state.settings.soonYears);
   $('s_finished').checked = state.settings.showFinished;
   openModal($('settingsDialog'));
@@ -4818,6 +5321,9 @@ window.__wineTestHooks = {
   toCsv: toCsv, toTsv: toTsv, FORMULA_LEAD: FORMULA_LEAD, PLAIN_NUMBER: PLAIN_NUMBER,
   searchApp: searchApp, SEARCH_CAP: SEARCH_CAP,
   pushSnapshot: pushSnapshot, undoBankable: undoBankable,
+  buildLookupRequest: buildLookupRequest, lookupWine: lookupWine, readLookup: readLookup,
+  lookupErrorMessage: lookupErrorMessage, lookupNoteLine: lookupNoteLine, LOOKUP_TOOL: LOOKUP_TOOL,
+  LOOKUP_KEY_STORE: LOOKUP_KEY_STORE,
 };
 </script>
 <script type="module">

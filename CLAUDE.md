@@ -68,6 +68,17 @@ the family doesn't.
   another tab's or device's work would overwrite it. Never persisted, no redo; the button
   confirms, ⌘Z doesn't and is gated off fields and open windows. Delete All's and a wine
   delete's wording says Undo brings it back THIS SITTING — keep the words true.
+- **Look Up with Claude** (2026-10-23): the page calls `api.anthropic.com/v1/messages` with raw
+  `fetch` (no SDK — no build step, no third-party script), the reader's own key from
+  `localStorage['wine-claude-key']` (NEVER `state`), and `anthropic-dangerous-direct-browser-access`.
+  Opus 5.5, effort `low`, web search `max_uses: 3`, `fallbacks: "default"`; the answer comes back
+  through ONE strict tool, `record_wine` (tool_choice `auto` — forced is a 400 on this model), and
+  `readLookup()` is the boundary (http(s)-only sources). `pause_turn` resumes with no added
+  message; a silent finish is nudged once. Lookups fill EMPTY boxes only. Measured on Charles's 20
+  wines: $0.144 a wine, ~36 s; Sonnet 5.5 was $0.065 and nearly as good — Charles chose Opus.
+  0 of 20 windows came from a named critic, so the note line says "estimate". The terminal test
+  harness bridges fetch to Node so the key (`~/.config/anthropic_winecellar_key`) never enters the
+  page. privacy.html says what is sent; keep it true if the request changes.
 - **Tests that stub storage stub `W.Storage.prototype.setItem`**, never
   `localStorage.setItem = …`, which Chrome stores as an item named "setItem" while the real
   write still happens.
@@ -84,6 +95,6 @@ commented copy in the repo.
 
 ## Tests
 
-`tests.html`, `EXPECTED = 178`. Run it headless (Playwright) rather than in the Browser pane:
+`tests.html`, `EXPECTED = 184`. Run it headless (Playwright) rather than in the Browser pane:
 the pane throttles hidden timers and its focus heuristics turn the 705px keyboard-focus check
 red on untouched code.

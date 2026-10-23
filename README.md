@@ -31,6 +31,33 @@ cellar on your other devices.
 - **Find** (⌘K), **Settings**, **Back Up** (JSON and CSV, Restore, Delete All), **Share**
   (a read-only link with the data inside it), four themes plus Auto — the family's chrome.
 
+## Look Up with Claude
+
+**✦ Look Up with Claude** in the wine window and the paste window asks Claude (Opus 5.5) to search
+the web for a wine and come back with its value, drinking window, region, grape and colour, plus
+the pages it used.
+
+- **It fills only what is empty.** Anything you typed or pasted stays; the wine window says what
+  it kept and offers to use Claude's answer for those too. Nothing is saved until you press Save
+  or Add, and a one-line "Looked up…" note records when and on whose word.
+- **It says how sure it is** — sure of the match, probably the right wine, or could not find it
+  (then it fills nothing rather than guess).
+- **Windows are usually Claude's estimate.** Critics' published windows are mostly behind
+  paywalls, so in testing it found a named critic's window for one wine in twenty; the note says
+  "estimate" when that is what it is. Values come from real listings (Wine-Searcher, merchants,
+  auction results) when there are any.
+- **It needs your own Claude API key** (Settings → Look Up with Claude). The key stays in that
+  browser — never synced, backed up or shared — in a password field so a password manager can
+  carry it. Every page on `eagleadams86.github.io` can read this browser's storage, so use a key
+  made just for this app with a low monthly spend limit in the Claude Console.
+- **Cost: about $0.14 a wine** (measured on 20 wines, 2026-10-23: about 36 seconds each, mostly
+  tokens for reading search results, plus $0.01 per search). It is capped at 3 searches and low
+  effort per wine; the paste window runs three lookups at a time.
+
+Only the wine's vintage, name, region and grape are sent, and only when you press the button.
+The page calls `https://api.anthropic.com` directly — the one host added to its security policy
+for this, as a data call only, never a script.
+
 ## How a Status Is Decided
 
 Nothing is typed in: every status is worked out from the wine's drinking window and the
@@ -59,7 +86,7 @@ Two shapes are understood:
 - **Claude's lookup table** with no header needed — **Wine · Approx. value · Drink window ·
   Verdict**, in that order, tab-separated, Markdown, or lined up with spaces.
 
-Each wine starts with its vintage (`2019 Albret Lastra Reserva`, or `NV …`). The parser reads:
+Each wine starts with its vintage (`2019 Sample Hill Reserva`, or `NV …`). The parser reads:
 
 - values like `$40-$70`, `~$25–35 (estimate)`, `$20-$25 est.` (both keep the *estimate*
   flag) and `~$36 list, ~$20–27 street` (the street price wins);
@@ -135,7 +162,7 @@ characters, opened-bottle notes at 140.
 python3 -m http.server 8025
 ```
 
-Open `http://localhost:8025/` for the app and `/tests.html` for the suite (178 tests; the
+Open `http://localhost:8025/` for the app and `/tests.html` for the suite (184 tests; the
 `EXPECTED` floor in the file fails the run if any go missing). CI runs the same page headless
 on every push, plus CodeQL.
 
