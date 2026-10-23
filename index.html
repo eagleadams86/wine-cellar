@@ -850,6 +850,83 @@
      the same label then has two widths; a pixel floor covers only one. */
   #syncBtn { min-width: 10.25em; }
 
+  /* ── On a phone, every list is a stack of CARDS (2026-10-23) ──────────────
+     Charles, from his iPhone: "let's make these lists more mobile friendly".
+     Seven columns side by side left a 390px screen showing the wine and half
+     of one more, with the rest a sideways scroll away. Under 640px each row of
+     a `table.cards` becomes a card: the wine's name across the top, then one
+     line per field — its column's name on the left (`data-label`, written on
+     every cell by the render, since the headings are off screen), the value on
+     the right — and the row's buttons along the bottom.
+
+     PURE CSS over the same table, on purpose. The markup, the semantics, Copy
+     and ⬇ CSV (which read the rendered cells, and never see ::before) and every
+     click handler stay exactly as they are; only the layout changes. SCREEN
+     only, so a phone's print still gets the table.
+
+     The headings are not hidden: a sortable heading row becomes a wrapping
+     row of SORT BUTTONS under a "Sort by" label, so a phone keeps the sort.
+     A heading row with nothing to press (Drink Next, the paste preview) goes. */
+  @media screen and (max-width: 640px) {
+    table.cards, table.cards tbody { display: block; }
+    table.cards thead { display: block; margin-bottom: var(--sp-4); }
+    table.cards thead:not(:has(.sortable)) { display: none; }
+    table.cards thead tr { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+    table.cards thead tr::before { content: 'Sort by'; font-size: var(--fs-xs); color: var(--text-muted);
+      text-transform: uppercase; letter-spacing: var(--ls-label); margin-right: 2px; }
+    table.cards thead th { display: block; padding: 0; border: 0; }
+    /* The actions heading is only there for a screen reader; on a card the
+       buttons label themselves. */
+    table.cards thead th:not(.sortable) { display: none; }
+    table.cards thead th.sortable button { border: 1px solid var(--border-control);
+      border-radius: var(--radius-pill); padding: 4px 10px; min-height: 0; }
+    table.cards thead th[aria-sort] button { border-color: var(--btn-bg); color: var(--text-primary); }
+    /* COMPACT: the wine and its status pill share the top line, then two
+       fields to a line, each label INLINE before its value. The first cut put
+       one field per line and a wine came out eight lines tall; labels above
+       values still made it seven. Flex-wrap rather than a grid, so a long
+       name takes the room it needs and the pill keeps to the right. */
+    table.cards tbody tr { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 14px;
+      border: 1px solid var(--border); border-radius: var(--radius-sm);
+      background: var(--surface-alt); padding: 12px 14px; margin-bottom: 10px; }
+    table.cards tbody tr:hover, tr.rowlink:hover th, tr.rowlink:hover td { background: none; }
+    table.cards tbody tr:hover { background: var(--surface-alt); }
+    /* The wine leads the card, wherever its cell sits in the row (the Opened
+       list has the date first). */
+    table.cards tbody th { order: -2; flex: 1 1 55%; min-width: 0; padding: 0 0 2px; border: 0;
+      font-size: var(--fs-base); font-weight: var(--fw-semibold); }
+    /* Each cell is a little flex row of its label and its value, so on a very
+       narrow phone the value can drop under its label WHOLE — a window or a
+       price range keeps its nowrap and never splits at the dash. */
+    table.cards tbody td { display: flex; flex-wrap: wrap; align-items: baseline; column-gap: 6px;
+      flex: 1 1 40%; min-width: 0; padding: 0; border: 0; text-align: left;
+      overflow-wrap: break-word; }
+    /* The name is a button, and the base button rule says nowrap: a long name
+       ran on under the pill. On a card it wraps like the text it is. */
+    table.cards tbody th .rowbtn { white-space: normal; text-align: left; }
+    table.cards tbody td::before { content: attr(data-label);
+      font-size: var(--fs-xs); color: var(--text-muted); text-transform: uppercase;
+      letter-spacing: var(--ls-label); }
+    /* The status needs no label beside a pill that already says it, and sits
+       up on the name's line, at the right. */
+    table.cards tbody td[data-label="Status"] { order: -1; flex: 0 0 auto; margin-left: auto; }
+    table.cards tbody td[data-label="Status"]::before { content: none; }
+    /* A field with nothing in it says nothing, rather than a label beside a blank. */
+    table.cards tbody td:empty { display: none; }
+    /* A note is a sentence, so it gets the whole line. */
+    table.cards tbody td[data-label="Note"] { flex-basis: 100%; }
+    table.cards tbody td.rowacts { flex-basis: 100%; display: flex; gap: var(--sp-4);
+      align-items: center; margin-top: 4px; }
+    table.cards tbody td.rowacts::before { content: none; }
+    /* The Opened list: the date (which needs no label) and the × share the
+       name's line, so a bottle is the name, its rating and its note. */
+    #openedTable tbody td[data-label="Opened"] { order: -1; flex: 0 0 auto; margin-left: auto;
+      white-space: nowrap; color: var(--text-secondary); }
+    #openedTable tbody td[data-label="Opened"]::before { content: none; }
+    #openedTable tbody td.rowacts { order: 1; flex: 0 0 auto; margin: 0 0 0 auto; }
+    #openedTable tbody td[data-label="Note"] { order: 2; }
+  }
+
   /* Live regions stay IN the tree and are emptied rather than hidden — an
      element toggled out of the tree announces nothing on the way back. */
   .warn-line { color: var(--warn); font-size: var(--fs-xs); margin-top: var(--sp-4); }
@@ -2468,15 +2545,16 @@ function renderNext(c) {
       + 'this year.</p>';
     return;
   }
-  wrap.innerHTML = '<div class="table-scroll"><table id="nextTable"><thead><tr>'
+  wrap.innerHTML = '<div class="table-scroll"><table id="nextTable" class="cards"><thead><tr>'
     + '<th scope="col">Wine</th><th scope="col">Window</th><th scope="col">Status</th>'
     + '<th scope="col" class="num">Bottles</th></tr></thead><tbody>'
     + c.next.map((r) => '<tr' + (viewOnly ? '' : ' class="rowlink" data-open="' + esc(r.w.id) + '"') + '>'
       + '<th scope="row">' + (viewOnly ? esc(wineLabel(r.w))
         : '<button type="button" class="rowbtn" data-edit="' + esc(r.w.id) + '">'
           + esc(wineLabel(r.w)) + '</button>') + '</th>'
-      + '<td>' + esc(fmtWindow(r.w)) + '</td><td>' + pillFor(r.status) + '</td>'
-      + '<td class="num">' + esc(r.w.qty) + '</td></tr>').join('')
+      + '<td class="nowrap" data-label="Window">' + esc(fmtWindow(r.w)) + '</td>'
+      + '<td data-label="Status">' + pillFor(r.status) + '</td>'
+      + '<td class="num" data-label="Bottles">' + esc(r.w.qty) + '</td></tr>').join('')
     + '</tbody></table></div>';
 }
 
@@ -2667,7 +2745,7 @@ function renderList() {
   const head = '<thead><tr>' + sortHead(COLUMNS, sortKey, sortDir)
     + (viewOnly ? '' : '<th class="no-print"><span class="sr-only">Actions</span></th>')
     + '</tr></thead>';
-  wrap.innerHTML = '<table id="cellarTable">' + head + '<tbody>'
+  wrap.innerHTML = '<table id="cellarTable" class="cards">' + head + '<tbody>'
     + v.rows.map((w) => {
       const st = statusOf(w, v.yr, v.soon);
       return '<tr' + (viewOnly ? '' : ' class="rowlink" data-open="' + esc(w.id) + '"')
@@ -2677,13 +2755,15 @@ function renderList() {
                     : '<button type="button" class="rowbtn" data-edit="' + esc(w.id) + '">'
                       + esc(wineLabel(w)) + '</button>')
         + '</th>'
-        + '<td>' + esc(w.region) + '</td>'
-        + '<td>' + esc(w.grape) + '</td>'
-        + '<td class="num">' + esc(w.qty) + '</td>'
-        + '<td class="num nowrap">' + esc(fmtValue(w)) + '</td>'
-        + '<td class="nowrap">' + esc(fmtWindow(w)) + '</td>'
-        + '<td>' + (w.qty ? pillFor(st) : '<span class="pill">Finished</span>') + '</td>'
-        + '<td>' + esc(w.location) + '</td>'
+        /* data-label is what a phone shows beside each value once the row
+           has become a card — the column headings are not on screen there. */
+        + '<td data-label="Region">' + esc(w.region) + '</td>'
+        + '<td data-label="Grape">' + esc(w.grape) + '</td>'
+        + '<td class="num" data-label="Bottles">' + esc(w.qty) + '</td>'
+        + '<td class="num nowrap" data-label="Value">' + esc(fmtValue(w)) + '</td>'
+        + '<td class="nowrap" data-label="Window">' + esc(fmtWindow(w)) + '</td>'
+        + '<td data-label="Status">' + (w.qty ? pillFor(st) : '<span class="pill">Finished</span>') + '</td>'
+        + '<td data-label="Where">' + esc(w.location) + '</td>'
         /* The actions cell is no-print, and that is also what keeps it out of
            Copy and CSV — tableToRows() skips it. */
         + (viewOnly ? ''
@@ -2721,20 +2801,20 @@ function renderOpened() {
       + 'the Cellar tab when you open one.</p>';
     return;
   }
-  wrap.innerHTML = '<table id="openedTable"><thead><tr>'
+  wrap.innerHTML = '<table id="openedTable" class="cards"><thead><tr>'
     + sortHead(OPENED_COLUMNS, openedSortKey, openedSortDir)
     + (viewOnly ? '' : '<th class="no-print"><span class="sr-only">Actions</span></th>')
     + '</tr></thead><tbody>'
     + rows.map((o) => '<tr>'
-      + '<td>' + esc(fmtDate(o.date)) + '</td>'
+      + '<td data-label="Opened">' + esc(fmtDate(o.date)) + '</td>'
       + '<th scope="row">' + esc(o.label) + '</th>'
       /* The stars are decoration over a number: aria-hidden, so a screen reader
          and the CSV both get "4 of 5" rather than a row of glyphs. */
-      + '<td class="num">' + (o.rating ? '<span aria-hidden="true" class="stars">'
+      + '<td class="num" data-label="Rating">' + (o.rating ? '<span aria-hidden="true" class="stars">'
           + '★'.repeat(o.rating) + '</span> ' + o.rating + '/5' : '—')
       + '</td>'
-      + '<td>' + esc(o.note) + '</td>'
-      + (viewOnly ? '' : '<td class="no-print"><button type="button" class="icon-btn danger" data-undrink="'
+      + '<td data-label="Note">' + esc(o.note) + '</td>'
+      + (viewOnly ? '' : '<td class="no-print rowacts"><button type="button" class="icon-btn danger" data-undrink="'
         + esc(o.id) + '" aria-label="Remove this line for ' + esc(o.label)
         + '"><span aria-hidden="true">×</span></button></td>')
       + '</tr>').join('')
@@ -3787,15 +3867,16 @@ function renderPaste() {
       + (pasted.skipped.length ? ' Not read: line ' + pasted.skipped.join(', ') + '.' : '')
     : '';
   $('pastePreview').innerHTML = pasted.rows.length
-    ? '<table><thead><tr><th scope="col">Wine</th><th scope="col">Colour</th>'
+    ? '<table class="cards"><thead><tr><th scope="col">Wine</th><th scope="col">Colour</th>'
       + '<th scope="col" class="num">Bottles</th>'
       + '<th scope="col" class="num">Value each</th><th scope="col">Window</th><th scope="col">Status</th>'
       + '</tr></thead><tbody>' + pasted.rows.map((r) => {
         const had = state.wines.find((w) => sameWine(w, r));
         return '<tr><th scope="row">' + esc(wineLabel(r)) + '</th>'
-          + '<td>' + esc(COLOR_LABEL[r.color]) + '</td>'
-          + '<td class="num">' + esc(r.qty) + '</td><td class="num">' + esc(fmtValue(r)) + '</td>'
-          + '<td>' + esc(fmtWindow(r)) + '</td><td>'
+          + '<td data-label="Colour">' + esc(COLOR_LABEL[r.color]) + '</td>'
+          + '<td class="num" data-label="Bottles">' + esc(r.qty) + '</td>'
+          + '<td class="num" data-label="Value">' + esc(fmtValue(r)) + '</td>'
+          + '<td class="nowrap" data-label="Window">' + esc(fmtWindow(r)) + '</td><td data-label="Status">'
           + (had ? '<span class="pill">Adds to the one you have</span>' : pillFor(statusOf(r, yr, soon)))
           + '</td></tr>';
       }).join('') + '</tbody></table>'

@@ -51,7 +51,7 @@
    go MISSING look exactly like tests that pass — a suite that quietly shrank to
    three checks still says "all 3 tests pass". RAISE THIS when you add tests, and
    lower it only when you retire one deliberately. */
-const EXPECTED = 170;
+const EXPECTED = 173;
 
 /* ── It refuses to run anywhere but localhost, and that is load-bearing ──────
    GitHub Pages publishes this page BESIDE the app, where the iframe below would
@@ -329,6 +329,10 @@ async function runAsync() {
           besideName: Math.abs(ctl.getBoundingClientRect().top
             - D.querySelector('.brand').getBoundingClientRect().top) < 16,
           pageRoom: D.documentElement.scrollWidth - FW.innerWidth,
+          /* The phone cards (2026-10-23): how the Cellar list lays out here. */
+          listRoom: (() => { const lw = D.getElementById('listWrap'); return lw.scrollWidth - lw.clientWidth; })(),
+          rowDisplay: FW.getComputedStyle(D.querySelector('#cellarTable tbody tr')).display,
+          sortShown: FW.getComputedStyle(D.querySelector('#cellarTable thead')).display !== 'none',
         };
         /* The keyboard reveal, in the 705px frame, where the controls overflow
            BESIDE the name. A control half past a row's edge, focused, must be
@@ -2140,6 +2144,30 @@ function define() {
   t('a two-column CSV is still a CSV when its header names the Wine column', () => {
     const r = H.parseWineList('Wine,Bottles\n2007 Two Column Cab,3', 2026).rows[0];
     eq([r.vintage, r.name, r.qty], [2007, 'Two Column Cab', 3]);
+  });
+
+  group('on a phone, every list is a stack of cards');
+  t('every value cell says which column it is, for the card that shows it', () => {
+    ['cellarTable', 'openedTable'].forEach((id) => {
+      if (id === 'openedTable') W.setTab('opened');
+      const cells = [...W.document.querySelectorAll('#' + id + ' tbody td:not(.rowacts)')];
+      ok(cells.length > 0, id + ' has cells to check');
+      cells.forEach((c) => ok(c.dataset.label, id + ': a cell with no data-label is a bare value on a phone', c.textContent));
+      W.setTab('cellar');
+    });
+  });
+  t('at phone width the rows are cards that fit, and the sort survives', () => {
+    const r = asyncResults.rows || {};
+    ok(!r.error, 'the row frames were measured', r.error);
+    eq(r.narrow.rowDisplay, 'flex', 'a row is a card at 360px');
+    ok(r.narrow.listRoom <= 1, 'and nothing in the list scrolls sideways', r.narrow.listRoom);
+    ok(r.narrow.sortShown, 'the headings stay, as sort buttons');
+    eq(r.wide.rowDisplay, 'table-row', 'and a wide window keeps the table');
+  });
+  t('the cards are layout only: Copy and CSV still read the full table', () => {
+    const rows = H.tableToRows(W.document.getElementById('cellarTable'));
+    eq(rows[0].length, H.COLUMNS.length, 'every column, and no label text from the cards in any cell');
+    ok(!rows.slice(1).some((r) => r.some((c) => /^(Region|Grape|Window)\s/.test(c))), 'a ::before label never reaches an export');
   });
 
   group('the editor never saves a number the reader did not type');

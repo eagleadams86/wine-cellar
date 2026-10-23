@@ -54,6 +54,11 @@ the family doesn't.
   the editor's first box took the focus, and the cancel ate the Bottles arrow's release. It is
   now `pressedOn` (the element pressed, cleared on pointerup), and the cancel fires only on a
   release over the box it was armed for.
+- **Under 640px every `table.cards` is a stack of cards, in CSS only.** Each `<td>` carries
+  `data-label` (the card shows it via `::before`, so exports never see it) — a new column needs
+  one, and a test checks every cell. The name `<th>` leads (`order: -2`), the Status pill rides
+  its line (`order: -1`), sortable headings become Sort-by chips. The family had no phone table
+  pattern before this one.
 - **The table's own order is drinking order** — past the window, drink soon, ready, hold,
   none; then the window that closes soonest. The Wine column sorts by name, then vintage.
 
@@ -67,6 +72,6 @@ commented copy in the repo.
 
 ## Tests
 
-`tests.html`, `EXPECTED = 170`. Run it headless (Playwright) rather than in the Browser pane:
+`tests.html`, `EXPECTED = 173`. Run it headless (Playwright) rather than in the Browser pane:
 the pane throttles hidden timers and its focus heuristics turn the 705px keyboard-focus check
 red on untouched code.
