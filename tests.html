@@ -2309,6 +2309,12 @@ function define() {
        + H.fmtDate('2026-01-05') + '\n\n' + notes,
        'the hint, the fields the grid has no column for, then the note as its own block');
     ok(row('fx-hold').querySelector('.notedot[aria-hidden="true"]'), 'and the dot that says a note is there');
+    const end = row('fx-hold').querySelector('.rowbtn .nameend');
+    ok(end && end.textContent.replace('\u2060', '') === 'Cabernet' && end.querySelector('.notedot')
+       && W.getComputedStyle(end).whiteSpace === 'nowrap',
+       'glued to the last word INSIDE the name button, so it can never wrap onto a line of its own');
+    eq(row('fx-hold').querySelector('.rowbtn').textContent.replace('\u2060', ''), '2021 Charlie Cabernet',
+       'and the button still reads as just the name');
     eq(row('fx-ready').dataset.tip.split('\n\n').length, 2, 'no note: the hint and the fields, no empty block');
     ok(!row('fx-ready').querySelector('.notedot'), 'and no dot — the dot still means a note');
     const next = W.document.querySelector('#nextTable tr[data-open="fx-ready"]').dataset.tip;

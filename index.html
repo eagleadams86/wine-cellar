@@ -906,6 +906,7 @@
     overflow-wrap: anywhere; pointer-events: none; }
   #rowTip:not([hidden]) { display: block; }
   /* The note dot, exactly Money Map's: same size, same token, same meaning. */
+  .nameend { white-space: nowrap; }
   .notedot { display: inline-block; width: 5px; height: 5px; border-radius: 50%;
     background: var(--accent); margin-left: 6px; vertical-align: 2px; }
   .keyrow { display: flex; gap: var(--sp-4); }
@@ -2837,6 +2838,21 @@ function noteDot(note) {
   return (typeof note === 'string' && note.trim())
     ? '\u2060<span class="notedot" aria-hidden="true"></span>' : '';
 }
+/* A row's name cell: the name, as the button that opens the wine unless the
+   view is read-only, with the dot INSIDE that button and glued to the LAST
+   WORD in a nowrap span. The word joiner alone did not hold it (Charles,
+   2026-10-23): outside the button nothing can, because a button is one atomic
+   box a line may always break after; inside, a width sweep still found the dot
+   alone on a line 57 times in 940. Glued, a line can only break before the
+   word, so the dot always travels with it. */
+function wineNameCell(w) {
+  const label = wineLabel(w), dot = noteDot(w.notes);
+  const cut = label.lastIndexOf(' ') + 1;
+  const name = !dot ? esc(label)
+    : esc(label.slice(0, cut)) + '<span class="nameend">' + esc(label.slice(cut)) + dot + '</span>';
+  return viewOnly ? name
+    : '<button type="button" class="rowbtn" data-edit="' + esc(w.id) + '">' + name + '</button>';
+}
 /* A row's hover carries every field its table has NO column for — Charles,
    2026-10-23 — one "Label: value" per line, then the notes as their own block.
    `shown` is the table's column keys, so the Cellar grid's tip adds colour,
@@ -2873,9 +2889,7 @@ function renderNext(c) {
     + '<th scope="col">Where</th><th scope="col" class="num">Bottles</th></tr></thead><tbody>'
     + c.next.map((r) => '<tr' + (viewOnly ? '' : ' class="rowlink" data-open="' + esc(r.w.id) + '"')
       + wineTip(r.w, NEXT_COLUMNS) + '>'
-      + '<th scope="row">' + (viewOnly ? esc(wineLabel(r.w))
-        : '<button type="button" class="rowbtn" data-edit="' + esc(r.w.id) + '">'
-          + esc(wineLabel(r.w)) + '</button>') + noteDot(r.w.notes) + '</th>'
+      + '<th scope="row">' + wineNameCell(r.w) + '</th>'
       + '<td class="nowrap" data-label="Window">' + esc(fmtWindow(r.w)) + '</td>'
       + '<td data-label="Status">' + pillFor(r.status) + '</td>'
       /* Where, so the list that says what to open also says where to find it
@@ -3077,11 +3091,7 @@ function renderList() {
       const st = statusOf(w, v.yr, v.soon);
       return '<tr' + (viewOnly ? '' : ' class="rowlink" data-open="' + esc(w.id) + '"')
         + (w.qty ? '' : ' data-finished') + wineTip(w, COLUMNS.map((c) => c.key)) + '>'
-        + '<th scope="row">'
-        + (viewOnly ? esc(wineLabel(w))
-                    : '<button type="button" class="rowbtn" data-edit="' + esc(w.id) + '">'
-                      + esc(wineLabel(w)) + '</button>')
-        + noteDot(w.notes) + '</th>'
+        + '<th scope="row">' + wineNameCell(w) + '</th>'
         /* data-label is what a phone shows beside each value once the row
            has become a card — the column headings are not on screen there. */
         + '<td data-label="Region">' + esc(w.region) + '</td>'

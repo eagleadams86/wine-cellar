@@ -110,7 +110,10 @@ the family doesn't.
   write still happens.
 - **Notes are the ROW's hover text** (Money Map's `rowTip` + `noteDot` + `wireGridTip`, as
   `#rowTip` wired once on `<main>`): `data-tip` on the `<tr>`, never a `title`; a dot after the
-  name, behind a U+2060 word joiner that `cellText()` strips. Touch shows no tip on a row that
+  name, behind a U+2060 word joiner that `cellText()` strips. The dot goes INSIDE the name button
+  and in a `.nameend` nowrap span with the last word (`wineNameCell()`): after the button it
+  wrapped alone (a button is an atomic box), and the joiner alone still let it go 57 times in a
+  940-case width sweep. Glued: 0. Touch shows no tip on a row that
   opens the editor. Since 2026-10-23 EVERY row has a tip: `wineFacts(w, shown)` lists each field
   the table has no column for (`shown` = its column keys; Drink Next passes `NEXT_COLUMNS`), then
   the notes. A new column must be added to that table's keys, or the tip repeats it. The dot
