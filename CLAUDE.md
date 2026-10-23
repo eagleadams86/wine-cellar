@@ -82,6 +82,12 @@ the family doesn't.
   window stops its lookups** — a `MutationObserver` on `open`, not the `close` event (which some
   engines never deliver), because Escape and a click outside never pass through Cancel; before
   2026-10-23 a closed paste window went on billing through every row.
+- **An installed iPhone draws under the status bar** (black-translucent), so the header pads by
+  `env(safe-area-inset-top)`, a fixed `body::before` band in `--surface` keeps scrolled content
+  out from under the clock (the header is not sticky on a phone), and a dialog's max-height takes
+  the larger inset off BOTH ends, in `dvh`. And `openModal()` sends focus to the dialog on touch
+  for anything `opensOnFocus()` — a `<select>` too, because iOS 26 opens a focused select's menu
+  at once. All three found on Charles's iPhone, 2026-10-23.
 - **Tests that stub storage stub `W.Storage.prototype.setItem`**, never
   `localStorage.setItem = …`, which Chrome stores as an item named "setItem" while the real
   write still happens.
@@ -102,6 +108,6 @@ commented copy in the repo.
 
 ## Tests
 
-`tests.html`, `EXPECTED = 199`. Run it headless (Playwright) rather than in the Browser pane:
+`tests.html`, `EXPECTED = 202`. Run it headless (Playwright) rather than in the Browser pane:
 the pane throttles hidden timers and its focus heuristics turn the 705px keyboard-focus check
 red on untouched code.

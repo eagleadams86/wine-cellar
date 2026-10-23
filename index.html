@@ -269,7 +269,17 @@
      columns and the strapline then wraps inside its own narrow column on a phone
      instead of running on below. */
   header { position: sticky; top: 0; z-index: 20; background: var(--surface);
-           border-bottom: 1px solid var(--border); padding: 10px 0; margin-bottom: 20px; }
+           border-bottom: 1px solid var(--border); padding: 10px 0; margin-bottom: 20px;
+           /* Installed on an iPhone, the page runs UNDER the status bar
+              (black-translucent), so the bar clears the notch itself and its
+              own background fills the space — PAPTrack's line. */
+           padding-top: calc(10px + env(safe-area-inset-top)); }
+  /* The status bar's own band, painted in the header's colour and pinned. On a
+     phone the header is not sticky, so without this every scroll slid the page
+     under the clock and the battery (Charles, iPhone, 2026-10-23). Zero tall
+     everywhere there is no notch. */
+  body::before { content: ''; position: fixed; top: 0; left: 0; right: 0; z-index: 25;
+                 height: env(safe-area-inset-top); background: var(--surface); }
   /* A KEYBOARD FOCUS NEVER LANDS UNDER THE PINNED BAR (2026-09-14). The
      browser's own scroll to a focused control — Tab, and above all Shift+Tab
      back up the page — lines it up with the top of the WINDOW, which is where
@@ -1087,6 +1097,13 @@
            border: 1px solid var(--border-strong); border-radius: var(--radius);
            padding: var(--sp-7); max-width: 560px; width: calc(100% - var(--sp-8));
            max-height: calc(100vh - var(--sp-8)); overflow: auto; overscroll-behavior: contain; }
+  /* A tall window on an installed iPhone reached up under the status bar, its
+     heading behind the clock. A dialog is centred, so the room is taken from
+     BOTH ends by the larger inset — that is what keeps the top edge clear of
+     the notch. Zero wherever there is no notch. dvh, not vh: in Safari 100vh is
+     the screen with its toolbar hidden, so the window ran on behind it. */
+  dialog { max-height: calc(100dvh - var(--sp-8)
+             - 2 * max(env(safe-area-inset-top), env(safe-area-inset-bottom))); }
   dialog::backdrop { background: rgba(0, 0, 0, 0.55); }
   dialog:focus { outline: none; }
   /* A dialog heading is --fs-md — the same step as a card heading, by the role
@@ -1397,7 +1414,10 @@
    document, not something to click on the way in. */
 footer { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; }
 .footnotes { flex: 1 1 320px; min-width: 0; }
-.privacy { font-size: var(--fs-xs); color: var(--text-muted); margin: 28px 0 0; padding-left: 19px; }
+.privacy { font-size: var(--fs-xs); color: var(--text-muted); margin: 28px 0 0;
+           /* Both sides, so the lines sit in the same column as a card's text.
+              Left-only ran them to the right edge of the page (Charles, 2026-10-23). */
+           padding: 0 19px; }
 .privacy-links { margin-top: 6px; }
 .privacy-links a { color: var(--text-muted); }
 
@@ -3306,12 +3326,25 @@ function raisesKeyboard(el) {
     indexOf((el.type || '').toLowerCase()) !== -1;
 }
 
+/* Which controls OPEN something the moment they are focused, on a touch screen:
+   the keyboard's controls, plus a <select> and the date and time pickers. iOS 26
+   opens a focused select's menu at once (Charles, 2026-10-23: the Share and
+   Settings windows opened with their first dropdown already down). */
+function opensOnFocus(el) {
+  if (raisesKeyboard(el)) return true;
+  const tag = ((el && el.tagName) || '').toUpperCase();
+  if (tag === 'SELECT') return true;
+  return tag === 'INPUT' && ['date', 'time', 'datetime-local', 'month', 'week']
+    .indexOf((el.type || '').toLowerCase()) !== -1;
+}
+
 /* EVERY modal opens through here, never showModal() directly. showModal() runs
    the spec's focusing steps — the autofocus element, or failing that the first
    focusable one — so which dialogs raise a phone's keyboard is otherwise decided
    by which happen to open on a text box, and the keyboard then covers half the
-   dialog before it has been read. On a COARSE pointer focus goes to the dialog
-   itself instead.
+   dialog before it has been read — or a dropdown's menu covers it. On a COARSE
+   pointer, when what took the focus is one of opensOnFocus()'s, focus goes to
+   the dialog itself instead.
 
    Focus still goes INTO the dialog: that part is not optional, or a keyboard or
    screen-reader user is stranded outside a thing covering the page. Every dialog
@@ -3324,7 +3357,7 @@ function openModal(dlg) {
   if (!matchMedia('(pointer: coarse)').matches) return;
   const el = document.activeElement;
   if (!el || !dlg.contains(el)) return;
-  if (!raisesKeyboard(el)) return;
+  if (!opensOnFocus(el)) return;
   dlg.tabIndex = -1;
   dlg.focus();
 }
@@ -5518,7 +5551,7 @@ window.__wineTestHooks = {
   sameWine: sameWine, syncDecision: syncDecision, makePushGate: makePushGate,
   UPDATED_KEY: UPDATED_KEY, OPENED_COLUMNS: OPENED_COLUMNS,
   encodeShare: encodeShare, decodeShare: decodeShare, csvWines: csvWines, csvOpened: csvOpened, csvCell: csvCell,
-  raisesKeyboard: raisesKeyboard, esc: esc, todayISO: todayISO, fmtMoney: fmtMoney,
+  raisesKeyboard: raisesKeyboard, opensOnFocus: opensOnFocus, esc: esc, todayISO: todayISO, fmtMoney: fmtMoney,
   nextSort: nextSort, COLUMNS: COLUMNS, tableToRows: tableToRows, cellText: cellText,
   toCsv: toCsv, toTsv: toTsv, FORMULA_LEAD: FORMULA_LEAD, PLAIN_NUMBER: PLAIN_NUMBER,
   searchApp: searchApp, SEARCH_CAP: SEARCH_CAP,
