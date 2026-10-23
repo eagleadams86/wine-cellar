@@ -858,8 +858,8 @@ function define() {
       'https://accounts.google.com', 'https://firestore.googleapis.com',
       'https://identitytoolkit.googleapis.com', 'https://securetoken.googleapis.com',
       'https://www.googleapis.com', 'https://www.gstatic.com'],
-      'a third-party host here is a third-party host in every app on this origin');
-    ok(!/firebaseapp\.com|apis\.google\.com/.test(csp), 'and never the two GIS made unnecessary');
+      'a third-party host here is a third-party host in every app on this origin — '
+      + 'and an exact list, so firebaseapp.com or apis.google.com arriving fails it too');
   });
   t('manifest-src and worker-src are spelled out, not left to fall back', () => {
     const csp = (APP_SRC.match(/Content-Security-Policy" content="([^"]*)"/) || [])[1] || '';
