@@ -2582,6 +2582,7 @@ function define() {
         ok(/4 wines/.test(D.getElementById('checkIntro').textContent) && /\$0\.56/.test(D.getElementById('checkIntro').textContent),
            'it says how many and what it will cost before spending anything', D.getElementById('checkIntro').textContent);
         eq(asked.length, 0, 'and opening the window looks nothing up');
+        ok(D.getElementById('checkSave').hidden, 'with nothing ticked yet, there is no Save to press');
         D.getElementById('checkStart').click();
         for (let i = 0; i < 50 && !/checked/.test(D.getElementById('checkNote').textContent); i++) await tick();
         eq(asked.slice().sort(), ['Alpha Pinot', 'Bravo Bianco', 'Charlie Cabernet', 'Delta Blanc'], 'every bottled wine, once');
@@ -2590,6 +2591,7 @@ function define() {
             box('fx-hold|value').checked], [true, true, false, false], 'ticks start where the rule says');
         ok(!D.querySelector('#checkList [data-tick^="fx-ready|"]'), 'nothing offered for a wine Claude could not find');
         ok(/matches what you have/.test(D.querySelector('#checkList [data-check="fx-past"]').textContent), 'a matching wine says so');
+        ok(!D.getElementById('checkSave').hidden, 'Save appears once something is ticked');
         box('fx-hold|value').click();
         box('fx-empty|grape').click();   /* untick one */
         D.getElementById('checkSave').click();

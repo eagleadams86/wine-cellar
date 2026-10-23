@@ -1950,7 +1950,7 @@ html[data-booting] footer { visibility: hidden; }
     <button type="button" id="checkStart"><span aria-hidden="true">✦</span> Start Checking</button>
     <span class="spacer"></span>
     <button type="button" id="checkCancel">Cancel</button>
-    <button type="button" class="primary" id="checkSave" disabled>Save Ticked Changes</button>
+    <button type="button" class="primary" id="checkSave" hidden>Save Ticked Changes</button>
   </div>
 </dialog>
 
@@ -4814,7 +4814,9 @@ function checkButtons() {
     const r = checkAnswer(w);
     return r && lookupDiffs(w, r).some((d) => checkTicked(w.id, d));
   });
-  $('checkSave').disabled = !!checkCtl || !ticked;
+  /* Hidden, not just disabled, until there is something ticked to save —
+     Charles, 2026-10-23: a Save with nothing behind it reads as a step to take. */
+  $('checkSave').hidden = !!checkCtl || !ticked;
 }
 /* One wine's panel. Everything Claude sent is text and escaped; a source is
    a link only because readLookup() proved it an http(s) address. */

@@ -77,7 +77,7 @@ left (finished wines are skipped), three at a time.
   says differently. A box that is **empty** starts ticked; anything **you entered** starts
   unticked, so nothing of yours is replaced unless you tick it. Colour is never pre-ticked. A wine
   Claude could not find offers nothing, and one that already matches says so.
-- **Save Ticked Changes** saves it all at once, so one **Undo** takes the whole check back. Each
+- **Save Ticked Changes** appears once something is ticked, and saves it all at once, so one **Undo** takes the whole check back. Each
   changed wine's "Looked up…" note line is replaced with today's, not stacked.
 - **Closing the window stops the lookups but keeps the answers** for as long as the page is open,
   so reopening it carries on from where it was — you never pay twice for the same wine. A wine
