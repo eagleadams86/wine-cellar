@@ -14,6 +14,12 @@ cellar on your other devices.
   and *holding*; a **Drink Next** list of what to open first and where each bottle is; the full cellar table (sortable,
   filterable by status, with Copy and CSV); and a chart of how many bottles are inside their
   drinking window in each of the coming years.
+- **Paid per bottle** in the wine window records what one bottle actually cost (to the cent).
+  Once any wine has one, the Cellar table grows a **Paid** column that says, under each price,
+  whether you paid **under value**, **in range** or **over value** against the Value Each range —
+  in words, never colour. Drink Next shows it in the hover bubble. It goes into the CSV, a pasted
+  list can carry a **Paid** (or Price Paid / Cost) column, and a share link carries it only if you
+  tick **What you paid** in the Share window.
 - **Enter saves** the wine window, Opened a Bottle, Paste a List and Check All Wines — anywhere
   but a text area (Notes, the pasted list), where Enter is a new line. On a focused button, Enter
   presses that button.

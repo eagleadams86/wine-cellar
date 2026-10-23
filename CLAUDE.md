@@ -86,6 +86,12 @@ the family doesn't.
   button). A window that gains a save button goes in the map; Settings (saves as you go) and
   Delete All (never one key away) stay out on purpose. Skipped: textarea, a focused
   button/link (it presses itself), the key `<form>`, IME composition, a hidden/disabled save.
+- **`paid`** (SCHEMA 3 / SHARE_PAYLOAD_V 3, 2026-10-23): one bottle's real cost, `cleanMoney`,
+  nullable, cents kept (`fmtPaid`). `dealOf()` sets it against the value range (ends inclusive)
+  as words — under value / in range / over value — never a colour (red-green colourblind). The
+  Paid column HIDES while no wine has a price paid, so column counts and `shown` keys come from
+  the rendered `cols`, not `COLUMNS`. Shares only with `sharePaid` ticked (off by default).
+  The estimate box was kept on purpose: a deal against a guessed range is shakier.
 - **`added` is a day, a bare year or ''** (SCHEMA 2 / SHARE_PAYLOAD_V 2, 2026-10-23): the last
   two only for "Already in the cellar", chosen in the wine window by leaving the date blank or
   ticking Just the year (`dressAdded()`). `cleanAdded()` is the boundary — an ABSENT field is
@@ -137,6 +143,6 @@ commented copy in the repo.
 
 ## Tests
 
-`tests.html`, `EXPECTED = 211`. Run it headless (Playwright) rather than in the Browser pane:
+`tests.html`, `EXPECTED = 217`. Run it headless (Playwright) rather than in the Browser pane:
 the pane throttles hidden timers and its focus heuristics turn the 705px keyboard-focus check
 red on untouched code.

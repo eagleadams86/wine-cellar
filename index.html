@@ -1105,8 +1105,11 @@
   .field > label { display: block; font-size: var(--fs-xs); color: var(--text-secondary);
                    font-weight: var(--fw-semibold); margin-bottom: 4px; }
   .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-5); }
+  .grid3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--sp-5); }
+  /* The deal under a price paid: a quiet second line, in words. */
+  .deal { display: block; font-size: var(--fs-xs); color: var(--text-muted); }
   @media (max-width: 560px) {
-    .grid2 { grid-template-columns: 1fr; }
+    .grid2, .grid3 { grid-template-columns: 1fr; }
     .wrap, .headbar { padding-left: var(--sp-5); padding-right: var(--sp-5); }
     /* A header that STAYS on screen eats a real share of a phone on the one
        view you scroll most. It is one flick back up, which is a better trade
@@ -1844,7 +1847,11 @@ html[data-booting] footer { visibility: hidden; }
       <input type="number" id="f_to" min="1900" max="2150" step="1" inputmode="numeric">
     </div>
   </div>
-  <div class="grid2">
+  <div class="grid3">
+    <div class="field">
+      <label for="f_paid">Paid per bottle ($)</label>
+      <input type="number" id="f_paid" min="0" step="0.01" inputmode="decimal">
+    </div>
     <div class="field">
       <label for="f_source">Came from</label>
       <select id="f_source">
@@ -2116,11 +2123,13 @@ html[data-booting] footer { visibility: hidden; }
     <legend>What to Include</legend>
     <label class="checkline"><input type="checkbox" id="shareNotes">
       <span>Notes and where each wine is kept</span></label>
+    <label class="checkline"><input type="checkbox" id="sharePaid">
+      <span>What you paid for each wine</span></label>
     <label class="checkline"><input type="checkbox" id="shareOpened">
       <span>The list of bottles opened, with ratings</span></label>
     <p class="hint" style="margin:var(--sp-5) 0 0">Wines, bottles, values and windows ride
-      either way: they are what the link exists to show. Notes and locations are yours, which is
-      why they stay behind unless you tick the box.</p>
+      either way: they are what the link exists to show. Notes, locations and what you paid are
+      yours, which is why they stay behind unless you tick the box.</p>
   </fieldset>
   </div>
 
@@ -2225,8 +2234,9 @@ const TABS        = ['cellar', 'opened'];
 
    BUMP THIS AND THE ALLOWLIST TOGETHER whenever you add a stored field — or
    widen what one may hold. 2 (2026-10-23): `added` may be '' or a bare year
-   for a wine already in the cellar; version-1 code turned both into today. */
-const SCHEMA = 2;
+   for a wine already in the cellar; version-1 code turned both into today.
+   3 (2026-10-23): `paid`, what one bottle actually cost. */
+const SCHEMA = 3;
 
 /* ── Ids from outside are not trusted ──────────────────────────────────────
    Ids reach `data-id` attributes and <option value>s in a dozen places, so an
@@ -2386,6 +2396,8 @@ function normalizeState(raw) {
         /* null when there is no range — "the same as low" — never undefined. */
         valueHigh: high == null || high === low ? null : high,
         valueEst: it.valueEst === true,
+        /* What ONE bottle actually cost, to set against the value range. */
+        paid: cleanMoney(it.paid),
         drinkFrom: from,
         drinkTo: to,
         location: cleanLine(it.location, 40),
@@ -2647,6 +2659,17 @@ function fmtWindow(w) {
   if (w.drinkTo != null) return 'by ' + w.drinkTo;
   return '—';
 }
+/* What you paid, to the cent when it had cents — a $18.99 bottle is not $19. */
+const fmtPaid = (n) => (n == null ? '—' : Number.isInteger(n) ? fmtMoney(n) : '$' + Number(n).toFixed(2));
+/* Where what you paid sits against the value range (Charles, 2026-10-23: "to
+   see if I got a good deal"). Nothing to say without both. Words only, never a
+   colour: the reader cannot tell red from green. */
+function dealOf(w) {
+  if (w.paid == null || w.valueLow == null) return '';
+  const hi = w.valueHigh == null ? w.valueLow : w.valueHigh;
+  return w.paid < w.valueLow ? 'under' : w.paid > hi ? 'over' : 'in';
+}
+const DEAL_WORDS = { under: 'under value', in: 'in range', over: 'over value' };
 function fmtValue(w) {
   if (w.valueLow == null) return '—';
   return fmtRange(w.valueLow, w.valueHigh) + (w.valueEst ? ' est.' : '');
@@ -2866,6 +2889,7 @@ function wineFacts(w, shown) {
     off('region') && w.region ? 'Region: ' + w.region : '',
     off('grape') && w.grape ? 'Grape: ' + w.grape : '',
     off('value') && w.valueLow != null ? 'Value each: ' + fmtValue(w) : '',
+    off('paid') && w.paid != null ? 'Paid: ' + fmtPaid(w.paid) + (dealOf(w) ? ' (' + DEAL_WORDS[dealOf(w)] + ')' : '') : '',
     off('location') && w.location ? 'Where: ' + w.location : '',
     COLOR_LABEL[w.color] ? 'Colour: ' + COLOR_LABEL[w.color] : '',
     SOURCE_WORDS[w.source] ? 'Came from: ' + SOURCE_WORDS[w.source] : '',
@@ -2999,6 +3023,7 @@ const COLUMNS = [
   { key: 'grape',    label: 'Grape',      desc: false },
   { key: 'qty',      label: 'Bottles',    desc: true, num: true },
   { key: 'value',    label: 'Value each', desc: true, num: true },
+  { key: 'paid',     label: 'Paid',       desc: true, num: true },
   { key: 'window',   label: 'Window',     desc: false },
   { key: 'status',   label: 'Status',     desc: false },
   { key: 'location', label: 'Where',      desc: false },
@@ -3021,6 +3046,7 @@ function compareWines(a, b, key, sign, yr, soon) {
   const blankLast = (x, y2, f) => (x == null && y2 == null) ? 0 : x == null ? 1 : y2 == null ? -1 : f(x, y2) * sign;
   if (key === 'qty') return (a.qty - b.qty) * sign;
   if (key === 'value') return blankLast(a.valueLow, b.valueLow, (x, z) => x - z);
+  if (key === 'paid') return blankLast(a.paid, b.paid, (x, z) => x - z);
   if (key === 'window') return blankLast(a.drinkTo != null ? a.drinkTo : a.drinkFrom,
     b.drinkTo != null ? b.drinkTo : b.drinkFrom, (x, z) => x - z);
   if (key === 'status') return (STATUS[statusOf(a, yr, soon)].rank - STATUS[statusOf(b, yr, soon)].rank) * sign;
@@ -3083,14 +3109,19 @@ function renderList() {
     wrap.innerHTML = '<p class="empty">No wine matches that.</p>';
     return;
   }
-  const head = '<thead><tr>' + sortHead(COLUMNS, sortKey, sortDir)
+  /* Paid shows only once some wine has a price paid — a column of dashes is
+     noise for a cellar that never records one, and a share link carries it
+     only when asked to. */
+  const cols = state.wines.some((w) => w.paid != null) ? COLUMNS : COLUMNS.filter((c) => c.key !== 'paid');
+  const shown = cols.map((c) => c.key), hasPaid = shown.indexOf('paid') !== -1;
+  const head = '<thead><tr>' + sortHead(cols, sortKey, sortDir)
     + (viewOnly ? '' : '<th class="no-print"><span class="sr-only">Actions</span></th>')
     + '</tr></thead>';
   wrap.innerHTML = '<table id="cellarTable" class="cards">' + head + '<tbody>'
     + v.rows.map((w) => {
       const st = statusOf(w, v.yr, v.soon);
       return '<tr' + (viewOnly ? '' : ' class="rowlink" data-open="' + esc(w.id) + '"')
-        + (w.qty ? '' : ' data-finished') + wineTip(w, COLUMNS.map((c) => c.key)) + '>'
+        + (w.qty ? '' : ' data-finished') + wineTip(w, shown) + '>'
         + '<th scope="row">' + wineNameCell(w) + '</th>'
         /* data-label is what a phone shows beside each value once the row
            has become a card — the column headings are not on screen there. */
@@ -3098,6 +3129,8 @@ function renderList() {
         + '<td data-label="Grape">' + esc(w.grape) + '</td>'
         + '<td class="num" data-label="Bottles">' + esc(w.qty) + '</td>'
         + '<td class="num nowrap" data-label="Value">' + esc(fmtValue(w)) + '</td>'
+        + (hasPaid ? '<td class="num nowrap" data-label="Paid">' + esc(fmtPaid(w.paid))
+          + (dealOf(w) ? ' <span class="deal">' + esc(DEAL_WORDS[dealOf(w)]) + '</span>' : '') + '</td>' : '')
         + '<td class="nowrap" data-label="Window">' + esc(fmtWindow(w)) + '</td>'
         + '<td data-label="Status">' + (w.qty ? pillFor(st) : '<span class="pill">Finished</span>') + '</td>'
         + '<td data-label="Where">' + esc(w.location) + '</td>'
@@ -3754,8 +3787,8 @@ wireScrollRow(document.querySelector('.tabs'), document.querySelector('.tabrow >
    browser with no CompressionStream. Reading it is what lets the format change
    later without every old link breaking. */
 const SHARE_FORMAT = 1;
-/* 2: `added` may be blank or a bare year (see SCHEMA). */
-const SHARE_PAYLOAD_V = 2;
+/* 2: `added` may be blank or a bare year (see SCHEMA). 3: `paid`, when ticked. */
+const SHARE_PAYLOAD_V = 3;
 const SHARE_WARN_AT = 8000;
 
 const b64urlEncode = (bytes) => {
@@ -3823,6 +3856,7 @@ function buildSharePayload(st, opts) {
                   valueEst: w.valueEst, drinkFrom: w.drinkFrom, drinkTo: w.drinkTo,
                   source: w.source, added: w.added };
       if (notes) { r.notes = w.notes; r.location = w.location; }
+      if (o.paid === true) r.paid = w.paid;
       return r;
     }),
   };
@@ -3925,7 +3959,9 @@ function splitCells(line, mode) {
 const PASTE_HEADERS = [
   ['wine', /^(wine|name)\b/i], ['vintage', /^(vintage|year)\b/i],
   ['region', /^(region|appellation|origin)\b/i], ['grape', /^(grapes?|variet|blend)/i],
-  ['qty', /^(bottles?|qty|quantity|count)\b/i], ['value', /^(approx\.?\s*)?(value|price)/i],
+  /* Paid before value, so "Price paid" is what you paid, not a value. */
+  ['qty', /^(bottles?|qty|quantity|count)\b/i], ['paid', /^(paid|price\s*paid|cost)\b/i],
+  ['value', /^(approx\.?\s*)?(value|price)/i],
   ['window', /^(drink(ing)?\s*)?window|^drink/i], ['location', /^(where|location|place)\b/i],
   ['color', /^(colou?r|type|style)\b/i], ['notes', /^notes?\b/i],
 ];
@@ -4022,6 +4058,7 @@ function parseWineList(text, yr) {
     const grape = cleanLine(at('grape'), 60);
     rows.push({ vintage: cleanYear(vintage), name: name, qty: Math.min(999, qty),
                 valueLow: cleanMoney(val.low), valueHigh: cleanMoney(val.high), valueEst: val.est,
+                paid: cleanMoney((/\d[\d,]*(?:\.\d+)?/.exec(at('paid')) || [''])[0].replace(/,/g, '')),
                 drinkFrom: cleanYear(win.from), drinkTo: cleanYear(win.to),
                 region: cleanLine(at('region'), 60), grape: grape,
                 color: guessColor(at('color'), grape, name), colorKnown: !!at('color'),
@@ -4269,7 +4306,7 @@ function lookupNoteLine(r, today) {
    THE SAMPLE DATA IS THE DEMO, and a feature is not finished until it reaches
    it. Every wine is invented and named for nothing real, and between them they
    reach every status, an estimate, a wine with no value or window, a finished
-   wine and the opened log. Years count from THIS year, so the demo never goes
+   wine, a price paid under, inside and over its value, and the opened log. Years count from THIS year, so the demo never goes
    stale.
 
    It is ADDITIVE and destroys nothing — stable `demo-` ids are what make that
@@ -4283,18 +4320,18 @@ function sampleData() {
     return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
   };
   const w = (o) => Object.assign({ color: 'red', region: '', grape: '', qty: 1, valueLow: null,
-    valueHigh: null, valueEst: false, drinkFrom: null, drinkTo: null, location: '', source: 'cellar',
+    valueHigh: null, valueEst: false, paid: null, drinkFrom: null, drinkTo: null, location: '', source: 'cellar',
     added: back(200), notes: '' }, o);
   return {
     wines: [
       w({ id: 'demo-soon', vintage: Y - 6, name: 'Invented Hills Old Vine Zinfandel', region: 'Lodi',
-          grape: 'Zinfandel', qty: 2, valueLow: 28, valueHigh: 32, drinkFrom: Y - 3, drinkTo: Y,
+          grape: 'Zinfandel', qty: 2, valueLow: 28, valueHigh: 32, paid: 36, drinkFrom: Y - 3, drinkTo: Y,
           location: 'Rack A', notes: 'Its window closes this year — the one to open first.' }),
       w({ id: 'demo-ready', vintage: Y - 3, name: 'Example Ridge Pinot Noir', region: 'Sonoma Coast',
-          grape: 'Pinot Noir', qty: 3, valueLow: 35, valueHigh: 45, valueEst: true,
+          grape: 'Pinot Noir', qty: 3, valueLow: 35, valueHigh: 45, valueEst: true, paid: 39.99,
           drinkFrom: Y - 1, drinkTo: Y + 5, location: 'Rack A', source: 'wineaccess' }),
       w({ id: 'demo-hold', vintage: Y - 2, name: 'Sample Estate Cabernet Sauvignon', region: 'Napa Valley',
-          grape: 'Cabernet Sauvignon', qty: 6, valueLow: 60, valueHigh: 75, drinkFrom: Y + 3,
+          grape: 'Cabernet Sauvignon', qty: 6, valueLow: 60, valueHigh: 75, paid: 52, drinkFrom: Y + 3,
           drinkTo: Y + 14, location: 'Rack B', notes: 'Bought by the case to open one a year.' }),
       w({ id: 'demo-past', vintage: Y - 9, name: 'Placeholder Bianco', color: 'white', region: 'Friuli',
           grape: 'Friulano', qty: 1, valueLow: 18, drinkFrom: Y - 7, drinkTo: Y - 2,
@@ -4350,6 +4387,7 @@ function openWine(id) {
   $('f_low').value = it && it.valueLow != null ? it.valueLow : '';
   $('f_high').value = it && it.valueHigh != null ? it.valueHigh : '';
   $('f_est').checked = !!(it && it.valueEst);
+  $('f_paid').value = it && it.paid != null ? it.paid : '';
   $('f_from').value = it && it.drinkFrom != null ? it.drinkFrom : '';
   $('f_to').value = it && it.drinkTo != null ? it.drinkTo : '';
   $('f_source').value = it ? it.source : 'wineaccess';
@@ -4413,6 +4451,8 @@ $('wineSave').addEventListener('click', () => {
   if (lowRaw !== '' && low == null) return bad('Enter the value as a number of dollars.', 'f_low');
   if (highRaw !== '' && high == null) return bad('Enter the value as a number of dollars.', 'f_high');
   if (low != null && high != null && high < low) return bad('The high value is below the low one.', 'f_high');
+  const paidRaw = $('f_paid').value, paid = cleanMoney(paidRaw);
+  if (paidRaw !== '' && paid == null) return bad('Enter what you paid as a number of dollars.', 'f_paid');
   const fromRaw = $('f_from').value, toRaw = $('f_to').value;
   const from = cleanYear(fromRaw), to = cleanYear(toRaw);
   if (fromRaw !== '' && from == null) return bad('Enter the first year to drink it, like 2027.', 'f_from');
@@ -4437,7 +4477,7 @@ $('wineSave').addEventListener('click', () => {
     region: cleanLine($('f_region').value, 60), grape: cleanLine($('f_grape').value, 60),
     qty: qty, location: cleanLine($('f_location').value, 40),
     valueLow: low != null ? low : high, valueHigh: low != null ? high : null,
-    valueEst: $('f_est').checked, drinkFrom: from, drinkTo: to,
+    valueEst: $('f_est').checked, paid: paid, drinkFrom: from, drinkTo: to,
     source: $('f_source').value, added: added, notes: cleanNote($('f_notes').value, 300),
   };
   if (editingId) {
@@ -4765,12 +4805,14 @@ $('pasteAdd').addEventListener('click', () => {
       if (had.drinkFrom == null && had.drinkTo == null) { had.drinkFrom = r.drinkFrom; had.drinkTo = r.drinkTo; }
       if (!had.region) had.region = r.region;
       if (!had.grape) had.grape = r.grape;
+      if (had.paid == null && r.paid != null) had.paid = r.paid;
       topped++;
       return;
     }
     /* A Where column in the list beats the box in the window: it is per wine. */
     state.wines.push({ id: uid(), vintage: r.vintage, name: r.name, color: r.color, region: r.region,
       grape: r.grape, qty: r.qty, valueLow: r.valueLow, valueHigh: r.valueHigh, valueEst: r.valueEst,
+      paid: r.paid,
       drinkFrom: r.drinkFrom, drinkTo: r.drinkTo, location: r.location || location, source: source,
       added: todayISO(), notes: r.notes });
     added++;
@@ -5261,11 +5303,11 @@ $('exportBtn').addEventListener('click', downloadBackup);
 function csvWines(st) {
   const yr = thisYear();
   const rows = [['Vintage', 'Wine', 'Colour', 'Region', 'Grape', 'Bottles', 'Value low', 'Value high',
-                 'Estimate', 'Drink from', 'Drink by', 'Status', 'Where', 'Came from', 'Added', 'Notes']]
+                 'Estimate', 'Paid', 'Drink from', 'Drink by', 'Status', 'Where', 'Came from', 'Added', 'Notes']]
     .concat(st.wines.slice().sort((a, b) => wineLabel(a).localeCompare(wineLabel(b))).map((w) => [
       w.vintage == null ? 'NV' : w.vintage, w.name, COLOR_LABEL[w.color], w.region, w.grape, w.qty,
       w.valueLow == null ? '' : w.valueLow, w.valueHigh == null ? (w.valueLow == null ? '' : w.valueLow) : w.valueHigh,
-      w.valueEst ? 'yes' : '', w.drinkFrom == null ? '' : w.drinkFrom, w.drinkTo == null ? '' : w.drinkTo,
+      w.valueEst ? 'yes' : '', w.paid == null ? '' : w.paid, w.drinkFrom == null ? '' : w.drinkFrom, w.drinkTo == null ? '' : w.drinkTo,
       w.qty ? STATUS[statusOf(w, yr, st.settings.soonYears)].label : 'Finished', w.location,
       SOURCE_LABEL[w.source], w.added, w.notes.replace(/\n/g, ' ')]));
   return toCsv(rows);
@@ -5365,7 +5407,7 @@ async function refreshShareLink() {
                           scope.textContent = ''; warn.textContent = ''; setBusy(true); };
 
   const opts = { keep: $('shareKeep').value, notes: $('shareNotes').checked,
-                 opened: $('shareOpened').checked };
+                 paid: $('sharePaid').checked, opened: $('shareOpened').checked };
   const payload = buildSharePayload(state, opts);
   if (!payload.wines.length && !(payload.opened && payload.opened.length))
     return stop('No wine fits that choice.');
@@ -5384,6 +5426,7 @@ async function refreshShareLink() {
     scope.textContent = [
       opts.keep === 'ready' ? 'Only the wines ready to drink now.' : '',
       opts.notes ? '' : 'Notes and locations are left behind.',
+      opts.paid ? '' : 'What you paid is left behind.',
     ].filter(Boolean).join(' ');
     warn.textContent = url.length > SHARE_WARN_AT
       ? 'Long enough that some chat apps and mail clients will cut it. Send it as a link '
@@ -5399,7 +5442,7 @@ $('shareBtn').addEventListener('click', () => {
   openModal($('shareDialog'));
   refreshShareLink();
 });
-['shareKeep', 'shareNotes', 'shareOpened'].forEach((id) =>
+['shareKeep', 'shareNotes', 'sharePaid', 'shareOpened'].forEach((id) =>
   $(id).addEventListener('change', refreshShareLink));
 $('shareCopyBtn').addEventListener('click', async () => {
   const v = $('shareLink').value;
@@ -6076,7 +6119,7 @@ window.__wineTestHooks = {
   pushSnapshot: pushSnapshot, undoBankable: undoBankable,
   buildLookupRequest: buildLookupRequest, lookupWine: lookupWine, readLookup: readLookup,
   lookupErrorMessage: lookupErrorMessage, lookupNoteLine: lookupNoteLine,
-  wineFacts: wineFacts, fmtDate: fmtDate, cleanAdded: cleanAdded, lookupDiffs: lookupDiffs, applyLookupTo: applyLookupTo, checkWines: checkWines, LOOKUP_TOOL: LOOKUP_TOOL,
+  wineFacts: wineFacts, dealOf: dealOf, fmtPaid: fmtPaid, fmtDate: fmtDate, cleanAdded: cleanAdded, lookupDiffs: lookupDiffs, applyLookupTo: applyLookupTo, checkWines: checkWines, LOOKUP_TOOL: LOOKUP_TOOL,
   LOOKUP_KEY_STORE: LOOKUP_KEY_STORE, SHARE_MAX_BYTES: SHARE_MAX_BYTES, b64urlEncode: b64urlEncode,
 };
 </script>

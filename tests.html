@@ -51,7 +51,7 @@
    go MISSING look exactly like tests that pass — a suite that quietly shrank to
    three checks still says "all 3 tests pass". RAISE THIS when you add tests, and
    lower it only when you retire one deliberately. */
-const EXPECTED = 211;
+const EXPECTED = 217;
 
 /* ── It refuses to run anywhere but localhost, and that is load-bearing ──────
    GitHub Pages publishes this page BESIDE the app, where the iframe below would
@@ -894,7 +894,7 @@ function define() {
   });
   t('the allowlist strips a field nobody declared', () => {
     eq(Object.keys(one({ secret: 'kept?' })).sort(),
-       ['added', 'color', 'drinkFrom', 'drinkTo', 'grape', 'id', 'location', 'name', 'notes', 'qty',
+       ['added', 'color', 'drinkFrom', 'drinkTo', 'grape', 'id', 'location', 'name', 'notes', 'paid', 'qty',
         'region', 'source', 'valueEst', 'valueHigh', 'valueLow', 'vintage'],
        'a new stored field must be added to normalizeState AND bump SCHEMA');
     const o = H.normalizeState({ opened: [{ id: 'o', secret: 1 }] }).opened[0];
@@ -1893,7 +1893,8 @@ function define() {
   });
   t('a row’s buttons stay out of the export, and decoration is stripped', () => {
     const rows = H.tableToRows(W.document.getElementById('cellarTable'));
-    eq(rows[0].length, H.COLUMNS.length, 'the actions column is not data, so it is not exported');
+    /* Paid hides while no wine has a price paid — the fixture has none. */
+    eq(rows[0].length, H.COLUMNS.filter((c) => c.key !== 'paid').length, 'the actions column is not data, so it is not exported');
     ok(!rows.some((r) => r.some((c) => /×|Opened One/.test(c))), 'nor is any button’s text');
     ok(rows[1][0].length > 3, 'while the name is kept');
   });
@@ -2193,7 +2194,8 @@ function define() {
   });
   t('the cards are layout only: Copy and CSV still read the full table', () => {
     const rows = H.tableToRows(W.document.getElementById('cellarTable'));
-    eq(rows[0].length, H.COLUMNS.length, 'every column, and no label text from the cards in any cell');
+    /* Paid hides while no wine has a price paid — the fixture has none. */
+    eq(rows[0].length, H.COLUMNS.filter((c) => c.key !== 'paid').length, 'every column, and no label text from the cards in any cell');
     ok(!rows.slice(1).some((r) => r.some((c) => /^(Region|Grape|Window)\s/.test(c))), 'a ::before label never reaches an export');
   });
 
@@ -2435,6 +2437,67 @@ function define() {
       ok(D.getElementById('pasteDialog').open, 'with nothing pasted, Add is disabled and Enter does nothing');
       D.getElementById('pasteDialog').close();
     } finally { proto.setItem = realStore; H.__plant(FIXTURE); }
+  });
+
+  group('What you paid');
+  t('a price paid is kept to the cent, and anything else is no price', () => {
+    const one = (w) => H.normalizeState({ wines: [Object.assign({ id: 'a', name: 'x' }, w)] }).wines[0];
+    eq([one({ paid: 18.99 }).paid, one({ paid: '22' }).paid, one({ paid: -5 }).paid, one({ paid: 'cheap' }).paid,
+        one({}).paid], [18.99, 22, null, null, null]);
+    eq([H.fmtPaid(18.99), H.fmtPaid(22), H.fmtPaid(null)], ['$18.99', '$22', '—'], 'cents only when it had them');
+  });
+  t('the deal says where the price sits against the range, in words', () => {
+    const d = (paid, lo, hi) => H.dealOf({ paid: paid, valueLow: lo, valueHigh: hi });
+    eq([d(14, 15, 25), d(15, 15, 25), d(25, 15, 25), d(26, 15, 25), d(20, 20, null), d(19, 20, null)],
+       ['under', 'in', 'in', 'over', 'in', 'under'], 'the ends of the range are in it');
+    eq([d(null, 15, 25), d(18, null, null)], ['', ''], 'nothing to say without both');
+  });
+  t('the Paid column appears once a wine has a price paid, with its deal under it', () => {
+    const D = W.document;
+    H.__plant(FIXTURE);
+    const heads = () => [...D.querySelectorAll('#cellarTable thead th')].map((h) => h.textContent);
+    ok(!heads().some((h) => /^Paid/.test(h)), 'no price paid anywhere: no column of dashes');
+    H.__plant(Object.assign({}, FIXTURE, { wines: FIXTURE.wines.map((w) =>
+      Object.assign({}, w, { paid: w.id === 'fx-hold' ? 55 : w.id === 'fx-past' ? 50 : null })) }));
+    ok(heads().some((h) => /^Paid/.test(h)), 'one price paid: the column is there');
+    const cell = (id) => D.querySelector('#cellarTable tr[data-open="' + id + '"] td[data-label="Paid"]');
+    eq(H.cellText(cell('fx-hold')), '$55 under value', 'paid $55 for a $60–$75 wine');
+    eq(H.cellText(cell('fx-past')), '$50 over value', 'paid $50 for a $45 wine');
+    eq(H.cellText(cell('fx-ready')), '—', 'and a dash where nothing was recorded');
+    ok(!/Paid:/.test(D.querySelector('#cellarTable tr[data-open="fx-hold"]').dataset.tip),
+       'the Cellar tip does not repeat a column it shows');
+    const nextTip = D.querySelector('#nextTable tr[data-open="fx-past"]').dataset.tip;
+    ok(/Paid: \$50 \(over value\)/.test(nextTip), 'and Drink Next, which has no Paid column, carries it in its tip', nextTip);
+    H.__plant(FIXTURE);
+  });
+  t('the wine window saves what you paid, and names a price it cannot read', () => {
+    const D = W.document, proto = W.Storage.prototype, realStore = proto.setItem;
+    proto.setItem = function () {};
+    try {
+      H.__plant(FIXTURE);
+      W.openWine('fx-hold');
+      eq(D.getElementById('f_paid').value, '', 'nothing paid recorded yet');
+      D.getElementById('f_paid').value = '-3';
+      D.getElementById('wineSave').click();
+      ok(/what you paid/.test(D.getElementById('wineWarn').textContent), 'a price it cannot read is named');
+      D.getElementById('f_paid').value = '18.99';
+      D.getElementById('wineSave').click();
+      eq(H.__state().wines.find((w) => w.id === 'fx-hold').paid, 18.99, 'and a real one is saved, cents and all');
+    } finally { proto.setItem = realStore; D.getElementById('wineDialog').close(); H.__plant(FIXTURE); }
+  });
+  t('a share link carries what you paid only when its box is ticked', () => {
+    const st = H.normalizeState(Object.assign({}, FIXTURE, { wines: FIXTURE.wines.map((w) => Object.assign({}, w, { paid: 30 })) }));
+    ok(H.buildSharePayload(st, { keep: 'all' }).wines.every((w) => !('paid' in w)), 'left behind by default');
+    ok(H.buildSharePayload(st, { keep: 'all', paid: true }).wines.every((w) => w.paid === 30), 'carried when asked');
+    ok(!W.document.getElementById('sharePaid').checked, 'and the box starts unticked');
+  });
+  t('CSV writes what you paid, and a pasted Paid column reads back in', () => {
+    const st = H.normalizeState(Object.assign({}, FIXTURE, { wines: [Object.assign({}, FIXTURE.wines[0], { paid: 18.5 })] }));
+    const csv = H.csvWines(st).split('\r\n');
+    const hdr = csv[0].split(','), row = csv[1].split(',');
+    eq(row[hdr.indexOf('Paid')], '18.5');
+    const got = H.parseWineList('Wine,Price Paid,Value\n2019 Sample Hill Reserva,$18.99,$20–$25', 2026).rows[0];
+    eq([got.paid, got.valueLow, got.valueHigh], [18.99, 20, 25], '"Price paid" is what you paid, not the value');
   });
 
   group('Look Up with Claude');
