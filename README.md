@@ -18,6 +18,9 @@ cellar on your other devices.
   some, and the bubble shows them (Money Map's row tip). On a phone, tap the wine to read them
   in its window.
 - **Opened tab** — every bottle you have opened, with the date, your 1–5 rating and a note.
+  Press a line to change its date, rating or note; the bottle count is left alone.
+- **Folding cards** — Drink Next, Cellar and Drinking Windows Ahead fold up to their heading
+  (press the heading band, as in Money Map). Which ones you folded is remembered on this device.
 - **On a phone** every list — Drink Next, the Cellar, the Opened log and the paste preview —
   turns into a stack of cards: the wine and its status pill on top, two labelled fields to a
   line, and the row's buttons at the bottom. The column headings become a row of **Sort by**

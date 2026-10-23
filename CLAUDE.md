@@ -8,7 +8,7 @@ the family doesn't.
 ## Shape
 
 - **Dev port 8025** — in both `.claude/launch.json` and `~/.claude/launch.json`.
-- Storage keys `wine-state`, `wine-theme`, `wine-tab`, `wine-updated`, `wine-sync-live`,
+- Storage keys `wine-state`, `wine-theme`, `wine-tab`, `wine-folded`, `wine-updated`, `wine-sync-live`,
   `wine-sync-uid`; service-worker cache prefix `wine-shell-`.
 - State is `{ version, wines[], opened[], settings }`. `normalizeState()` is the allowlist:
   **a new stored field goes there and SCHEMA is bumped in the same commit**, or it is
@@ -95,6 +95,12 @@ the family doesn't.
   `#rowTip` wired once on `<main>`): `data-tip` on the `<tr>`, never a `title`; a dot after the
   name, behind a U+2060 word joiner that `cellText()` strips. Touch shows no tip on a row that
   opens the editor. A row without notes carries neither.
+- **Folding is device-local** (`wine-folded`, a list of `data-fold` names), not in `state` as
+  Money Map keeps it: it is screen layout, so it neither syncs nor rides in a share link, and
+  needs no SCHEMA bump. The full-screen chart button stays a child of `#chartCard` (it is
+  positioned against the card) and `maxiReady()` takes it away while the card is folded.
+- **An opened line is edited in the Opened One window** (`openBottleEdit`, `editingBottleId`):
+  date, rating and note only, never the count and never the label (the name as it was).
 - **The table's own order is drinking order** — past the window, drink soon, ready, hold,
   none; then the window that closes soonest. The Wine column sorts by name, then vintage.
 

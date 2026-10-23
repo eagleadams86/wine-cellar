@@ -471,6 +471,36 @@
   .card > h2 { margin: 0 0 var(--sp-5); font-size: var(--fs-md); font-weight: var(--fw-semibold);
                display: flex; align-items: center; flex-wrap: wrap; gap: var(--sp-3); }
   .card > h2 .spacer { flex: 1 1 auto; }
+
+  /* ── Folding a card up — Money Map's, from its wireBoxes() ────────────────
+     A card marked `data-fold` folds to its heading. The heading becomes a BAND
+     across the top of the card, so it looks like a control before it is
+     pressed, and the whole band is the hit area. The title alone sits in the
+     toggle button; the pill, Copy, CSV and the info dot stay outside it, since
+     a button inside a button is invalid and the inner one stops working.
+     Hover is the pack's accent pairing plus an underline — not a hue — and
+     the mark that says open or shut is the chevron's ANGLE. */
+  .card > h2.boxhead { margin: -18px -18px var(--sp-5); padding: 11px 18px;
+    background: var(--surface-alt); border-bottom: 1px solid var(--border);
+    border-radius: calc(var(--radius) - 1px) calc(var(--radius) - 1px) 0 0;
+    cursor: pointer; user-select: none; -webkit-user-select: none;
+    transition: background-color .12s ease; }
+  /* Folded, the band IS the card. */
+  .card.boxshut > h2.boxhead { margin-bottom: -18px; border-bottom: 0;
+    border-radius: calc(var(--radius) - 1px); }
+  .card.boxshut > .card-body { display: none; }
+  .box-toggle { flex: 0 1 auto; min-width: 0; min-height: 0; display: flex; align-items: baseline;
+    gap: 8px; margin: 0; padding: 0; border: 0; background: none; cursor: pointer;
+    font: inherit; color: inherit; text-align: left; }
+  .card > h2.boxhead:hover { background: var(--accent-bg); }
+  .card > h2.boxhead:hover .box-title { text-decoration: underline; }
+  .card > h2.boxhead:hover .box-title,
+  .card > h2.boxhead:hover .chev { color: var(--accent); }
+  .box-toggle:focus-visible { outline: 2px solid var(--focus-border);
+    outline-offset: 3px; border-radius: var(--radius-sm); }
+  .chev { flex: 0 0 auto; font-size: var(--fs-xs); line-height: 1; color: var(--text-secondary);
+    transform: rotate(90deg); transition: transform .15s ease; }
+  .card.boxshut .chev { transform: rotate(0deg); }
   .card.welcome { padding: 18px; }
   .lede { color: var(--text-secondary); margin: 0 0 var(--sp-5); }
   .hint { color: var(--text-secondary); font-size: var(--fs-xs); }
@@ -734,6 +764,10 @@
      button so a long chart name never runs under it. */
   #chartCard { position: relative; }
   #chartCard > h2 { padding-right: 34px; }
+  /* On the fold band the heading carries its own padding, so the button keeps
+     clear of the band's edge as well as the title. */
+  #chartCard > h2.boxhead { padding-right: 52px; }
+  #chartCard > .chart-max { top: 9px; }
   #chartMaxi { position: fixed; left: 0; right: 0; bottom: 0; top: var(--maxi-top, 0px);
                z-index: 15; background: var(--bg); padding: 20px; display: none; }
   #chartMaxi.open { display: flex; }
@@ -1591,7 +1625,7 @@ html[data-booting] footer { visibility: hidden; }
       <p class="warn-line" id="overviewWarn" role="status"></p>
     </div>
 
-    <div class="card" id="nextCard">
+    <div class="card" id="nextCard" data-fold="next">
       <h2>Drink Next
         <span class="spacer"></span>
         <span class="pill" id="nextCount"></span>
@@ -1600,7 +1634,7 @@ html[data-booting] footer { visibility: hidden; }
       <div id="nextList"></div>
     </div>
 
-    <div class="card">
+    <div class="card" id="cellarCard" data-fold="cellar">
       <h2>Cellar
         <span class="spacer"></span>
         <span class="pill" id="wineCount"></span>
@@ -1647,7 +1681,7 @@ html[data-booting] footer { visibility: hidden; }
       </div>
     </div>
 
-    <div class="card" id="chartCard">
+    <div class="card" id="chartCard" data-fold="chart">
       <h2>Drinking Windows Ahead
         <button class="tile-help" type="button" data-help="chart"
                 aria-label="How this chart is drawn">i</button>
@@ -1679,7 +1713,8 @@ html[data-booting] footer { visibility: hidden; }
         </span>
       </h2>
       <p class="chart-title">Every bottle you have marked as opened, newest first, with your rating
-        and a note. Press <strong>Opened One</strong> beside a wine on the Cellar tab to add to it.</p>
+        and a note. Press <strong>Opened One</strong> beside a wine on the Cellar tab to add to it, and
+        a line here to change its date, rating or note.</p>
       <div class="table-scroll" id="openedWrap"></div>
     </div>
   </div>
@@ -2139,6 +2174,11 @@ html[data-booting] footer { visibility: hidden; }
 const STORAGE_KEY = 'wine-state';
 const THEME_KEY   = 'wine-theme';
 const TAB_KEY     = 'wine-tab';
+/* Which cards are folded up, as a list of their `data-fold` names. Kept on the
+   device beside the remembered tab rather than in `state`: it is how this
+   screen is laid out, not a fact about the cellar, so it neither syncs nor
+   travels in a share link. Stored SHUT, so a card added later starts open. */
+const FOLD_KEY    = 'wine-folded';
 /* When this browser's copy last changed — what sync compares against the
    cloud's `updatedAt` to decide which copy is newer. */
 const UPDATED_KEY = 'wine-updated';
@@ -3028,9 +3068,13 @@ function renderOpened() {
     + sortHead(OPENED_COLUMNS, openedSortKey, openedSortDir)
     + (viewOnly ? '' : '<th class="no-print"><span class="sr-only">Actions</span></th>')
     + '</tr></thead><tbody>'
-    + rows.map((o) => '<tr>'
+    + rows.map((o) => '<tr' + (viewOnly ? '' : ' class="rowlink" data-open-bottle="' + esc(o.id) + '"') + '>'
       + '<td data-label="Opened">' + esc(fmtDate(o.date)) + '</td>'
-      + '<th scope="row">' + esc(o.label) + '</th>'
+      /* The row opens its editor; the button on the name is what makes that
+         reachable without a mouse — the Cellar table's own pattern. */
+      + '<th scope="row">' + (viewOnly ? esc(o.label)
+          : '<button type="button" class="rowbtn" data-edit-bottle="' + esc(o.id) + '">' + esc(o.label) + '</button>')
+      + '</th>'
       /* The stars are decoration over a number: aria-hidden, so a screen reader
          and the CSV both get "4/5" rather than a row of glyphs. */
       + '<td class="num" data-label="Rating">' + (o.rating ? '<span aria-hidden="true" class="stars">'
@@ -4445,11 +4489,36 @@ $('wineToPaste').addEventListener('click', () => { $('wineDialog').close(); open
 $('addBtn').addEventListener('click', () => openWine(null));
 
 /* ── Opened One ─────────────────────────────────────────────────────────────── */
+/* One window, two jobs: Opened One takes a bottle off the count and writes a
+   new line (`drinkingId`); pressing a line on the Opened tab changes that
+   line's date, rating and note (`editingBottleId`) and leaves the count alone.
+   The wine itself is not editable here — the line's label is the name as it
+   was when the bottle was opened, and the line may outlive the wine. */
 let drinkingId = null;
+let editingBottleId = null;
+function dressOpenDialog(editing) {
+  $('openTitle').textContent = editing ? 'Edit an Opened Bottle' : 'Opened a Bottle';
+  $('openSave').textContent = editing ? 'Save' : 'Take One Off the Count';
+}
+function openBottleEdit(id) {
+  const o = state.opened.find((x) => x.id === id);
+  if (!o) { render(); return; }
+  drinkingId = null;
+  editingBottleId = id;
+  dressOpenDialog(true);
+  $('openBody').textContent = o.label;
+  $('o_date').value = o.date;
+  $('o_rating').value = o.rating ? String(o.rating) : '';
+  $('o_note').value = o.note || '';
+  $('openWarn').textContent = '';
+  openModal($('openDialog'));
+}
 function openDrink(id) {
   const w = state.wines.find((x) => x.id === id);
   if (!w || !w.qty) { render(); return; }
   drinkingId = id;
+  editingBottleId = null;
+  dressOpenDialog(false);
   $('openBody').textContent = wineLabel(w) + ' — ' + plural(w.qty, 'bottle') + ' left. This takes '
     + 'one off the count and adds a line to the Opened tab.';
   $('o_date').value = todayISO();
@@ -4461,6 +4530,18 @@ function openDrink(id) {
 $('openSave').addEventListener('click', () => {
   const date = $('o_date').value;
   if (!DATE_RE.test(date)) { $('openWarn').textContent = 'Pick the day you opened it.'; $('o_date').focus(); return; }
+  if (editingBottleId) {
+    const o = state.opened.find((x) => x.id === editingBottleId);
+    $('openDialog').close();
+    if (!o) { render(); toast('That line has gone since the window opened, so nothing was changed.', 5000); return; }
+    const r = Number($('o_rating').value);
+    o.date = date;
+    o.rating = r >= 1 && r <= 5 ? r : null;
+    o.note = cleanLine($('o_note').value, 140);
+    save();
+    toast('Saved');
+    return;
+  }
   const w = state.wines.find((x) => x.id === drinkingId);
   if (!w || !w.qty) {
     $('openDialog').close();
@@ -4687,7 +4768,11 @@ $('openedWrap').addEventListener('click', (e) => {
     return;
   }
   const del = e.target.closest('[data-undrink]');
-  if (!del) return;
+  if (!del) {
+    const row = e.target.closest('[data-edit-bottle], [data-open-bottle]');
+    if (row) openBottleEdit(row.getAttribute('data-edit-bottle') || row.getAttribute('data-open-bottle'));
+    return;
+  }
   const o = state.opened.find((x) => x.id === del.getAttribute('data-undrink'));
   if (!o) { render(); return; }
   const w = o.wineId ? state.wines.find((x) => x.id === o.wineId) : null;
@@ -5245,7 +5330,8 @@ let maxiScrollY = 0;    /* where the page was, to put it back on the way out */
 /* Worth maximising only when there is really a chart under it — an empty state
    is a sentence, and a bigger box shows no more of it. */
 function maxiReady() {
-  return !!(lastChart && lastChart.years.length && $('chartWrap').querySelector('svg'));
+  return !!(lastChart && lastChart.years.length && $('chartWrap').querySelector('svg'))
+    && !$('chartCard').classList.contains('boxshut');
 }
 
 function dressMaxiBtn() {
@@ -5375,6 +5461,65 @@ const maxiHeaderWatch = ('ResizeObserver' in window) ? new ResizeObserver(() => 
   $('chartCard').appendChild(btn);
   dressMaxiBtn();
   btn.addEventListener('click', openMaxi);
+})();
+
+/* ── Folding a card up ──────────────────────────────────────────────────────
+   Money Map's wireBoxes(), for cards that are drawn once in the markup: the
+   heading's words go into a toggle button, everything under the heading goes
+   into a `.card-body` that folding hides. The full-screen button stays a child
+   of the CARD — it is positioned against it — and is taken away while the card
+   is folded, through maxiReady(). The chart under a folded card measures 0x0;
+   its ResizeObserver redraws it the moment the card opens. */
+function foldedList() {
+  try {
+    const v = JSON.parse(localStorage.getItem(FOLD_KEY) || '[]');
+    return Array.isArray(v) ? v.filter((x) => typeof x === 'string' && /^[a-z]{1,20}$/.test(x)) : [];
+  } catch (e) { return []; }
+}
+function setFold(card, shut) {
+  card.classList.toggle('boxshut', shut);
+  card.querySelector(':scope > h2 > .box-toggle').setAttribute('aria-expanded', shut ? 'false' : 'true');
+  const set = new Set(foldedList());
+  set[shut ? 'add' : 'delete'](card.dataset.fold);
+  try { localStorage.setItem(FOLD_KEY, JSON.stringify([...set].sort())); }
+  catch (e) { /* it just won't be remembered */ }
+  syncMaxiButton();
+}
+(() => {
+  const shut = foldedList();
+  document.querySelectorAll('.card[data-fold]').forEach((card) => {
+    const h2 = card.querySelector(':scope > h2');
+    /* The title is the heading's leading words; the pill, the export pair and
+       the info dot after them stay where they are. */
+    const title = document.createElement('span');
+    title.className = 'box-title';
+    while (h2.firstChild && h2.firstChild.nodeType === 3) title.appendChild(h2.firstChild);
+    title.textContent = title.textContent.trim();
+    const body = document.createElement('div');
+    body.className = 'card-body';
+    body.id = 'fold-' + card.dataset.fold;
+    [...card.childNodes].forEach((n) => {
+      if (n !== h2 && !(n.nodeType === 1 && n.classList.contains('chart-max'))) body.appendChild(n);
+    });
+    card.insertBefore(body, h2.nextSibling);
+    const toggle = document.createElement('button');
+    toggle.type = 'button';
+    toggle.className = 'box-toggle';
+    toggle.setAttribute('aria-controls', body.id);
+    toggle.innerHTML = '<span class="chev" aria-hidden="true">▶</span>';
+    toggle.appendChild(title);
+    h2.insertBefore(toggle, h2.firstChild);
+    h2.classList.add('boxhead');
+    const isShut = shut.indexOf(card.dataset.fold) !== -1;
+    card.classList.toggle('boxshut', isShut);
+    toggle.setAttribute('aria-expanded', isShut ? 'false' : 'true');
+    toggle.addEventListener('click', () => setFold(card, !card.classList.contains('boxshut')));
+    /* The whole band is the hit area; the buttons beside the title keep their own. */
+    h2.addEventListener('click', (e) => {
+      if (e.target.closest('button, a, input, select')) return;
+      setFold(card, !card.classList.contains('boxshut'));
+    });
+  });
 })();
 
 /* A click on the backdrop closes, the same as every dialog here — and with the

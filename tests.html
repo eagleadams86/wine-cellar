@@ -51,7 +51,7 @@
    go MISSING look exactly like tests that pass — a suite that quietly shrank to
    three checks still says "all 3 tests pass". RAISE THIS when you add tests, and
    lower it only when you retire one deliberately. */
-const EXPECTED = 202;
+const EXPECTED = 204;
 
 /* ── It refuses to run anywhere but localhost, and that is load-bearing ──────
    GitHub Pages publishes this page BESIDE the app, where the iframe below would
@@ -2235,6 +2235,49 @@ function define() {
       proto.setItem = realStore; W.confirm = realConfirm;
       H.__plant(FIXTURE);
     }
+  });
+  t('a line on the Opened tab opens its editor, and Save changes it without touching the count', () => {
+    const D = W.document, proto = W.Storage.prototype, realStore = proto.setItem;
+    proto.setItem = function () {};
+    try {
+      H.__plant(FIXTURE);
+      const qty = () => H.__state().wines.find((w) => w.id === 'fx-ready').qty;
+      const before = qty();
+      const row = D.querySelector('#openedTable [data-edit-bottle="fx-o1"]');
+      ok(row, 'the wine on each line is a button');
+      row.click();
+      ok(D.getElementById('openDialog').open, 'and pressing it opens the window');
+      eq(D.getElementById('openTitle').textContent, 'Edit an Opened Bottle', 'titled as an edit');
+      eq([D.getElementById('o_date').value, D.getElementById('o_rating').value, D.getElementById('o_note').value],
+         ['2026-02-17', '4', 'With dinner'], 'holding the line as it is');
+      D.getElementById('o_date').value = '2026-02-20';
+      D.getElementById('o_rating').value = '';
+      D.getElementById('o_note').value = '  Better the next day  ';
+      D.getElementById('openSave').click();
+      const o = H.__state().opened.find((x) => x.id === 'fx-o1');
+      eq([o.date, o.rating, o.note], ['2026-02-20', null, 'Better the next day'], 'the changes land, cleaned');
+      eq([H.__state().opened.length, qty()], [1, before], 'no new line, and no bottle taken off');
+      W.openDrink('fx-hold');
+      eq(D.getElementById('openTitle').textContent, 'Opened a Bottle', 'and Opened One is itself again afterwards');
+      D.getElementById('openCancel').click();
+    } finally {
+      proto.setItem = realStore;
+      H.__plant(FIXTURE);
+    }
+  });
+  t('Drink Next, Cellar and the chart fold to their heading', () => {
+    const D = W.document;
+    ['nextCard', 'cellarCard', 'chartCard'].forEach((id) => {
+      const card = D.getElementById(id);
+      const tog = card.querySelector(':scope > h2 > .box-toggle');
+      ok(tog && card.querySelector(':scope > .card-body'), id + ' has a toggle and a body');
+      const was = card.classList.contains('boxshut');
+      tog.click();
+      ok(card.classList.contains('boxshut') !== was, id + ' folds');
+      eq(tog.getAttribute('aria-expanded'), card.classList.contains('boxshut') ? 'false' : 'true', id + ' says so');
+      tog.click();
+    });
+    ok(D.getElementById('chartCard').querySelector(':scope > .chart-max'), 'the full-screen button stays on the card');
   });
   t('⌘Z belongs to the browser in a text box and in an open window', () => {
     const src = stripComments(APP_SRC);
