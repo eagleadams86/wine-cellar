@@ -49,6 +49,11 @@ the family doesn't.
   arrow repeating only on the release; cancelling it made ONE click on Bottles run 1 → 109 in
   three seconds, and a click on the down arrow ran it to 0 — Charles's actual bug, 2026-10-23.
   The starter and its siblings carry the same handler; check them before trusting a number box.
+  The FIRST fix (number boxes skip the cancel) was not enough: the flag saying "this focus came
+  from the mouse" was a bare boolean nothing reset, so a click on a table ROW armed the cancel,
+  the editor's first box took the focus, and the cancel ate the Bottles arrow's release. It is
+  now `pressedOn` (the element pressed, cleared on pointerup), and the cancel fires only on a
+  release over the box it was armed for.
 - **The table's own order is drinking order** — past the window, drink soon, ready, hold,
   none; then the window that closes soonest. The Wine column sorts by name, then vintage.
 
@@ -62,6 +67,6 @@ commented copy in the repo.
 
 ## Tests
 
-`tests.html`, `EXPECTED = 168`. Run it headless (Playwright) rather than in the Browser pane:
+`tests.html`, `EXPECTED = 170`. Run it headless (Playwright) rather than in the Browser pane:
 the pane throttles hidden timers and its focus heuristics turn the 705px keyboard-focus check
 red on untouched code.
