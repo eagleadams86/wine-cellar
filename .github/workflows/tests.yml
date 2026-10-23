@@ -7,9 +7,6 @@
 # open the page in a real browser, read the summary line. The job fails if the
 # summary goes red or the page throws.
 #
-# This repo matters more than most for that: every new app in the family is
-# copied from it, so a fault here is a fault the next app is born with.
-#
 name: tests
 
 on:

@@ -422,13 +422,15 @@
      Sprint Predictability's tablist, arrow keys included. The panel on screen is
      driven by `data-tab` on <html>, set by the boot script BEFORE first paint —
      a tab restored by the foot script would paint one panel and then jump. CSS
-     does the switching; setTab() only keeps aria-selected and the roving
-     tabindex in step. With no script at all the attribute is never set and both
+     does the switching; setTab() keeps aria-selected, the roving tabindex and
+     the panels' `hidden` in step. With no script at all the attribute is never
+     set and both
      panels show, which is the honest fallback.
 
      ONE ROW THAT SCROLLS SIDEWAYS AT EVERY WIDTH (2026-09-14, family-wide — see
-     `.headrow`). This app's two tabs never overflow, but an app built from it
-     will grow more, and a bar that wraps to several rows in a narrow window is
+     `.headrow`). This app's two tabs never overflow, but the family's shared
+     chrome is built for more, and a bar that wraps to several rows in a narrow
+     window is
      what the family retired. `.tabrow` holds the tablist and its arrows — the
      arrows cannot go INSIDE the tablist, where they would be read as tabs — and
      takes the bottom margin the tablist used to carry. The ring's room (4px
@@ -584,12 +586,13 @@
      the design lead for this chrome — and shared with Flow Metrics. It is what
      makes a row of figures read as a row of tiles rather than as boxes, and it
      is where a RAG app puts its status colour (`.tile.green/.yellow/.red` there
-     override `border-left-color`; there is no status here, so the edge stays
-     `--border`). Left-aligned with it, for the same reason: the edge is a spine,
+     override `border-left-color`; this app's status tiles colour it the same
+     way — see `.stat.ok/.warn/.hold`). Left-aligned with it, for the same
+     reason: the edge is a spine,
      and centred text has none. Golf Handicap keeps its figures centred with no
      edge and says why in its own file — the two sets of boxes down that page
-     read as one. This is the shell every new app starts from, so it carries the
-     lead's version. */
+     read as one. Inherited from the family starter, which carries the lead's
+     version. */
   .stat { display: grid; grid-row: span 2; grid-template-rows: subgrid;
           align-content: start; background: var(--surface-alt);
           border: 1px solid var(--border); border-left-width: 6px;
@@ -652,7 +655,6 @@
      A transient hover state, never an encoding: it says "this one", and it
      reuses the series colour rather than introducing one. */
   .bar.on { fill: var(--series-1); }
-  .bar.neg.on { fill: var(--series-2); }
   .chart-wrap { overflow-x: auto; position: relative; height: 300px; }
   /* Fills its box exactly, because renderChart draws the viewBox at the box's own
      measured size — so one unit is one pixel and nothing is scaled. */
@@ -669,14 +671,12 @@
      contrast the rule exists to protect. The hover went to full strength
      instead; see the note on `.bar.on`. */
   .bar { fill: color-mix(in srgb, var(--series-1) 55%, var(--surface)); stroke: var(--series-1); stroke-width: 2; }
-  .bar.neg { fill: color-mix(in srgb, var(--series-2) 55%, var(--surface)); stroke: var(--series-2); }
   .gridline { stroke: var(--chart-grid); stroke-width: 1; }
   .axisline { stroke: var(--chart-tick); stroke-width: 1; }
   .ticktext { fill: var(--chart-tick); font-size: var(--fs-xs); }
-  .avgline { stroke: var(--series-3); stroke-width: 2; stroke-dasharray: 7 4; fill: none; }
   /* ── One chart, filling the window ─────────────────────────────────────────
-     Flow Metrics' feature, ported here because this is the shell every new app
-     starts from. A chart card is the right size for reading a page and the wrong
+     Flow Metrics' feature, inherited from the family starter. A chart card is
+     the right size for reading a page and the wrong
      size for looking hard at one chart.
 
      It is NOT the Fullscreen API and NOT a modal <dialog>, and the same reason
@@ -760,10 +760,6 @@
   .legend .sw { width: 22px; height: 10px; border-radius: 2px; flex: none;
                 border: 2px solid var(--series-1);
                 background: color-mix(in srgb, var(--series-1) 55%, var(--surface)); }
-  .legend .sw.two { border-color: var(--series-2);
-                    background: color-mix(in srgb, var(--series-2) 55%, var(--surface)); }
-  .legend .sw.avg { height: 0; border: 0; border-top: 2px dashed var(--series-3);
-                    border-radius: 0; background: none; }
 
   /* ── Tables ─────────────────────────────────────────────────────────────────
      Rows are --fs-sm, headings --fs-xs with the label letter-spacing.
@@ -1118,13 +1114,13 @@
      PAPTrack's verbatim: 18px padding on the shared 560px, and a footer that
      pushes the safety net to the far left, keeps the two answers together on
      the right and, on a phone, gives the backup button a row of its own rather
-     than wrapping its own label in half beside them. A new app inherits it from
-     here, by way of the starter. */
+     than wrapping its own label in half beside them. Inherited from the family
+     starter. */
   /* ── Back Up & Restore: the family's window ────────────────────────────────
      One window across six apps (2026-08-23) — PAPTrack's, to the pixel. What
      varies between the apps is the CONTENT (what a backup holds, which extra
-     buttons the app offers), never the frame around it. A new app inherits the
-     block from here; keep it in step with PAPTrack, Sprint Predictability, Flow
+     buttons the app offers), never the frame around it. Inherited from the
+     family starter; keep it in step with PAPTrack, Sprint Predictability, Flow
      Metrics, Golf Handicap and Money Map. */
   #dataDialog { max-width: 700px; padding: 18px; }
   #dataDialog p { font-size: var(--fs-xs); color: var(--text-secondary); margin: 0 0 12px; }
@@ -1470,7 +1466,7 @@ html[data-booting] footer { visibility: hidden; }
     <!-- Find sits toward the left-hand end of the row, before the controls that
          change the data — the family's header order. -->
     <button class="no-print" id="findBtn" title="Search everything (⌘K / Ctrl+K)"><span aria-hidden="true">⌕</span> Find</button>
-    <button class="no-print" id="settingsBtn" title="Change when a wine counts as drink soon"><span aria-hidden="true">⚙</span> Settings</button>
+    <button class="no-print" id="settingsBtn" title="Drink-soon rule, finished wines and your Claude key"><span aria-hidden="true">⚙</span> Settings</button>
     <button class="no-print" id="dataBtn" title="Back up, restore or clear your data"><span aria-hidden="true">⇩</span> Back Up</button>
     <button class="no-print" id="shareBtn" title="Create a read-only link to show someone your cellar"><span aria-hidden="true">↗</span> Share</button>
     <label class="sr-only" for="themeSel">Theme</label>
@@ -1579,7 +1575,7 @@ html[data-booting] footer { visibility: hidden; }
         <span class="spacer"></span>
         <span class="pill" id="nextCount"></span>
       </h2>
-      <p class="chart-title">The bottles whose windows close soonest, among those ready to drink now.</p>
+      <p class="chart-title">What to open first: bottles past their window, then the windows that close soonest.</p>
       <div id="nextList"></div>
     </div>
 
@@ -1905,10 +1901,13 @@ html[data-booting] footer { visibility: hidden; }
        price key, the family's pattern). It is stored in this browser only —
        never in the cellar, so never synced, backed up or shared. The form names
        its own account in a hidden username box, or the manager files the key
-       under whatever text box sits nearby. -->
+       under whatever text box sits nearby. method="dialog" is the safe default:
+       a form's own default is a GET to this page, which would put the key in
+       the address bar and the server's logs if the submit handler ever failed
+       to attach. -->
   <fieldset class="formpanel">
     <legend>Look Up with Claude</legend>
-    <form id="keyForm" autocomplete="on">
+    <form id="keyForm" autocomplete="on" method="dialog">
       <div class="sr-only"><input type="text" autocomplete="username" value="Wine Cellar · Claude API key"
         readonly tabindex="-1" aria-hidden="true"></div>
       <div class="field">
@@ -1971,7 +1970,7 @@ html[data-booting] footer { visibility: hidden; }
     what the file holds and asked to confirm first.</p>
   <details class="danger-zone">
     <summary>Start Again</summary>
-    <p>Deletes every wine and every opened bottle. Your settings and your theme are kept.</p>
+    <p>Deletes every wine and every opened bottle. Your settings, your theme and your Claude key are kept.</p>
     <div class="datarow">
       <button type="button" id="clearBtn" class="danger">Delete All Data</button>
     </div>
@@ -2081,8 +2080,8 @@ html[data-booting] footer { visibility: hidden; }
 
 <!-- The help window. ONE window for the whole app, filled from the HELP table
      by whichever info dot was pressed — that is the shape every sibling uses,
-     and it is worth starting with even for a single entry: the second dot costs
-     an entry in the table and nothing else, where a per-button dialog costs
+     and it is why a second dot cost an entry in the table and nothing else,
+     where a per-button dialog costs
      another dialog. The heading and the body are both replaced on open; what is
      in the markup is what a reader with no script would see. It is not sized
      here — the two rules in the stylesheet let its own text set its width — and
@@ -2249,6 +2248,11 @@ function normalizeState(raw) {
   const fixId = (id) => {
     const key = String(id == null ? '' : id);
     if (ID_RE.test(key)) return key;
+    /* A MISSING id is not a shared one: memoising '' would hand every id-less
+       record (wines and opened lines alike) the same id, and one Delete would
+       take them all. Only a bad id that exists is mapped, so its references
+       still follow it. */
+    if (key === '') return uid();
     if (!map.has(key)) map.set(key, uid());
     return map.get(key);
   };
@@ -2302,7 +2306,8 @@ function normalizeState(raw) {
       };
     });
   const s = (raw && raw.settings) || {};
-  const soon = Number(s.soonYears);
+  /* Number(null) is 0 — "this year" — so an absent setting must not reach it. */
+  const soon = s.soonYears == null || s.soonYears === '' ? NaN : Number(s.soonYears);
   out.settings = {
     soonYears: [0, 1, 2, 3].indexOf(soon) === -1 ? 1 : soon,
     showFinished: s.showFinished === true,
@@ -2963,8 +2968,10 @@ function renderList() {
            Copy and CSV — tableToRows() skips it. */
         + (viewOnly ? ''
            : '<td class="no-print rowacts"><button type="button" class="btn-small" data-drink="'
-             + esc(w.id) + '"' + (w.qty ? '' : ' disabled') + ' aria-label="Opened a bottle of '
-             + esc(wineLabel(w)) + '">Opened One</button>'
+             + esc(w.id) + '"' + (w.qty ? '' : ' disabled')
+             /* The name starts with the words on the button (WCAG 2.5.3), so
+                "click Opened One" reaches it by voice; the wine rides after. */
+             + ' aria-label="Opened One: ' + esc(wineLabel(w)) + '">Opened One</button>'
              + '<button type="button" class="icon-btn danger" data-del="'
              + esc(w.id) + '" aria-label="Delete ' + esc(wineLabel(w))
              + '"><span aria-hidden="true">×</span></button></td>')
@@ -3004,7 +3011,7 @@ function renderOpened() {
       + '<td data-label="Opened">' + esc(fmtDate(o.date)) + '</td>'
       + '<th scope="row">' + esc(o.label) + '</th>'
       /* The stars are decoration over a number: aria-hidden, so a screen reader
-         and the CSV both get "4 of 5" rather than a row of glyphs. */
+         and the CSV both get "4/5" rather than a row of glyphs. */
       + '<td class="num" data-label="Rating">' + (o.rating ? '<span aria-hidden="true" class="stars">'
           + '★'.repeat(o.rating) + '</span> ' + o.rating + '/5' : '—')
       + '</td>'
@@ -3173,7 +3180,7 @@ function goToSearchHit(h) {
    value of 4 into the text "4 ⚑" and costing the column its numbers. */
 function cellText(cell) {
   const copy = cell.cloneNode(true);
-  copy.querySelectorAll('[aria-hidden="true"], .sr-only, .pill, .tile-help')
+  copy.querySelectorAll('[aria-hidden="true"], .sr-only, .tile-help')
     .forEach((el) => el.remove());
   /* The word joiner that keeps a note dot beside its name is invisible on
      screen and would ride into a spreadsheet as a stray character. */
@@ -3491,8 +3498,7 @@ function setTab(name) {
    scripted smooth scroll is out of the reduced-motion rule's reach, and in some
    engines it is a silent no-op.
 
-   A new app built from this file gets the behaviour for free, which is the
-   point of it living here. */
+   Inherited from the family starter. */
 function pressTab(name) {
   const moved = document.documentElement.getAttribute('data-tab') !== name;
   setTab(name);
@@ -3606,11 +3612,27 @@ const b64urlDecode = (str) => {
   const b = atob(str.replace(/-/g, '+').replace(/_/g, '/'));
   return Uint8Array.from(b, (c) => c.charCodeAt(0));
 };
-async function squeeze(bytes, Stream, format) {
+async function squeeze(bytes, Stream, format, maxBytes) {
   const s = new Stream(format);
   const w = s.writable.getWriter();
-  w.write(bytes); w.close();
-  return new Uint8Array(await new Response(s.readable).arrayBuffer());
+  w.write(bytes).catch(() => {}); w.close().catch(() => {});
+  if (!maxBytes) return new Uint8Array(await new Response(s.readable).arrayBuffer());
+  /* Inflating a stranger's link: a few KB of deflate can claim hundreds of MB,
+     so read it chunk by chunk and give up past the cap rather than let a
+     crafted link exhaust the tab. */
+  const reader = s.readable.getReader(), parts = [];
+  let total = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    total += value.length;
+    if (total > maxBytes) { reader.cancel().catch(() => {}); throw new Error('share payload too large'); }
+    parts.push(value);
+  }
+  const out = new Uint8Array(total);
+  let at = 0;
+  parts.forEach((p) => { out.set(p, at); at += p.length; });
+  return out;
 }
 
 /* WHICH WINES A LINK CARRIES, worked out from the picker by a pure function so
@@ -3662,6 +3684,8 @@ async function encodeShare(payload) {
   return SHARE_FORMAT + '.' + b64urlEncode(packed);
 }
 
+/* Far above any real cellar (a thousand wines is well under 1 MB of JSON). */
+const SHARE_MAX_BYTES = 4 * 1024 * 1024;
 async function decodeShare(token) {
   const dot = token.indexOf('.');
   if (dot < 1) throw new Error('no format marker');
@@ -3672,7 +3696,7 @@ async function decodeShare(token) {
     json = new TextDecoder().decode(bytes);
   } else if (marker === String(SHARE_FORMAT)) {
     if (typeof DecompressionStream !== 'function') throw new Error('no DecompressionStream');
-    json = new TextDecoder().decode(await squeeze(bytes, DecompressionStream, 'deflate-raw'));
+    json = new TextDecoder().decode(await squeeze(bytes, DecompressionStream, 'deflate-raw', SHARE_MAX_BYTES));
   } else {
     throw new Error('unknown format ' + marker);
   }
@@ -3765,7 +3789,10 @@ function parseValueCell(cell) {
      segment that has a dollar figure in it. "est." or "estimate" anywhere is
      the estimate flag. */
   const est = /estimat|\best\b/i.test(text);
-  const segs = text.split(/[,;]/);
+  /* A thousands comma is not a segment break: "$1,200–$1,500" is one figure
+     each side, and it is exactly how this app's own CSV writes a value. Fold
+     the grouping away before splitting, or it reads as $1. */
+  const segs = text.replace(/(\d),(?=\d{3}(?!\d))/g, '$1').split(/[,;]/);
   const seg = segs.find((s) => /street/i.test(s) && /\d/.test(s))
            || segs.find((s) => /\$\s*\d/.test(s)) || segs.find((s) => /\d/.test(s)) || '';
   const num = (s) => Number(String(s).replace(/,/g, ''));
@@ -4462,14 +4489,18 @@ function renderPaste() {
     ? '<table class="cards"><thead><tr><th scope="col">Wine</th><th scope="col">Colour</th>'
       + '<th scope="col" class="num">Bottles</th>'
       + '<th scope="col" class="num">Value each</th><th scope="col">Window</th><th scope="col">Status</th>'
-      + '</tr></thead><tbody>' + pasted.rows.map((r) => {
+      + '</tr></thead><tbody>' + pasted.rows.map((r, i) => {
         const had = state.wines.find((w) => sameWine(w, r));
+        /* Add tops up as it goes, so a wine listed twice in one paste lands as
+           ONE wine — the preview has to say so, or it promises two. */
+        const twice = !had && pasted.rows.slice(0, i).some((p) => sameWine(p, r));
         return '<tr><th scope="row">' + esc(wineLabel(r)) + '</th>'
           + '<td data-label="Colour">' + esc(COLOR_LABEL[r.color]) + '</td>'
           + '<td class="num" data-label="Bottles">' + esc(r.qty) + '</td>'
           + '<td class="num" data-label="Value">' + esc(fmtValue(r)) + '</td>'
           + '<td class="nowrap" data-label="Window">' + esc(fmtWindow(r)) + '</td><td data-label="Status">'
-          + (had ? '<span class="pill">Adds to the one you have</span>' : pillFor(statusOf(r, yr, soon)))
+          + (had ? '<span class="pill">Adds to the one you have</span>'
+            : twice ? '<span class="pill">Adds to the same wine above</span>' : pillFor(statusOf(r, yr, soon)))
           + (r.looked ? ' <span class="pill">✦ ' + (r.looked === 'high' ? 'looked up' : 'looked up, check it')
             + '</span>' : '')
           + '</td></tr>';
@@ -4548,7 +4579,14 @@ $('pasteLookup').addEventListener('click', async () => {
         if (e && e.name === 'AbortError') return;
         failed++; lastError = e.message;
         /* A key the API rejects will be rejected for every line: stop at once. */
-        if (/API key|credit|permissions/.test(e.message)) { pasteLookupStop(); }
+        if (/API key|credit|permissions/.test(e.message)) {
+          /* Stopping clears pasteLookupCtl, so nothing below would ever say why:
+             say it here, and give Add back. */
+          pasteLookupStop();
+          renderPaste();
+          $('pasteNote').textContent = 'Stopped: ' + lastError;
+          return;
+        }
       }
       done++;
       if (pasteLookupCtl === ctl) { renderPaste(); say(); }
@@ -4595,7 +4633,7 @@ function onWineTableClick(e) {
   if (!it) { render(); return; }   /* gone since the list was drawn */
   /* NAMES the record and says what is lost. */
   if (!confirm('Delete “' + wineLabel(it) + '” (' + plural(it.qty, 'bottle') + ')?\n\n'
-             + 'Bottles you already opened stay in the Opened list. Undo (↩ in the header) brings it back.')) return;
+             + 'Bottles you already opened stay in the Opened list. Undo (↩ in the header) brings it back until you reload.')) return;
   state.wines = state.wines.filter((x) => x.id !== id);
   save();
   toast('Wine deleted');
@@ -4773,7 +4811,7 @@ function csvOpened(st) {
 function downloadCsv(text, name) {
   /* A BOM, spelled as an escape so it cannot be lost to a copy-paste. Without
      it Excel opens a UTF-8 CSV as Latin-1 and "Rosé" arrives mangled. */
-  const blob = new Blob(['﻿' + text], { type: 'text/csv;charset=utf-8' });
+  const blob = new Blob(['\uFEFF' + text], { type: 'text/csv;charset=utf-8' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
   a.download = name + '-' + todayISO() + '.csv';
@@ -4821,10 +4859,10 @@ $('clearBtn').addEventListener('click', () => {
      drop you into the dialog you started from. */
   $('dataDialog').close();
   $('clearBody').textContent = 'This deletes ' + plural(state.wines.length, 'wine') + ' and '
-    + plural(state.opened.length, 'opened-bottle record') + '. Your settings and your theme are kept. '
+    + plural(state.opened.length, 'opened-bottle record') + '. Your settings, your theme and your Claude key are kept. '
     + (window.wcSignedIn && window.wcSignedIn()
       ? 'You are signed in, so your other devices are cleared too. ' : '')
-    + 'Undo (↩ in the header) brings it all back until you reload or close this page — '
+    + 'Undo (↩ in the header) brings it all back until you reload, close this page or another tab or device changes the cellar — '
     + 'after that, a downloaded backup is the only way to get any of it back.';
   openModal(clearDialog);
 });
@@ -4979,6 +5017,18 @@ document.addEventListener('keydown', (e) => {
 ['wineDialog', 'openDialog', 'pasteDialog', 'settingsDialog', 'dataDialog', 'clearDialog',
  'shareDialog', 'helpDialog', 'searchDialog'].forEach((id) => closeOnBackdropClick($(id)));
 
+/* A lookup outlives its window unless the CLOSE stops it — and Cancel is only one
+   of three ways to close (Escape and a click outside are the others). Left
+   running, a paste's workers went on through every row at about 14¢ each, behind
+   no window, with Add still disabled when it reopened. Watched through the `open`
+   attribute rather than the `close` event, which some engines never deliver
+   (the family's rule for a hook whose failure is silent). */
+[['wineDialog', () => lookupStop()], ['pasteDialog', () => pasteLookupStop()]]
+  .forEach(([id, stop]) => {
+    new MutationObserver(() => { if (!$(id).open) stop(); })
+      .observe($(id), { attributes: true, attributeFilter: ['open'] });
+  });
+
 /* ── The hover tooltip ───────────────────────────────────────────────────────
    Every sibling's chart answers a hover with a panel naming what is under the
    pointer; this one had only an SVG <title>, which is the browser's own tooltip
@@ -5123,7 +5173,7 @@ document.addEventListener('keydown', (e) => {
 })();
 
 /* ── One chart, filling the window ───────────────────────────────────────────
-   Flow Metrics' feature, ported here because a new app is copied from this file.
+   Flow Metrics' feature, inherited from the family starter.
    The CSS above records why it is an overlay rather than the Fullscreen API or a
    modal <dialog>; what follows is the behaviour.
 
@@ -5401,7 +5451,7 @@ async function boot() {
   if (shareToken) {
     try {
       const p = await decodeShare(shareToken);
-      /* `from` is optional and rides along only when the sender trimmed. */
+      /* `scope` says whether the sender trimmed the list to ready wines. */
       shareMeta = { sharedAt: p.sharedAt, scope: p.scope };
       state = normalizeState({ version: SCHEMA, wines: p.wines, opened: p.opened, settings: p.settings });
     } catch (e) {
@@ -5475,7 +5525,7 @@ window.__wineTestHooks = {
   pushSnapshot: pushSnapshot, undoBankable: undoBankable,
   buildLookupRequest: buildLookupRequest, lookupWine: lookupWine, readLookup: readLookup,
   lookupErrorMessage: lookupErrorMessage, lookupNoteLine: lookupNoteLine, LOOKUP_TOOL: LOOKUP_TOOL,
-  LOOKUP_KEY_STORE: LOOKUP_KEY_STORE,
+  LOOKUP_KEY_STORE: LOOKUP_KEY_STORE, SHARE_MAX_BYTES: SHARE_MAX_BYTES, b64urlEncode: b64urlEncode,
 };
 </script>
 <script type="module">
@@ -5536,9 +5586,9 @@ const FIREBASE_CONFIG = {
    So sign-in goes through Google Identity Services: a popup straight to
    accounts.google.com returns an OAuth access token, and Firebase exchanges it
    for the same session via signInWithCredential. Same Google account, same
-   Firestore document, same rules — only the doorway changed. All four apps in
-   this family now do this, and all four were confirmed working on the network
-   that needed it on 2026-08-07.
+   Firestore document, same rules — only the doorway changed. Every sync app in
+   the family signs in this way (first confirmed on the network that needed it
+   on 2026-08-07).
 
    ⚠️ GOOGLE_CLIENT_ID is NOT part of FIREBASE_CONFIG and can't be derived from
    it. It comes from Google Cloud Console → APIs & Services → Credentials → the
@@ -5760,12 +5810,9 @@ function onSignInFailed(e) {
 
 /* Firestore's error codes mean nothing to anyone who hasn't read the docs, so
    they are mapped to a plain sentence plus what to do about it.
-   Returns `{reason, fix}` — TWO fields, not one sentence (changed 2026-08-20).
-   This app was the only one of the five still returning a bare string, with the
-   remedy buried in the middle of the reason after an em dash; every sibling
-   splits them, so the button's tooltip can carry both while the note reads as
-   "here is what happened. Here is what to do." Same information, said the way
-   the rest of the family says it. */
+   Returns `{reason, fix}` — TWO fields, not one sentence, the family's shape, so
+   the button's tooltip can carry both while the note reads as "here is what
+   happened. Here is what to do." */
 function describeSyncError(e) {
   const code = String((e && e.code) || '');
   if (code.indexOf('permission-denied') !== -1) return {
@@ -5782,7 +5829,7 @@ function describeSyncError(e) {
     fix: 'It resets tomorrow; everything is still saved in this browser until then.' };
   /* Firestore reports two unrelated things as invalid-argument: a document over the
      1 MiB cap, and a value it can't store (an `undefined` anywhere in the object).
-     Saying "too large" for both sends someone deleting rounds over an app bug, so
+     Saying "too large" for both sends someone deleting wines over an app bug, so
      the size wording waits for Firestore's own message to mention size. */
   if (code.indexOf('invalid-argument') !== -1) {
     const detail = String((e && e.message) || '');
@@ -5830,7 +5877,7 @@ function updateUI() {
     btn.setAttribute('aria-label',
       `Signed in as ${user.displayName ? user.displayName.split(' ')[0] : user.email}`);
     btn.title = 'Syncing across devices — tap to sign out';
-    privacyNote.textContent = `☁️ Signed in as ${user.email} — your cellar syncs privately to your own account and still work offline.`;
+    privacyNote.textContent = `☁️ Signed in as ${user.email} — your cellar syncs privately to your own account and still works offline.`;
   } else {
     btn.textContent = '☁️ Sign In to Sync';
     btn.setAttribute('aria-label', 'Sign In to Sync');
@@ -5913,7 +5960,7 @@ async function startSync() {
 
   /* The which-copy-wins rules live in syncDecision() in the classic script —
      pure, so tests.html pins them (empty never beats data; a first sign-in
-     with rounds on both sides asks). This block only acts on the verdict. */
+     with wines or opened bottles on both sides asks). This block only acts on the verdict. */
   const verdict = syncDecision(localN, remoteN, !!(remote && remote.updatedAt > localTs()), isFirstSyncForAccount);
   if (verdict === 'ask') {
     const keepGoogle = await chooseSyncSource(localN, remoteN, remote.updatedAt);
@@ -5996,8 +6043,8 @@ function listen() {
    localStorage would simply drop that key and carry on. Sprint Velocity lost sync to
    exactly that on 2026-08-12 — one new optional setting, absent from every copy saved
    before it existed, written back as undefined by its id sanitiser — and the local
-   copy looked perfect throughout, which is what made it hard to see. sanitizeIds()
-   here can't produce one today (fix() always returns a string), so this is the guard
+   copy looked perfect throughout, which is what made it hard to see. normalizeState()
+   here can't produce one today (fixId always returns a string), so this is the guard
    against the next optional field, not a fix for a fault in this file. */
 const forCloud = (s) => JSON.parse(JSON.stringify(s));
 

@@ -78,7 +78,10 @@ the family doesn't.
   wines: $0.144 a wine, ~36 s; Sonnet 5.5 was $0.065 and nearly as good — Charles chose Opus.
   0 of 20 windows came from a named critic, so the note line says "estimate". The terminal test
   harness bridges fetch to Node so the key (`~/.config/anthropic_winecellar_key`) never enters the
-  page. privacy.html says what is sent; keep it true if the request changes.
+  page. privacy.html says what is sent; keep it true if the request changes. **Closing either
+  window stops its lookups** — a `MutationObserver` on `open`, not the `close` event (which some
+  engines never deliver), because Escape and a click outside never pass through Cancel; before
+  2026-10-23 a closed paste window went on billing through every row.
 - **Tests that stub storage stub `W.Storage.prototype.setItem`**, never
   `localStorage.setItem = …`, which Chrome stores as an item named "setItem" while the real
   write still happens.
@@ -99,6 +102,6 @@ commented copy in the repo.
 
 ## Tests
 
-`tests.html`, `EXPECTED = 188`. Run it headless (Playwright) rather than in the Browser pane:
+`tests.html`, `EXPECTED = 199`. Run it headless (Playwright) rather than in the Browser pane:
 the pane throttles hidden timers and its focus heuristics turn the 705px keyboard-focus check
 red on untouched code.

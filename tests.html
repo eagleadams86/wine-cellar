@@ -51,7 +51,7 @@
    go MISSING look exactly like tests that pass — a suite that quietly shrank to
    three checks still says "all 3 tests pass". RAISE THIS when you add tests, and
    lower it only when you retire one deliberately. */
-const EXPECTED = 188;
+const EXPECTED = 199;
 
 /* ── It refuses to run anywhere but localhost, and that is load-bearing ──────
    GitHub Pages publishes this page BESIDE the app, where the iframe below would
@@ -641,8 +641,9 @@ function define() {
        themes, gated by nothing, until 2026-08-23; the lottery portfolio carried
        five, two of which simulated to the same colour under deuteranopia. */
     const css = (stripComments(APP_SRC).match(/<style>([\s\S]*?)<\/style>/) || [])[1] || '';
-    ok(/var\(--series-1\)/.test(css) && /var\(--series-2\)/.test(css) && /var\(--series-3\)/.test(css),
-       'the chart must read --series-*');
+    /* One series: the bars. The starter's second and third (negative bars, an
+       average line) drew nothing here and went in the 2026-10-23 audit. */
+    ok(/var\(--series-1\)/.test(css), 'the chart must read --series-*');
     const el = W.document.documentElement;
     ['--series-1', '--series-2', '--series-3'].forEach(tok =>
       ok(/^#[0-9a-f]{6}$/i.test(W.getComputedStyle(el).getPropertyValue(tok).trim()),
@@ -659,10 +660,6 @@ function define() {
     ok(/color-mix\(in srgb, var\(--series-1\) 55%, var\(--surface\)\)/.test(bar),
        'the fill is the series colour mixed ~45% toward the CARD, not toward white');
     ok(/stroke:\s*var\(--series-1\)/.test(bar), 'and the outline is the colour at full strength');
-    const neg = (css.match(/\.bar\.neg\s*\{([^}]*)\}/) || [])[1] || '';
-    ok(/color-mix\(in srgb, var\(--series-2\) 55%, var\(--surface\)\)/.test(neg)
-       && /stroke:\s*var\(--series-2\)/.test(neg),
-       'and the negative bars are the same arrangement on the ramp\'s second token');
     /* A key that does not depict the mark is worse than no key. Pinned to the
        SAME number as the bar, so the two cannot drift apart silently — which is
        exactly what raising one without the other would do. */
@@ -679,13 +676,10 @@ function define() {
        silent way to lose the highlight altogether. */
     const css = (stripComments(APP_SRC).match(/<style>([\s\S]*?)<\/style>/) || [])[1] || '';
     const on = (css.match(/\.bar\.on\s*\{([^}]*)\}/) || [])[1] || '';
-    const negOn = (css.match(/\.bar\.neg\.on\s*\{([^}]*)\}/) || [])[1] || '';
     ok(/fill:\s*var\(--series-1\)\s*;?/.test(on),
        'the hovered bar is the series colour itself', on.trim());
-    ok(/fill:\s*var\(--series-2\)\s*;?/.test(negOn),
-       'and so is a hovered negative bar', negOn.trim());
-    ok(!/color-mix/.test(on) && !/color-mix/.test(negOn),
-       'neither is a tint any more — a tint here would be the resting fill again');
+    ok(!/color-mix/.test(on),
+       'not a tint any more — a tint here would be the resting fill again');
   });
 
   group('auto is the default, in all three places');
@@ -1312,14 +1306,15 @@ function define() {
     const src = stripComments(APP_SRC);
     ok(/confirm\('Delete “' \+ wineLabel\(it\)/.test(src),
        'a bare "Are you sure?" is a dialog people learn to click through');
-    ok(/Undo \(↩ in the header\) brings it back/.test(src), 'and it says how to get it back');
+    ok(/Undo \(↩ in the header\) brings it back until you reload/.test(src),
+       'and it says how to get it back, and for how long');
     /* Delete-all is confirmed in a DIALOG, not a confirm(): it is the family's
        shared window — PAPTrack's, to the pixel — and a confirm() cannot hold the
        "Download Backup First" button that makes the answer safe to give. */
     ok(/<dialog id="clearDialog"/.test(src), 'Delete All confirms in its own dialog');
     ok(/id="clearBackupBtn"[^>]*class="safety"/.test(src),
        'and offers the backup that is the only way back');
-    ok(/Undo \(↩ in the header\) brings it all back until you reload or close this page/.test(src)
+    ok(/Undo \(↩ in the header\) brings it all back until you reload, close this page or another tab or device changes the cellar/.test(src)
        && /a downloaded backup is the only way/.test(src),
        'and says how far Undo reaches, and what is left after that — Undo is this sitting only');
     ok(/Restore ' \+ plural\(incoming\.wines\.length/.test(src),
@@ -2360,6 +2355,129 @@ function define() {
     ok(!/sk-ant/.test(JSON.stringify(st)), 'and the allowlist strips one planted in a backup or a share link');
     ok(/type="password" id="s_key"[^>]*autocomplete="current-password"/.test(APP_SRC),
        'a password field, so a password manager can carry it');
+  });
+
+  group('the 2026-10-23 audit — each fix, pinned');
+  t('a thousands comma is part of the number, not a segment break', () => {
+    eq(W.parseValueCell('$1,200–$1,500'), { low: 1200, high: 1500, est: false },
+       'it read as $1 before, which is how this app’s own CSV writes a big value');
+    eq(W.parseValueCell('~$36 list, ~$20–27 street'), { low: 20, high: 27, est: false },
+       'and a comma between two prices still separates them');
+    try {
+      H.__plant({ wines: [{ id: 'big', vintage: 2015, name: 'Big Example Bordeaux', qty: 2,
+        valueLow: 1200, valueHigh: 1500, drinkFrom: 2030, drinkTo: 2045 }] });
+      const csv = H.toCsv(H.tableToRows(W.document.getElementById('cellarTable')));
+      const back = H.parseWineList(csv, 2026).rows[0];
+      eq([back.valueLow, back.valueHigh], [1200, 1500], 'the Cellar table’s ⬇ CSV pastes back with its value intact');
+    } finally { H.__plant(FIXTURE); }
+  });
+  t('records with no id each get their OWN id', () => {
+    const st = H.normalizeState({ wines: [{ name: 'A' }, { name: 'B' }],
+      opened: [{ date: '2026-01-01' }, { date: '2026-01-02' }] });
+    const ids = st.wines.map((w) => w.id).concat(st.opened.map((o) => o.id));
+    eq(new Set(ids).size, 4, 'one Delete would have taken every id-less record with it');
+    const ref = H.normalizeState({ wines: [{ id: 'bad id!', name: 'A' }], opened: [{ id: 'o', wineId: 'bad id!' }] });
+    eq(ref.opened[0].wineId, ref.wines[0].id, 'while a bad id that EXISTS still maps with its references');
+  });
+  t('an absent drink-soon setting is the default, never 0', () => {
+    for (const v of [null, '', undefined]) {
+      eq(H.normalizeState({ settings: { soonYears: v } }).settings.soonYears, 1, 'Number(null) is 0 — ' + v);
+    }
+    eq(H.normalizeState({ settings: { soonYears: 0 } }).settings.soonYears, 0, 'a real 0 is kept');
+  });
+  t('the Status column exports its words', () => {
+    H.__plant(FIXTURE);
+    const rows = H.tableToRows(W.document.getElementById('cellarTable'));
+    const col = rows[0].indexOf('Status');
+    ok(col !== -1, 'there is a Status heading');
+    ok(rows.slice(1).every((r) => r[col].length > 0), 'and every row has a status under it',
+       JSON.stringify(rows.slice(1).map((r) => r[col])));
+  });
+  t('a wine listed twice in one paste previews as one', () => {
+    const D = W.document;
+    try {
+      W.openPaste();
+      D.getElementById('pasteBox').value = 'Wine,Bottles\n2019 Twice Listed Syrah,2\n2019 Twice Listed Syrah,1';
+      D.getElementById('pasteBox').dispatchEvent(new W.Event('input'));
+      ok(/same wine above/.test(D.getElementById('pastePreview').textContent),
+         'the second line says it adds to the first, as Add will do');
+    } finally { D.getElementById('pasteDialog').close(); }
+  });
+  /* A lookup that hangs until it is aborted, so a test can see WHO stops it. */
+  const hangingFetch = (log) => (url, init) => new Promise((resolve, reject) => {
+    log.push(init.signal);
+    init.signal.addEventListener('abort', () => reject(new DOMException('aborted', 'AbortError')));
+  });
+  const withKey = async (fake, body) => {
+    const proto = W.Storage.prototype, realGet = proto.getItem, realFetch = W.fetch;
+    proto.getItem = function (k) { return k === H.LOOKUP_KEY_STORE ? 'sk-ant-test' : realGet.call(this, k); };
+    W.fetch = fake;
+    try { await body(); } finally { proto.getItem = realGet; W.fetch = realFetch; H.__plant(FIXTURE); }
+  };
+  const tick = () => new Promise((r) => setTimeout(r, 30));
+  t('closing the wine window any way at all stops its lookup', async () => {
+    const D = W.document, signals = [];
+    await withKey(hangingFetch(signals), async () => {
+      H.__plant(FIXTURE);
+      W.openWine('fx-hold');
+      D.getElementById('lookupBtn').click();
+      await tick();
+      eq(signals.length, 1, 'a lookup started');
+      D.getElementById('wineDialog').close();   /* what Escape and a click outside both do */
+      await tick();
+      ok(signals[0].aborted, 'and the close aborted it — no request left running behind no window');
+    });
+  });
+  t('closing the paste window stops every lookup it started', async () => {
+    const D = W.document, signals = [];
+    await withKey(hangingFetch(signals), async () => {
+      W.openPaste();
+      D.getElementById('pasteBox').value = 'Wine,Bottles\n2019 First Example,1\n2020 Second Example,1';
+      D.getElementById('pasteBox').dispatchEvent(new W.Event('input'));
+      D.getElementById('pasteLookup').click();
+      await tick();
+      ok(signals.length > 0, 'lookups started');
+      D.getElementById('pasteDialog').close();
+      await tick();
+      ok(signals.every((s) => s.aborted), 'all of them aborted by the close');
+      W.openPaste();
+      ok(/Look Up with Claude/.test(D.getElementById('pasteLookup').textContent),
+         'and the window reopens ready, not stuck on Stop Looking');
+      D.getElementById('pasteDialog').close();
+    });
+  });
+  t('a rejected key stops a paste’s lookups and SAYS so', async () => {
+    const D = W.document;
+    const fake = async () => ({ ok: false, status: 401, json: async () => ({ error: { message: 'invalid x-api-key' } }) });
+    await withKey(fake, async () => {
+      W.openPaste();
+      D.getElementById('pasteBox').value = 'Wine,Bottles\n2019 First Example,1\n2020 Second Example,1';
+      D.getElementById('pasteBox').dispatchEvent(new W.Event('input'));
+      D.getElementById('pasteLookup').click();
+      for (let i = 0; i < 50 && !/Stopped/.test(D.getElementById('pasteNote').textContent); i++) await tick();
+      ok(/Stopped: .*API key/.test(D.getElementById('pasteNote').textContent),
+         'the reason is on screen', D.getElementById('pasteNote').textContent);
+      ok(!D.getElementById('pasteAdd').disabled, 'and Add is given back');
+      D.getElementById('pasteDialog').close();
+    });
+  });
+  t('a share link that inflates past the cap is refused, not swallowed', async () => {
+    const huge = new W.TextEncoder().encode(' '.repeat(H.SHARE_MAX_BYTES + 1024));
+    const packed = await W.squeeze(huge, W.CompressionStream, 'deflate-raw');
+    ok(packed.length < 100000, 'a few KB of link', packed.length);
+    let err = '';
+    try { await H.decodeShare('1.' + H.b64urlEncode(packed)); } catch (e) { err = e.message; }
+    ok(/too large/.test(err), 'it stops reading at the cap', err);
+  });
+  t('the key form can never send the key in a URL', () => {
+    ok(/<form id="keyForm"[^>]*method="dialog"/.test(APP_SRC),
+       'method="dialog": a form’s default is a GET to this page, key in the query string');
+  });
+  t('a row’s Opened One is named by the words on it', () => {
+    H.__plant(FIXTURE);
+    const b = W.document.querySelector('#cellarTable [data-drink]');
+    ok(b && b.getAttribute('aria-label').indexOf(b.textContent.trim()) === 0,
+       'WCAG 2.5.3 — the spoken name starts with the visible one', b && b.getAttribute('aria-label'));
   });
 
   group('the editor never saves a number the reader did not type');

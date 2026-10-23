@@ -31,7 +31,8 @@ cellar on your other devices.
   is no redo; ⌘Z goes straight back. The history lives in memory, so a reload starts it
   fresh, and it clears when another tab or another signed-in device changes the cellar —
   undoing past their work would overwrite it.
-- **Find** (⌘K), **Settings**, **Back Up** (JSON and CSV, Restore, Delete All), **Share**
+- **Find** (⌘K), **Settings**, **Back Up** (JSON and CSV, Restore, Delete All — which keeps
+  your settings, theme and Claude key), **Share**
   (a read-only link with the data inside it), four themes plus Auto — the family's chrome.
 
 ## Look Up with Claude
@@ -57,7 +58,9 @@ the pages it used.
   made just for this app with a low monthly spend limit in the Claude Console.
 - **Cost: about $0.14 a wine** (measured on 20 wines, 2026-10-23: about 36 seconds each, mostly
   tokens for reading search results, plus $0.01 per search). It is capped at 3 searches and low
-  effort per wine; the paste window runs three lookups at a time.
+  effort per wine; the paste window runs three lookups at a time. **Closing the window stops
+  them** — Cancel, Escape or a click outside — so nothing keeps running (or billing) behind it.
+  A key Claude rejects stops the whole paste at once and says why.
 
 Only the wine's vintage, name, region and grape are sent, and only when you press the button.
 The page calls `https://api.anthropic.com` directly — the one host added to its security policy
@@ -93,7 +96,7 @@ Two shapes are understood:
 
 Each wine starts with its vintage (`2019 Sample Hill Reserva`, or `NV …`). The parser reads:
 
-- values like `$40-$70`, `~$25–35 (estimate)`, `$20-$25 est.` (both keep the *estimate*
+- values like `$40-$70`, `$1,200–$1,500`, `~$25–35 (estimate)`, `$20-$25 est.` (both keep the *estimate*
   flag) and `~$36 list, ~$20–27 street` (the street price wins);
 - windows like `2027–2034`, `2026-2026`, `Now–2031` (Now = this year), `2030+`, `by 2029`;
   an empty window stays empty (*No window*);
@@ -107,8 +110,9 @@ Each wine starts with its vintage (`2019 Sample Hill Reserva`, or `NV …`). The
 
 A Status or Verdict column is never stored — the status is worked out from the window. The
 same vintage and name pasted again adds bottles to the wine you have (filling in a missing
-value, window, region or grape) rather than making a second row. You see every line before
-anything is added.
+value, window, region or grape) rather than making a second row — and so does a wine listed
+twice in the same paste, which the preview marks *Adds to the same wine above*. You see every
+line before anything is added.
 
 ## Cloud Sync
 
@@ -167,7 +171,7 @@ characters, opened-bottle notes at 140.
 python3 -m http.server 8025
 ```
 
-Open `http://localhost:8025/` for the app and `/tests.html` for the suite (188 tests; the
+Open `http://localhost:8025/` for the app and `/tests.html` for the suite (199 tests; the
 `EXPECTED` floor in the file fails the run if any go missing). CI runs the same page headless
 on every push, plus CodeQL.
 
