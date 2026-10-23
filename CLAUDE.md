@@ -97,6 +97,11 @@ the family doesn't.
   ticking Just the year (`dressAdded()`). `cleanAdded()` is the boundary — an ABSENT field is
   still today, so old records are unchanged; `fmtAdded()` is the one way to print it. Any
   other source requires the day, and switching to one puts today in an empty box.
+- **Wrong-wine sources** (2026-10-23): `readLookup(found, asked)` drops a source whose PATH has a
+  vintage year and shares no distinctive word (`wineWords`, minus `SOURCE_COMMON`) with the asked
+  name or Claude's `matched_wine`; `r.dropped` is said on screen (`droppedLine`). Every caller passes
+  the asked wine. Kept narrow on purpose: on the 58 real pages from that day's re-runs it dropped
+  exactly the one wrong page. It cannot undo a figure Claude took from that page.
 - **Check All Wines** (2026-10-23) reuses that lookup across every wine with `qty > 0`.
   `lookupDiffs`/`applyLookupTo` are the saved-wine twins of `LOOKUP_BOXES`/`applyLookup` (those
   read the FORM; these read a wine) — change a field's rule in both. Pre-tick rule: an EMPTY
@@ -143,6 +148,6 @@ commented copy in the repo.
 
 ## Tests
 
-`tests.html`, `EXPECTED = 217`. Run it headless (Playwright) rather than in the Browser pane:
+`tests.html`, `EXPECTED = 218`. Run it headless (Playwright) rather than in the Browser pane:
 the pane throttles hidden timers and its focus heuristics turn the 705px keyboard-focus check
 red on untouched code.

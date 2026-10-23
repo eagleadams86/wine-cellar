@@ -4262,8 +4262,39 @@ async function lookupWine(w, key, opts) {
 /* The boundary for what came back. Claude's answer is outside input like a
    backup or a share link, so it goes through the same cleaners, and a source
    is kept only if it is a real http(s) address — it becomes a link. */
-function readLookup(found) {
+/* Does a source's ADDRESS clearly name a different wine? Claude once cited a
+   Wine Access page for a 2012 Bodegas Resalte de Peñafiel as a source for the
+   2019 Albret Lastra Reserva, with its price in the value basis (2026-10-23).
+   Deliberately narrow, so it never drops a good page: the path must name a
+   bottle (a vintage year in it) AND share not one distinctive word with the
+   wine asked for or the wine Claude says it matched. A search page, a
+   producer page or a region page has no year, or shares a word, and stays. */
+const SOURCE_COMMON = new Set(('wine wines vino vins vin red white rose blanc rouge tinto blanco '
+  + 'reserva reserve riserva crianza gran grand grande cru classe chateau domaine bodegas bodega '
+  + 'cantina tenuta estate estates vineyard vineyards winery cellars cellar maison famille saint '
+  + 'sainte the and del des les der cuvee valley vintage catalog product products shop store buy '
+  + 'find price prices bottle').split(' '));
+const foldWord = (s) => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+function wineWords(names) {
+  const out = new Set();
+  names.forEach((n) => foldWord(n).split(/[^a-z]+/).forEach((x) => {
+    if (x.length >= 4 && !SOURCE_COMMON.has(x)) out.add(x);
+  }));
+  return out;
+}
+function sourceNamesOtherWine(url, words) {
+  if (!words.size) return false;
+  let path;
+  try { path = foldWord(decodeURIComponent(new URL(url).pathname)); } catch (e) { return false; }
+  if (!/(^|[^0-9])(19|20)\d\d([^0-9]|$)/.test(path)) return false;
+  return !path.split(/[^a-z]+/).some((x) => words.has(x));
+}
+/* `asked` is the wine the lookup was FOR — its name is what a source's
+   address is checked against. */
+function readLookup(found, asked) {
   const f = found && typeof found === 'object' ? found : {};
+  const words = wineWords([asked && asked.name, f.matched_wine]);
+  let dropped = 0;
   let low = cleanMoney(f.value_low), high = cleanMoney(f.value_high);
   if (low == null && high != null) low = high;
   if (low != null && high != null && high < low) { const t = low; low = high; high = t; }
@@ -4275,6 +4306,7 @@ function readLookup(found) {
       const u = new URL(String((s && s.url) || ''));
       if (u.protocol === 'https:' || u.protocol === 'http:') url = u.href;
     } catch (e) { url = ''; }
+    if (url && sourceNamesOtherWine(url, words)) { dropped++; return null; }
     return url ? { url: url, title: cleanLine(s.title, 80) || new URL(url).hostname } : null;
   }).filter(Boolean).slice(0, 6);
   return {
@@ -4291,6 +4323,9 @@ function readLookup(found) {
     drinkTo: to,
     windowBasis: cleanLine(f.window_basis, 100),
     sources: sources,
+    /* How many sources were left out for naming a different wine — said on
+       screen, because Claude may have taken a figure from one of them. */
+    dropped: dropped,
   };
 }
 
@@ -4601,10 +4636,14 @@ function renderLookupPanel(r) {
     + lines
     + (r.sources.length ? '<p>Sources:</p><ul>' + r.sources.map((x) => '<li><a href="' + esc(x.url)
       + '" target="_blank" rel="noopener noreferrer">' + esc(x.title) + '</a></li>').join('') + '</ul>' : '')
+    + droppedLine(r)
     + (differ > 1 ? '<p style="margin-top:8px"><button type="button" class="link" id="lookupUseAll">'
       + 'Use all of Claude’s answer</button></p>' : '');
   panel.hidden = false;
 }
+/* Said, not hidden: a figure may have come from the page that was left out. */
+const droppedLine = (r) => (r.dropped ? '<p>' + esc(plural(r.dropped, 'source')) + ' left out — '
+  + (r.dropped === 1 ? 'its address names' : 'their addresses name') + ' a different wine, so check the value.</p>' : '');
 /* One delegated listener, so the links survive every re-render of the panel. */
 $('lookupPanel').addEventListener('click', (e) => {
   const one = e.target.closest('[data-use]');
@@ -4635,7 +4674,7 @@ $('lookupBtn').addEventListener('click', async () => {
   try {
     const got = await lookupWine(w, key, { signal: ctl.signal });
     if (lookupCtl !== ctl || !$('wineDialog').open) return;   /* stopped, or the window closed */
-    const r = readLookup(got.found);
+    const r = readLookup(got.found, w);
     lookupLast = r;
     const done = r.confidence === 'low' ? { filled: [], kept: [] } : applyLookup(r, false);
     $('lookupNote').textContent = r.confidence === 'low'
@@ -4856,7 +4895,7 @@ $('pasteLookup').addEventListener('click', async () => {
       try {
         const got = await lookupWine(w, key, { signal: ctl.signal });
         if (pasteLookupCtl !== ctl) return;
-        pasteFound.set(wineKey(w), readLookup(got.found));
+        pasteFound.set(wineKey(w), readLookup(got.found, w));
       } catch (e) {
         if (e && e.name === 'AbortError') return;
         failed++; lastError = e.message;
@@ -4998,7 +5037,7 @@ function checkBlock(w) {
           + '</strong> ' + (d.yours && d.yours !== '—' ? '(yours: ' + esc(d.yours) + ')' : '(empty now)')
           + (basis ? ' — ' + esc(basis) : '') + '</span></label>';
       }).join(''))
-    + (hosts.length ? '<p>Sources: ' + hosts.join(', ') + '</p>' : '');
+    + (hosts.length ? '<p>Sources: ' + hosts.join(', ') + '</p>' : '') + droppedLine(r);
 }
 function renderCheck() {
   const wines = checkWines(state);
@@ -5056,7 +5095,7 @@ $('checkStart').addEventListener('click', async () => {
       try {
         const got = await lookupWine(w, key, { signal: ctl.signal });
         if (checkCtl !== ctl) return;
-        checkFound.set(w.id, { key: wineKey(w), r: readLookup(got.found) });
+        checkFound.set(w.id, { key: wineKey(w), r: readLookup(got.found, w) });
       } catch (e) {
         if (e && e.name === 'AbortError') return;
         failed++; lastError = e.message;
@@ -6118,6 +6157,7 @@ window.__wineTestHooks = {
   searchApp: searchApp, SEARCH_CAP: SEARCH_CAP,
   pushSnapshot: pushSnapshot, undoBankable: undoBankable,
   buildLookupRequest: buildLookupRequest, lookupWine: lookupWine, readLookup: readLookup,
+  sourceNamesOtherWine: sourceNamesOtherWine, wineWords: wineWords,
   lookupErrorMessage: lookupErrorMessage, lookupNoteLine: lookupNoteLine,
   wineFacts: wineFacts, dealOf: dealOf, fmtPaid: fmtPaid, fmtDate: fmtDate, cleanAdded: cleanAdded, lookupDiffs: lookupDiffs, applyLookupTo: applyLookupTo, checkWines: checkWines, LOOKUP_TOOL: LOOKUP_TOOL,
   LOOKUP_KEY_STORE: LOOKUP_KEY_STORE, SHARE_MAX_BYTES: SHARE_MAX_BYTES, b64urlEncode: b64urlEncode,

@@ -51,7 +51,7 @@
    go MISSING look exactly like tests that pass — a suite that quietly shrank to
    three checks still says "all 3 tests pass". RAISE THIS when you add tests, and
    lower it only when you retire one deliberately. */
-const EXPECTED = 217;
+const EXPECTED = 218;
 
 /* ── It refuses to run anywhere but localhost, and that is load-bearing ──────
    GitHub Pages publishes this page BESIDE the app, where the iframe below would
@@ -2545,6 +2545,33 @@ function define() {
     eq(r.region.length, 60);
     eq([r.valueLow, r.valueHigh, r.drinkFrom, r.drinkTo], [30, 50, 2027, 2034], 'backwards ranges turned round');
     eq(r.sources.map((x) => x.title), ['ok'], 'a javascript: or data: “source” is dropped, never linked');
+  });
+  t('a source whose address names a different wine is left out, and only then', () => {
+    /* The real addresses from the 2026-10-23 re-runs. */
+    const albret = { vintage: 2019, name: 'Albret Lastra Reserva' };
+    const hj = { vintage: 2022, name: 'Haut-Jaugue Saint-Émilion' };
+    const src = (url) => ({ title: 't', url: url });
+    const r = H.readLookup({ matched_wine: 'Finca Albret Lastra Reserva 2019', confidence: 'medium', sources: [
+      src('https://www.wineaccess.com/catalog/2012-bodegas-resalte-de-penafiel-ribera-del-duero-de-restia-crianza_46f84a0f-378c-4554-8474-992b354ffebc/'),
+      src('https://www.wine-searcher.com/find/finca+albret+lastra+rsrv+navarra+spain'),
+      src('https://cluboenologique.com/product/red-wine-finca-albret-lastra-reserva-tempranillo-cabernet-sauvignon-syrah-navarra-2019-75cl/'),
+      src('https://www.bodeboca.com/bodegas/albret'),
+    ] }, albret);
+    eq(r.sources.map((s) => new URL(s.url).hostname), ['www.wine-searcher.com', 'cluboenologique.com', 'www.bodeboca.com'],
+       'the 2012 Resalte de Peñafiel page goes; the Albret pages stay');
+    eq(r.dropped, 1, 'and the count is kept, to be said on screen');
+    const words = H.wineWords([hj.name]);
+    eq([
+      H.sourceNamesOtherWine('https://www.wineaccess.com/catalog/2022-chateau-haut-jaugue-blanc-saint-emilion_4de661d1-0741-4ec3-af88-5257139b13f0/', words),
+      H.sourceNamesOtherWine('https://www.saratogawine.com/product/chateau-haut-jaugue-saint-emilion-2022-750ml/', words),
+      H.sourceNamesOtherWine('https://en.wikipedia.org/wiki/Saint-%C3%89milion_AOC', words),
+      H.sourceNamesOtherWine('https://www.comptoirdesmillesimes.com/en/saint-emilion-2022', words),
+      H.sourceNamesOtherWine('https://www.skurnik.com/sku/some-other-producer-cuvee', words),
+      H.sourceNamesOtherWine('https://www.finewineandgoodspirits.com/chateau-pavie-grand-cru-2022/product/100041915', words),
+    ], [false, false, false, false, false, true],
+       'the right bottle, a region page and an address naming no bottle all stay; only a named other bottle goes');
+    eq(H.readLookup({ confidence: 'high', sources: [src('https://x.com/2012-something-else')] }).dropped, 0,
+       'with no wine to check against, nothing is dropped');
   });
   t('a looked-up list fills only what it left empty', () => {
     const src = stripComments(APP_SRC);

@@ -68,6 +68,11 @@ the pages it used.
   or Add, and a one-line "Looked up…" note records when and on whose word.
 - **It says how sure it is** — sure of the match, probably the right wine, or could not find it
   (then it fills nothing rather than guess).
+- **A source that names a different wine is left out.** If a page's address names a specific
+  bottle (it has a vintage year in it) and shares no word with the wine looked up, it is dropped
+  from the sources and the panel says so — Claude may have taken a figure from it, so check the
+  value. Found on 2026-10-23: a lookup of the 2019 Albret Lastra Reserva cited a Wine Access page
+  for a 2012 Bodegas Resalte de Peñafiel. A search page, a producer page or a region page stays.
 - **Windows are usually Claude's estimate.** Critics' published windows are mostly behind
   paywalls, so in testing it found a named critic's window for one wine in twenty; the note says
   "estimate" when that is what it is. Values come from real listings (Wine-Searcher, merchants,
