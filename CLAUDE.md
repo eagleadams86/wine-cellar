@@ -45,6 +45,10 @@ the family doesn't.
   Chrome steps a focused `type=number` on every wheel/trackpad tick over it; scrolling the tall
   editor to reach Save turned Bottles 2 into 0 (2026-10-23). Every year and price box is a
   number box too. And taking a wine to 0 bottles in the editor asks first, because 0 hides it.
+- **Select-on-focus never cancels the mouse release on a number box.** Chrome stops a spin
+  arrow repeating only on the release; cancelling it made ONE click on Bottles run 1 → 109 in
+  three seconds, and a click on the down arrow ran it to 0 — Charles's actual bug, 2026-10-23.
+  The starter and its siblings carry the same handler; check them before trusting a number box.
 - **The table's own order is drinking order** — past the window, drink soon, ready, hold,
   none; then the window that closes soonest. The Wine column sorts by name, then vintage.
 
@@ -58,6 +62,6 @@ commented copy in the repo.
 
 ## Tests
 
-`tests.html`, `EXPECTED = 167`. Run it headless (Playwright) rather than in the Browser pane:
+`tests.html`, `EXPECTED = 168`. Run it headless (Playwright) rather than in the Browser pane:
 the pane throttles hidden timers and its focus heuristics turn the 705px keyboard-focus check
 red on untouched code.

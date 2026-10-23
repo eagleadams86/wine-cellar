@@ -3123,6 +3123,13 @@ addEventListener('focusin', (e) => {
   el.select();
   if (focusFromPointer) {
     focusFromPointer = false;
+    /* NEVER on a number box (2026-10-23). The press may have landed on its
+       up/down arrows, and Chrome stops an arrow repeating only when it sees
+       the release — cancel the release and ONE click keeps stepping on its
+       own: Bottles ran 1 → 109 in three seconds, and a click on the down
+       arrow to undo it ran on down to 0. A click in the box's text may
+       collapse the selection instead, which costs a keystroke, not a wine. */
+    if ((el.type || '').toLowerCase() === 'number') return;
     addEventListener('mouseup', (ev) => { ev.preventDefault(); }, { once: true });
   }
 });
