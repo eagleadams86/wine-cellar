@@ -102,7 +102,10 @@ the family doesn't.
 - **Notes are the ROW's hover text** (Money Map's `rowTip` + `noteDot` + `wireGridTip`, as
   `#rowTip` wired once on `<main>`): `data-tip` on the `<tr>`, never a `title`; a dot after the
   name, behind a U+2060 word joiner that `cellText()` strips. Touch shows no tip on a row that
-  opens the editor. A row without notes carries neither.
+  opens the editor. Since 2026-10-23 EVERY row has a tip: `wineFacts(w, shown)` lists each field
+  the table has no column for (`shown` = its column keys; Drink Next passes `NEXT_COLUMNS`), then
+  the notes. A new column must be added to that table's keys, or the tip repeats it. The dot
+  still means notes only.
 - **Folding is device-local** (`wine-folded`, a list of `data-fold` names), not in `state` as
   Money Map keeps it: it is screen layout, so it neither syncs nor rides in a share link, and
   needs no SCHEMA bump. The full-screen chart button stays a child of `#chartCard` (it is

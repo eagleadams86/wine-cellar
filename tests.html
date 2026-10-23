@@ -2301,10 +2301,17 @@ function define() {
     H.__plant(Object.assign({}, FIXTURE, { wines: FIXTURE.wines.map((w) =>
       Object.assign({}, w, { notes: w.id === 'fx-hold' ? notes : '' })) }));
     const row = (id) => W.document.querySelector('#cellarTable tr[data-open="' + id + '"]');
-    eq(row('fx-hold').dataset.tip, 'Click to edit\n\n' + notes, 'the hint, then the note as its own block');
+    eq(row('fx-hold').dataset.tip, 'Click to edit\n\nColour: Red\nCame from: Already in the cellar\nAdded: '
+       + H.fmtDate('2026-01-05') + '\n\n' + notes,
+       'the hint, the fields the grid has no column for, then the note as its own block');
     ok(row('fx-hold').querySelector('.notedot[aria-hidden="true"]'), 'and the dot that says a note is there');
-    eq(row('fx-ready').dataset.tip, undefined, 'no note, no tip');
-    ok(!row('fx-ready').querySelector('.notedot'), 'and no dot');
+    eq(row('fx-ready').dataset.tip.split('\n\n').length, 2, 'no note: the hint and the fields, no empty block');
+    ok(!row('fx-ready').querySelector('.notedot'), 'and no dot — the dot still means a note');
+    const next = W.document.querySelector('#nextTable tr[data-open="fx-ready"]').dataset.tip;
+    ok(/Region: Sonoma Coast\nGrape: Pinot Noir\nValue each: .*\nWhere: Rack A\nColour: Red/.test(next),
+       'Drink Next has fewer columns, so its tip carries more', next);
+    eq(H.wineFacts({ color: 'red', source: 'bogus', added: 'x', region: '', grape: '' }, []), 'Colour: Red',
+       'a blank or unknown field is left out, never shown as "undefined"');
     ok(!W.document.querySelector('#cellarTable [title], #nextTable [title]'),
        'never a native title as well — it would come up a second after, as a second bubble');
     H.__plant(FIXTURE);
@@ -2318,7 +2325,9 @@ function define() {
     ok(!tip.hidden, 'anywhere on the row, not only the dot');
     ok(/A note/.test(tip.textContent), 'with the note in it, as text');
     move(D.querySelector('#cellarTable tr[data-open="fx-ready"] td'));
-    ok(tip.hidden, 'a row without a note takes it down');
+    ok(!tip.hidden && !/A note/.test(tip.textContent), 'the next row swaps in its own tip');
+    move(D.querySelector('#cellarTable thead th'));
+    ok(tip.hidden, 'and off the rows it goes');
     const touch = new W.PointerEvent('pointerdown', { bubbles: true, pointerType: 'touch' });
     D.querySelector('#cellarTable tr[data-open="fx-hold"] td').dispatchEvent(touch);
     ok(tip.hidden, 'a tap on a row that opens the wine window shows nothing — the window shows the note');

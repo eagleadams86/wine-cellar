@@ -2812,9 +2812,28 @@ function noteDot(note) {
   return (typeof note === 'string' && note.trim())
     ? '\u2060<span class="notedot" aria-hidden="true"></span>' : '';
 }
-/* Only a row that HAS a note gets a tip: "Click to edit" on its own says
-   nothing the row's look does not already. */
-const wineTip = (w) => (w.notes && w.notes.trim() ? rowTip(viewOnly ? '' : 'Click to edit', w.notes) : '');
+/* A row's hover carries every field its table has NO column for — Charles,
+   2026-10-23 — one "Label: value" per line, then the notes as their own block.
+   `shown` is the table's column keys, so the Cellar grid's tip adds colour,
+   where it came from and when it was added, and Drink Next's (four columns)
+   adds region, grape, value and where as well. A blank field is left out. The
+   labels and words are the wine window's own. The dot still means notes only. */
+const SOURCE_WORDS = { wineaccess: 'Wine Access', cellar: 'Already in the cellar', other: 'Somewhere else' };
+function wineFacts(w, shown) {
+  const off = (k) => shown.indexOf(k) === -1;
+  return [
+    off('region') && w.region ? 'Region: ' + w.region : '',
+    off('grape') && w.grape ? 'Grape: ' + w.grape : '',
+    off('value') && w.valueLow != null ? 'Value each: ' + fmtValue(w) : '',
+    off('location') && w.location ? 'Where: ' + w.location : '',
+    COLOR_LABEL[w.color] ? 'Colour: ' + COLOR_LABEL[w.color] : '',
+    SOURCE_WORDS[w.source] ? 'Came from: ' + SOURCE_WORDS[w.source] : '',
+    DATE_RE.test(w.added || '') ? 'Added: ' + fmtDate(w.added) : '',
+  ].filter(Boolean).join('\n');
+}
+const NEXT_COLUMNS = ['wine', 'window', 'status', 'qty'];
+const wineTip = (w, shown) => rowTip(viewOnly ? '' : 'Click to edit',
+  [wineFacts(w, shown), (w.notes || '').trim()].filter(Boolean).join('\n\n'));
 
 function renderNext(c) {
   document.getElementById('nextCount').textContent = plural(c.next.length, 'wine');
@@ -2828,7 +2847,7 @@ function renderNext(c) {
     + '<th scope="col">Wine</th><th scope="col">Window</th><th scope="col">Status</th>'
     + '<th scope="col" class="num">Bottles</th></tr></thead><tbody>'
     + c.next.map((r) => '<tr' + (viewOnly ? '' : ' class="rowlink" data-open="' + esc(r.w.id) + '"')
-      + wineTip(r.w) + '>'
+      + wineTip(r.w, NEXT_COLUMNS) + '>'
       + '<th scope="row">' + (viewOnly ? esc(wineLabel(r.w))
         : '<button type="button" class="rowbtn" data-edit="' + esc(r.w.id) + '">'
           + esc(wineLabel(r.w)) + '</button>') + noteDot(r.w.notes) + '</th>'
@@ -3029,7 +3048,7 @@ function renderList() {
     + v.rows.map((w) => {
       const st = statusOf(w, v.yr, v.soon);
       return '<tr' + (viewOnly ? '' : ' class="rowlink" data-open="' + esc(w.id) + '"')
-        + (w.qty ? '' : ' data-finished') + wineTip(w) + '>'
+        + (w.qty ? '' : ' data-finished') + wineTip(w, COLUMNS.map((c) => c.key)) + '>'
         + '<th scope="row">'
         + (viewOnly ? esc(wineLabel(w))
                     : '<button type="button" class="rowbtn" data-edit="' + esc(w.id) + '">'
@@ -5953,7 +5972,7 @@ window.__wineTestHooks = {
   pushSnapshot: pushSnapshot, undoBankable: undoBankable,
   buildLookupRequest: buildLookupRequest, lookupWine: lookupWine, readLookup: readLookup,
   lookupErrorMessage: lookupErrorMessage, lookupNoteLine: lookupNoteLine,
-  lookupDiffs: lookupDiffs, applyLookupTo: applyLookupTo, checkWines: checkWines, LOOKUP_TOOL: LOOKUP_TOOL,
+  wineFacts: wineFacts, fmtDate: fmtDate, lookupDiffs: lookupDiffs, applyLookupTo: applyLookupTo, checkWines: checkWines, LOOKUP_TOOL: LOOKUP_TOOL,
   LOOKUP_KEY_STORE: LOOKUP_KEY_STORE, SHARE_MAX_BYTES: SHARE_MAX_BYTES, b64urlEncode: b64urlEncode,
 };
 </script>

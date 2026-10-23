@@ -14,9 +14,11 @@ cellar on your other devices.
   and *holding*; a **Drink Next** list of what to open first; the full cellar table (sortable,
   filterable by status, with Copy and CSV); and a chart of how many bottles are inside their
   drinking window in each of the coming years.
-- **A wine's notes show when you point at its row** — a small dot after the name says it has
-  some, and the bubble shows them (Money Map's row tip). On a phone, tap the wine to read them
-  in its window.
+- **Point at a row to see the rest of the wine** — the bubble (Money Map's row tip) lists every
+  field the table has no column for: colour, where it came from and when it was added in the
+  Cellar table, plus region, grape, value and where in the shorter Drink Next table. Then the
+  wine's notes, if it has any; a small dot after the name still says it has notes. On a phone,
+  tap the wine to see it all in its window.
 - **Opened tab** — every bottle you have opened, with the date, your 1–5 rating and a note.
   Press a line to change its date, rating or note; the bottle count is left alone.
 - **Folding cards** — Drink Next, Cellar and Drinking Windows Ahead fold up to their heading
