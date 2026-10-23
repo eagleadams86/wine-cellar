@@ -51,7 +51,7 @@
    go MISSING look exactly like tests that pass — a suite that quietly shrank to
    three checks still says "all 3 tests pass". RAISE THIS when you add tests, and
    lower it only when you retire one deliberately. */
-const EXPECTED = 209;
+const EXPECTED = 210;
 
 /* ── It refuses to run anywhere but localhost, and that is load-bearing ──────
    GitHub Pages publishes this page BESIDE the app, where the iframe below would
@@ -2338,6 +2338,30 @@ function define() {
     const rows = H.tableToRows(W.document.getElementById('cellarTable'));
     ok(!JSON.stringify(rows).includes('\u2060'), 'the word joiner that holds the dot beside the name is stripped');
     H.__plant(FIXTURE);
+  });
+
+  t('Date added starts on today for a new wine, shows a saved one’s own day, and saves', () => {
+    const D = W.document, proto = W.Storage.prototype, realStore = proto.setItem;
+    proto.setItem = function () {};
+    try {
+      H.__plant(FIXTURE);
+      W.openWine(null);
+      eq(D.getElementById('f_added').value, H.todayISO(), 'a new wine is added today unless you say otherwise');
+      D.getElementById('wineDialog').close();
+      W.openWine('fx-hold');
+      eq(D.getElementById('f_added').value, '2026-01-05', 'a saved wine shows the day it was added');
+      D.getElementById('f_added').value = '2025-12-24';
+      D.getElementById('wineSave').click();
+      eq(H.__state().wines.find((w) => w.id === 'fx-hold').added, '2025-12-24', 'and a changed day is saved');
+      W.openWine('fx-hold');
+      D.getElementById('f_added').value = '';
+      D.getElementById('wineSave').click();
+      ok(D.getElementById('wineDialog').open && /day it was added/.test(D.getElementById('wineWarn').textContent),
+         'an emptied box is named, not saved as nothing');
+      D.getElementById('f_added').value = '2999-01-01';
+      D.getElementById('wineSave').click();
+      ok(/after today/.test(D.getElementById('wineWarn').textContent), 'and a day after today is refused');
+    } finally { proto.setItem = realStore; D.getElementById('wineDialog').close(); H.__plant(FIXTURE); }
   });
 
   group('Look Up with Claude');

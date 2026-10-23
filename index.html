@@ -1842,13 +1842,19 @@ html[data-booting] footer { visibility: hidden; }
       <input type="number" id="f_to" min="1900" max="2150" step="1" inputmode="numeric">
     </div>
   </div>
-  <div class="field">
-    <label for="f_source">Came from</label>
-    <select id="f_source">
-      <option value="wineaccess">Wine Access</option>
-      <option value="cellar">Already in the cellar</option>
-      <option value="other">Somewhere else</option>
-    </select>
+  <div class="grid2">
+    <div class="field">
+      <label for="f_source">Came from</label>
+      <select id="f_source">
+        <option value="wineaccess">Wine Access</option>
+        <option value="cellar">Already in the cellar</option>
+        <option value="other">Somewhere else</option>
+      </select>
+    </div>
+    <div class="field">
+      <label for="f_added">Date added</label>
+      <input type="date" id="f_added">
+    </div>
   </div>
   <div class="field">
     <label for="f_notes">Notes</label>
@@ -4314,6 +4320,10 @@ function openWine(id) {
   $('f_from').value = it && it.drinkFrom != null ? it.drinkFrom : '';
   $('f_to').value = it && it.drinkTo != null ? it.drinkTo : '';
   $('f_source').value = it ? it.source : 'wineaccess';
+  /* A new wine starts on today; a saved one shows its own day. Never later
+     than today — a bottle cannot have been added tomorrow. */
+  $('f_added').max = todayISO();
+  $('f_added').value = it && DATE_RE.test(it.added || '') ? it.added : todayISO();
   $('f_notes').value = it ? it.notes : '';
   $('wineWarn').textContent = '';
   lookupStop();
@@ -4346,13 +4356,16 @@ $('wineSave').addEventListener('click', () => {
   if (fromRaw !== '' && from == null) return bad('Enter the first year to drink it, like 2027.', 'f_from');
   if (toRaw !== '' && to == null) return bad('Enter the last year to drink it, like 2034.', 'f_to');
   if (from != null && to != null && to < from) return bad('The window ends before it starts.', 'f_to');
+  const added = $('f_added').value;
+  if (!DATE_RE.test(added)) return bad('Pick the day it was added.', 'f_added');
+  if (added > todayISO()) return bad('The day it was added cannot be after today.', 'f_added');
   const fields = {
     vintage: vintage, name: name, color: $('f_color').value,
     region: cleanLine($('f_region').value, 60), grape: cleanLine($('f_grape').value, 60),
     qty: qty, location: cleanLine($('f_location').value, 40),
     valueLow: low != null ? low : high, valueHigh: low != null ? high : null,
     valueEst: $('f_est').checked, drinkFrom: from, drinkTo: to,
-    source: $('f_source').value, notes: cleanNote($('f_notes').value, 300),
+    source: $('f_source').value, added: added, notes: cleanNote($('f_notes').value, 300),
   };
   if (editingId) {
     /* Re-found by id at the moment of saving: another tab or device may have
@@ -4376,7 +4389,7 @@ $('wineSave').addEventListener('click', () => {
     }
     Object.assign(it, fields);
   } else {
-    state.wines.push(Object.assign({ id: uid(), added: todayISO() }, fields));
+    state.wines.push(Object.assign({ id: uid() }, fields));
   }
   state = normalizeState(state);
   save();

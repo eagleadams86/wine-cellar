@@ -14,6 +14,8 @@ cellar on your other devices.
   and *holding*; a **Drink Next** list of what to open first; the full cellar table (sortable,
   filterable by status, with Copy and CSV); and a chart of how many bottles are inside their
   drinking window in each of the coming years.
+- **Date added** in the wine window starts on today for a new wine and can be changed to the
+  day the bottles really arrived (never later than today). Pasted wines are added today.
 - **Point at a row to see the rest of the wine** — the bubble (Money Map's row tip) lists every
   field the table has no column for: colour, where it came from and when it was added in the
   Cellar table, plus region, grape, value and where in the shorter Drink Next table. Then the
