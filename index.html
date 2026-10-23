@@ -5454,6 +5454,24 @@ $('searchResults').addEventListener('click', (e) => {
   const btn = e.target.closest('[data-hit]');
   if (btn && searchHits[+btn.dataset.hit]) goToSearchHit(searchHits[+btn.dataset.hit]);
 });
+/* ENTER SAVES (Charles, 2026-10-23): in a window with a save button, a plain
+   Enter presses it — except in a text area, where Enter is a new line. Left to
+   their own Enter: a focused button or link (it presses ITSELF; pressing Save
+   too would be two actions), the key form (a real form, which submits Save
+   Key), and IME composition. A save that is hidden or disabled is not pressed —
+   Enter does nothing rather than something else. Windows with no save of their
+   own (Settings saves as you go; Delete All is never one key away) are not in
+   the list. */
+const ENTER_SAVES = { wineDialog: 'wineSave', openDialog: 'openSave', pasteDialog: 'pasteAdd',
+                      checkDialog: 'checkSave' };
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'Enter' || e.altKey || e.ctrlKey || e.metaKey || e.shiftKey || e.isComposing) return;
+  const dlg = e.target.closest && e.target.closest('dialog[open]');
+  const btn = dlg && ENTER_SAVES[dlg.id] && $(ENTER_SAVES[dlg.id]);
+  if (!btn || e.target.closest('textarea, button, a, summary, form, [contenteditable]')) return;
+  e.preventDefault();
+  if (!btn.hidden && !btn.disabled) btn.click();
+});
 document.addEventListener('keydown', (e) => {
   if ((e.key !== 'k' && e.key !== 'K') || !(e.metaKey || e.ctrlKey) || e.shiftKey || e.altKey)
     return;

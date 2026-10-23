@@ -14,6 +14,9 @@ cellar on your other devices.
   and *holding*; a **Drink Next** list of what to open first; the full cellar table (sortable,
   filterable by status, with Copy and CSV); and a chart of how many bottles are inside their
   drinking window in each of the coming years.
+- **Enter saves** the wine window, Opened a Bottle, Paste a List and Check All Wines — anywhere
+  but a text area (Notes, the pasted list), where Enter is a new line. On a focused button, Enter
+  presses that button.
 - **Date added** in the wine window starts on today for a new wine and can be changed to the
   day the bottles really arrived (never later than today). Pasted wines are added today. For a
   wine **Already in the cellar** the date is optional — leave it blank, or tick **Just the

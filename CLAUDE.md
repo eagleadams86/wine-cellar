@@ -82,6 +82,10 @@ the family doesn't.
   window stops its lookups** — a `MutationObserver` on `open`, not the `close` event (which some
   engines never deliver), because Escape and a click outside never pass through Cancel; before
   2026-10-23 a closed paste window went on billing through every row.
+- **Enter saves** through ONE document listener and the `ENTER_SAVES` map (dialog id → its save
+  button). A window that gains a save button goes in the map; Settings (saves as you go) and
+  Delete All (never one key away) stay out on purpose. Skipped: textarea, a focused
+  button/link (it presses itself), the key `<form>`, IME composition, a hidden/disabled save.
 - **`added` is a day, a bare year or ''** (SCHEMA 2 / SHARE_PAYLOAD_V 2, 2026-10-23): the last
   two only for "Already in the cellar", chosen in the wine window by leaving the date blank or
   ticking Just the year (`dressAdded()`). `cleanAdded()` is the boundary — an ABSENT field is
@@ -130,6 +134,6 @@ commented copy in the repo.
 
 ## Tests
 
-`tests.html`, `EXPECTED = 210`. Run it headless (Playwright) rather than in the Browser pane:
+`tests.html`, `EXPECTED = 211`. Run it headless (Playwright) rather than in the Browser pane:
 the pane throttles hidden timers and its focus heuristics turn the 705px keyboard-focus check
 red on untouched code.
