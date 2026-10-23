@@ -82,6 +82,10 @@ the family doesn't.
 - **Tests that stub storage stub `W.Storage.prototype.setItem`**, never
   `localStorage.setItem = …`, which Chrome stores as an item named "setItem" while the real
   write still happens.
+- **Notes are the ROW's hover text** (Money Map's `rowTip` + `noteDot` + `wireGridTip`, as
+  `#rowTip` wired once on `<main>`): `data-tip` on the `<tr>`, never a `title`; a dot after the
+  name, behind a U+2060 word joiner that `cellText()` strips. Touch shows no tip on a row that
+  opens the editor. A row without notes carries neither.
 - **The table's own order is drinking order** — past the window, drink soon, ready, hold,
   none; then the window that closes soonest. The Wine column sorts by name, then vintage.
 
@@ -95,6 +99,6 @@ commented copy in the repo.
 
 ## Tests
 
-`tests.html`, `EXPECTED = 185`. Run it headless (Playwright) rather than in the Browser pane:
+`tests.html`, `EXPECTED = 188`. Run it headless (Playwright) rather than in the Browser pane:
 the pane throttles hidden timers and its focus heuristics turn the 705px keyboard-focus check
 red on untouched code.

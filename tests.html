@@ -51,7 +51,7 @@
    go MISSING look exactly like tests that pass — a suite that quietly shrank to
    three checks still says "all 3 tests pass". RAISE THIS when you add tests, and
    lower it only when you retire one deliberately. */
-const EXPECTED = 185;
+const EXPECTED = 188;
 
 /* ── It refuses to run anywhere but localhost, and that is load-bearing ──────
    GitHub Pages publishes this page BESIDE the app, where the iframe below would
@@ -2232,6 +2232,42 @@ function define() {
     const adopt = (src.match(/window\.wcAdopt = [\s\S]*?\n\};/) || [''])[0];
     ok(/undoStartOver\(\)/.test(adopt), 'and past another device’s, under a newer timestamp, everywhere');
     ok(/\['syncBtn', 'undoBtn'/.test(src), 'a shared view has no Undo — it writes nothing to undo');
+  });
+
+  group('a wine’s notes, on hover — Money Map’s row tip');
+  t('a row with notes carries the dot and the tip; a row without carries neither', () => {
+    const notes = 'Bought by the case.\nOpen one a year.';
+    H.__plant(Object.assign({}, FIXTURE, { wines: FIXTURE.wines.map((w) =>
+      Object.assign({}, w, { notes: w.id === 'fx-hold' ? notes : '' })) }));
+    const row = (id) => W.document.querySelector('#cellarTable tr[data-open="' + id + '"]');
+    eq(row('fx-hold').dataset.tip, 'Click to edit\n\n' + notes, 'the hint, then the note as its own block');
+    ok(row('fx-hold').querySelector('.notedot[aria-hidden="true"]'), 'and the dot that says a note is there');
+    eq(row('fx-ready').dataset.tip, undefined, 'no note, no tip');
+    ok(!row('fx-ready').querySelector('.notedot'), 'and no dot');
+    ok(!W.document.querySelector('#cellarTable [title], #nextTable [title]'),
+       'never a native title as well — it would come up a second after, as a second bubble');
+    H.__plant(FIXTURE);
+  });
+  t('pointing at the row shows the note; pointing away hides it', () => {
+    H.__plant(Object.assign({}, FIXTURE, { wines: FIXTURE.wines.map((w) =>
+      Object.assign({}, w, { notes: w.id === 'fx-hold' ? 'A note' : '' })) }));
+    const D = W.document, tip = D.getElementById('rowTip');
+    const move = (el) => el.dispatchEvent(new W.PointerEvent('pointermove', { bubbles: true, pointerType: 'mouse', clientX: 50, clientY: 50 }));
+    move(D.querySelector('#cellarTable tr[data-open="fx-hold"] td'));
+    ok(!tip.hidden, 'anywhere on the row, not only the dot');
+    ok(/A note/.test(tip.textContent), 'with the note in it, as text');
+    move(D.querySelector('#cellarTable tr[data-open="fx-ready"] td'));
+    ok(tip.hidden, 'a row without a note takes it down');
+    const touch = new W.PointerEvent('pointerdown', { bubbles: true, pointerType: 'touch' });
+    D.querySelector('#cellarTable tr[data-open="fx-hold"] td').dispatchEvent(touch);
+    ok(tip.hidden, 'a tap on a row that opens the wine window shows nothing — the window shows the note');
+    H.__plant(FIXTURE);
+  });
+  t('the dot never reaches Copy or CSV', () => {
+    H.__plant(Object.assign({}, FIXTURE, { wines: FIXTURE.wines.map((w) => Object.assign({}, w, { notes: 'n' })) }));
+    const rows = H.tableToRows(W.document.getElementById('cellarTable'));
+    ok(!JSON.stringify(rows).includes('\u2060'), 'the word joiner that holds the dot beside the name is stripped');
+    H.__plant(FIXTURE);
   });
 
   group('Look Up with Claude');

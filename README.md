@@ -14,6 +14,9 @@ cellar on your other devices.
   and *holding*; a **Drink Next** list of what to open first; the full cellar table (sortable,
   filterable by status, with Copy and CSV); and a chart of how many bottles are inside their
   drinking window in each of the coming years.
+- **A wine's notes show when you point at its row** — a small dot after the name says it has
+  some, and the bubble shows them (Money Map's row tip). On a phone, tap the wine to read them
+  in its window.
 - **Opened tab** — every bottle you have opened, with the date, your 1–5 rating and a note.
 - **On a phone** every list — Drink Next, the Cellar, the Opened log and the paste preview —
   turns into a stack of cards: the wine and its status pill on top, two labelled fields to a
@@ -164,7 +167,7 @@ characters, opened-bottle notes at 140.
 python3 -m http.server 8025
 ```
 
-Open `http://localhost:8025/` for the app and `/tests.html` for the suite (185 tests; the
+Open `http://localhost:8025/` for the app and `/tests.html` for the suite (188 tests; the
 `EXPECTED` floor in the file fails the run if any go missing). CI runs the same page headless
 on every push, plus CodeQL.
 

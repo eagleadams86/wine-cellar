@@ -854,6 +854,20 @@
      widest. In EM, because a coarse pointer gives the header row --fs-base and
      the same label then has two widths; a pixel floor covers only one. */
   #syncBtn { min-width: 10.25em; }
+  /* The rows' hover text — Money Map's #gridTip, property for property.
+     pre-line so a note keeps its line breaks; `overflow-wrap: anywhere` because
+     a note is often a pasted URL, one unbreakable word that would otherwise run
+     out of the bubble; pointer-events: none or it would sit under the cursor
+     and flicker as the hover target. */
+  #rowTip { position: fixed; z-index: 70; display: none; max-width: 360px;
+    background: var(--surface); border: 1px solid var(--border-strong);
+    border-radius: var(--radius-sm); padding: 7px 10px; font-size: var(--fs-xs);
+    line-height: 1.45; color: var(--text-primary); white-space: pre-line;
+    overflow-wrap: anywhere; pointer-events: none; }
+  #rowTip:not([hidden]) { display: block; }
+  /* The note dot, exactly Money Map's: same size, same token, same meaning. */
+  .notedot { display: inline-block; width: 5px; height: 5px; border-radius: 50%;
+    background: var(--accent); margin-left: 6px; vertical-align: 2px; }
   .keyrow { display: flex; gap: var(--sp-4); }
   .keyrow input { flex: 1 1 auto; min-width: 0; }
   .lookupbar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-4);
@@ -1685,6 +1699,10 @@ html[data-booting] footer { visibility: hidden; }
 </div>
 
 <div id="toast" popover="manual" role="status" aria-live="polite"></div>
+<!-- The rows' hover text (see rowTip). One bubble for the page, fixed so a
+     table that scrolls sideways cannot clip it; aria-hidden because what it
+     says is in the wine's own window, which is what a screen reader opens. -->
+<div id="rowTip" hidden aria-hidden="true"></div>
 
 <!-- ── Dialogs ─────────────────────────────────────────────────────────────── -->
 
@@ -2688,6 +2706,31 @@ function pillFor(status) {
   return '<span class="pill' + (s.cls ? ' ' + s.cls : '') + '">' + esc(s.label) + '</span>';
 }
 
+/* ── A row's hover text, and the dot that says it has one ─────────────────
+   Money Map's pattern, ported (Charles, 2026-10-23: "show the notes as a hover
+   tooltip like in money map"). THE ROW IS THE TARGET, not a marker beside the
+   name — a tooltip on a 5px decoration is one nobody can reliably raise. The
+   words go in `data-tip`, NEVER a `title`: a title never appears on a phone,
+   dies when a table scrolls under a parked cursor, and would come up a second
+   after the app's own bubble as a second one. Built as the whole attribute, so
+   a row with nothing to say carries nothing. The hint first, then the note as
+   a block of its own, Money Map's `rowTip` shape. */
+function rowTip(hint, note) {
+  const text = [hint, typeof note === 'string' ? note.trim() : ''].filter(Boolean).join('\n\n');
+  return text ? ' data-tip="' + esc(text) + '"' : '';
+}
+/* The family's note dot: 5px of --accent after the name, aria-hidden because
+   it restates what the row's editor says. A WORD JOINER in front, not a space,
+   so the dot never lands on a line of its own (Money Map, 2026-09-12). A row
+   with a note carries both this and rowTip — one decision, never half. */
+function noteDot(note) {
+  return (typeof note === 'string' && note.trim())
+    ? '\u2060<span class="notedot" aria-hidden="true"></span>' : '';
+}
+/* Only a row that HAS a note gets a tip: "Click to edit" on its own says
+   nothing the row's look does not already. */
+const wineTip = (w) => (w.notes && w.notes.trim() ? rowTip(viewOnly ? '' : 'Click to edit', w.notes) : '');
+
 function renderNext(c) {
   document.getElementById('nextCount').textContent = plural(c.next.length, 'wine');
   const wrap = document.getElementById('nextList');
@@ -2699,10 +2742,11 @@ function renderNext(c) {
   wrap.innerHTML = '<div class="table-scroll"><table id="nextTable" class="cards"><thead><tr>'
     + '<th scope="col">Wine</th><th scope="col">Window</th><th scope="col">Status</th>'
     + '<th scope="col" class="num">Bottles</th></tr></thead><tbody>'
-    + c.next.map((r) => '<tr' + (viewOnly ? '' : ' class="rowlink" data-open="' + esc(r.w.id) + '"') + '>'
+    + c.next.map((r) => '<tr' + (viewOnly ? '' : ' class="rowlink" data-open="' + esc(r.w.id) + '"')
+      + wineTip(r.w) + '>'
       + '<th scope="row">' + (viewOnly ? esc(wineLabel(r.w))
         : '<button type="button" class="rowbtn" data-edit="' + esc(r.w.id) + '">'
-          + esc(wineLabel(r.w)) + '</button>') + '</th>'
+          + esc(wineLabel(r.w)) + '</button>') + noteDot(r.w.notes) + '</th>'
       + '<td class="nowrap" data-label="Window">' + esc(fmtWindow(r.w)) + '</td>'
       + '<td data-label="Status">' + pillFor(r.status) + '</td>'
       + '<td class="num" data-label="Bottles">' + esc(r.w.qty) + '</td></tr>').join('')
@@ -2900,12 +2944,12 @@ function renderList() {
     + v.rows.map((w) => {
       const st = statusOf(w, v.yr, v.soon);
       return '<tr' + (viewOnly ? '' : ' class="rowlink" data-open="' + esc(w.id) + '"')
-        + (w.qty ? '' : ' data-finished') + '>'
+        + (w.qty ? '' : ' data-finished') + wineTip(w) + '>'
         + '<th scope="row">'
         + (viewOnly ? esc(wineLabel(w))
                     : '<button type="button" class="rowbtn" data-edit="' + esc(w.id) + '">'
                       + esc(wineLabel(w)) + '</button>')
-        + '</th>'
+        + noteDot(w.notes) + '</th>'
         /* data-label is what a phone shows beside each value once the row
            has become a card — the column headings are not on screen there. */
         + '<td data-label="Region">' + esc(w.region) + '</td>'
@@ -3131,7 +3175,9 @@ function cellText(cell) {
   const copy = cell.cloneNode(true);
   copy.querySelectorAll('[aria-hidden="true"], .sr-only, .pill, .tile-help')
     .forEach((el) => el.remove());
-  return copy.textContent.replace(/\s+/g, ' ').trim();
+  /* The word joiner that keeps a note dot beside its name is invisible on
+     screen and would ride into a spreadsheet as a stray character. */
+  return copy.textContent.replace(/\u2060/g, '').replace(/\s+/g, ' ').trim();
 }
 
 function tableToRows(table) {
@@ -5013,6 +5059,67 @@ document.addEventListener('keydown', (e) => {
   wrap.addEventListener('chartredraw', hide);
   /* Escape closes it, like everything else here that covers something. */
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') hide(); });
+})();
+
+/* ── The rows' hover text ──────────────────────────────────────────────────
+   Money Map's wireGridTip, without its zoom arithmetic (this app has none).
+   ONE zone, <main>, which outlives every render, so the listeners are hung
+   once and everything is delegation on `[data-tip]`; the words go in through
+   textContent, so however a note was written it renders as text.
+
+   A PHONE HAS NO POINTER TO FOLLOW. A tap on iOS raises a synthetic mousemove
+   and then a click, so a hover-only handler would flash the tip and take it
+   straight down. Touch therefore shows nothing on a row that opens the wine
+   window — the window shows the note in a box you can read — and the one
+   place a row opens nothing (a shared snapshot) pins the tip above the row
+   until the next tap or scroll. */
+(() => {
+  const tip = $('rowTip'), zone = $('main');
+  let heldByTouch = false;
+  const hide = () => { tip.hidden = true; heldByTouch = false; };
+  const show = (el) => { if (tip.textContent !== el.dataset.tip) tip.textContent = el.dataset.tip; tip.hidden = false; };
+  zone.addEventListener('pointermove', (e) => {
+    if (e.pointerType === 'touch') return;
+    heldByTouch = false;
+    const el = e.target.closest('[data-tip]');
+    if (!el) { hide(); return; }
+    show(el);
+    /* Measured at the origin, not wherever it last sat: a bubble parked at the
+       right-hand edge is squeezed narrow, and its width read there would wrap
+       every later tip into a sliver. */
+    tip.style.left = '0px'; tip.style.top = '0px';
+    const w = tip.offsetWidth, h = tip.offsetHeight, pad = 14;
+    let x = e.clientX + pad, y = e.clientY + pad;
+    if (x + w > window.innerWidth - 8) x = e.clientX - w - pad;
+    if (y + h > window.innerHeight - 8) y = e.clientY - h - pad;
+    tip.style.left = Math.max(4, x) + 'px';
+    tip.style.top = Math.max(4, y) + 'px';
+  });
+  zone.addEventListener('pointerdown', (e) => {
+    if (e.pointerType !== 'touch') return;
+    const el = e.target.closest('[data-tip]');
+    if (!el || el.closest('[data-open]')) { hide(); return; }
+    show(el);
+    const r = el.getBoundingClientRect();
+    tip.style.left = '0px'; tip.style.top = '0px';
+    const w = tip.offsetWidth, h = tip.offsetHeight;
+    let y = r.top - h - 8;
+    if (y < 4) y = r.bottom + 8;
+    tip.style.left = Math.max(4, Math.min(r.left, window.innerWidth - 8 - w)) + 'px';
+    tip.style.top = Math.max(4, Math.min(y, window.innerHeight - h - 8)) + 'px';
+    heldByTouch = true;
+  });
+  zone.addEventListener('mouseleave', hide);
+  /* A table scrolling under a parked cursor: hide, and the next movement draws
+     it again over the right row. CAPTURE, because a scroll does not bubble. */
+  zone.addEventListener('scroll', hide, { passive: true, capture: true });
+  window.addEventListener('scroll', hide, { passive: true });
+  /* A click opens the wine window; a tip floating over it would answer a
+     question nobody is asking any more. Not the click a tap raised it with. */
+  zone.addEventListener('click', () => { if (!heldByTouch) hide(); });
+  document.addEventListener('pointerdown', (e) => {
+    if (heldByTouch && e.pointerType === 'touch' && !(e.target.closest && e.target.closest('[data-tip]'))) hide();
+  }, true);
 })();
 
 /* ── One chart, filling the window ───────────────────────────────────────────
