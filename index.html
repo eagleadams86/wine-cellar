@@ -3127,6 +3127,19 @@ addEventListener('focusin', (e) => {
   }
 });
 
+/* A FOCUSED NUMBER BOX IGNORES THE MOUSE WHEEL (2026-10-23). Chrome steps a
+   focused <input type="number"> on every wheel tick over it, and the wine
+   editor is tall enough that you scroll to reach Save — so raising Bottles to
+   2 and scrolling down over the box saved 0, and the wine vanished as
+   "finished". Reported by Charles the day the app shipped. Every year and
+   price box here is a number box too, so this guards all of them: the box
+   loses focus on the first tick, which stops the step and lets the window
+   scroll as the reader meant. Passive, so scrolling stays smooth. */
+addEventListener('wheel', (e) => {
+  const el = e.target;
+  if (el && el.tagName === 'INPUT' && el.type === 'number' && el === document.activeElement) el.blur();
+}, { passive: true, capture: true });
+
 /* ═══════════════════════════════ Theme and tabs ═══════════════════════════ */
 
 function applyThemeColor() {
@@ -3398,11 +3411,14 @@ async function decodeShare(token) {
 /* Which way the cells are separated is decided ONCE, from the first line, and
    used for every line — a value like "~$36 list, ~$20–27 street" has a comma
    in it, so a per-line guess would split it in two. A CSV is told apart from
-   Claude's space-aligned table by having at least two commas outside quotes. */
+   Claude's space-aligned table by having at least two commas outside quotes —
+   or by being a header row that names a Wine column, so a two-column CSV
+   ("Wine,Bottles") counts too. */
 function pasteMode(line) {
   if (line.indexOf('\t') !== -1) return 'tab';
   if (/^\s*\|/.test(line) || / \| /.test(line)) return 'pipe';
-  if (splitCsv(line).length >= 3) return 'csv';
+  const cells = splitCsv(line);
+  if (cells.length >= 3 || (cells.length === 2 && headerMap(cells))) return 'csv';
   return 'spaces';
 }
 /* One CSV line, RFC 4180 quoting: a quoted cell may hold commas, and "" inside
@@ -3678,6 +3694,15 @@ $('wineSave').addEventListener('click', () => {
       toast('That wine was deleted somewhere else, so there was nothing to update.', 5000);
       return;
     }
+    /* Taking a wine to NO bottles hides it from the table as finished, so it
+       is asked rather than done quietly — the save that should have raised the
+       count to 2 and saved 0 instead looked like a delete. */
+    if (it.qty > 0 && fields.qty === 0 && !state.settings.showFinished
+        && !confirm('Save “' + wineLabel(fields) + '” with 0 bottles?\n\nIt will be marked finished and '
+          + 'hidden from the Cellar table. (Settings → “Show wines with no bottles left” shows it again.)')) {
+      $('f_qty').focus();
+      return;
+    }
     Object.assign(it, fields);
   } else {
     state.wines.push(Object.assign({ id: uid(), added: todayISO() }, fields));
@@ -3685,7 +3710,9 @@ $('wineSave').addEventListener('click', () => {
   state = normalizeState(state);
   save();
   $('wineDialog').close();
-  toast(editingId ? 'Wine updated' : 'Wine added');
+  toast(fields.qty === 0 && !state.settings.showFinished
+    ? 'Saved with no bottles left — it is hidden as finished (Settings shows it again)'
+    : editingId ? 'Wine updated' : 'Wine added', fields.qty === 0 ? 6000 : 0);
 });
 $('wineCancel').addEventListener('click', () => $('wineDialog').close());
 $('wineToPaste').addEventListener('click', () => { $('wineDialog').close(); openPaste(); });

@@ -51,7 +51,7 @@
    go MISSING look exactly like tests that pass — a suite that quietly shrank to
    three checks still says "all 3 tests pass". RAISE THIS when you add tests, and
    lower it only when you retire one deliberately. */
-const EXPECTED = 164;
+const EXPECTED = 167;
 
 /* ── It refuses to run anywhere but localhost, and that is load-bearing ──────
    GitHub Pages publishes this page BESIDE the app, where the iframe below would
@@ -2137,6 +2137,51 @@ function define() {
     eq([r.name, r.valueLow, r.valueHigh, r.drinkFrom], ['Spaced Syrah', 20, 27, 2026],
        'the separator is decided once, from the first line');
   });
+  t('a two-column CSV is still a CSV when its header names the Wine column', () => {
+    const r = H.parseWineList('Wine,Bottles\n2007 Two Column Cab,3', 2026).rows[0];
+    eq([r.vintage, r.name, r.qty], [2007, 'Two Column Cab', 3]);
+  });
+
+  group('the editor never saves a number the reader did not type');
+  t('a focused number box ignores the mouse wheel', () => {
+    /* Chrome steps a focused number box on every wheel tick over it: raising
+       Bottles to 2 and scrolling down to Save saved 0 (2026-10-23). The wheel
+       must take the focus away before it can step anything. */
+    const D = W.document;
+    W.openWine('fx-ready');
+    const q = D.getElementById('f_qty');
+    q.focus();
+    eq(D.activeElement, q, 'the box has the focus');
+    q.dispatchEvent(new W.WheelEvent('wheel', { deltaY: 100, bubbles: true }));
+    ok(D.activeElement !== q, 'the first wheel tick takes the focus away, so nothing steps');
+    eq(q.value, '2', 'and the count is untouched');
+    D.getElementById('wineDialog').close();
+  });
+  t('taking a wine to 0 bottles asks first, and says where it went', () => {
+    const D = W.document, realSave = W.save, realConfirm = W.confirm;
+    let asked = 0;
+    W.save = () => W.render();
+    W.confirm = () => { asked++; return false; };
+    try {
+      H.__plant(FIXTURE);
+      W.openWine('fx-ready');
+      D.getElementById('f_qty').value = '0';
+      D.getElementById('wineSave').click();
+      eq(asked, 1, 'a confirm, naming the wine');
+      eq(H.__state().wines.find((w) => w.id === 'fx-ready').qty, 2, 'cancel saves nothing');
+      ok(D.getElementById('wineDialog').open, 'and leaves the editor open to fix it');
+      W.confirm = () => true;
+      D.getElementById('wineSave').click();
+      eq(H.__state().wines.find((w) => w.id === 'fx-ready').qty, 0, 'yes saves it');
+      ok(/hidden as finished/.test(D.getElementById('toast').textContent), 'and the toast says where it went');
+    } finally {
+      W.save = realSave; W.confirm = realConfirm;
+      if (D.getElementById('wineDialog').open) D.getElementById('wineDialog').close();
+      H.__plant(FIXTURE);
+      W.setTab('cellar');
+    }
+  });
+
   t('the verdict column is read past, never stored', () => {
     ok(!('verdict' in H.parseWineList(CLAUDE_TABLE, 2026).rows[0]),
        'a status is worked out from the window, so it stays right as the years go by');

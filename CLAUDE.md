@@ -41,6 +41,10 @@ the family doesn't.
   as Claude's lookup table (wine, value, window). The separator is decided ONCE from the first
   line — a comma inside Claude's value cell must not turn its space-aligned table into a CSV.
   Test fixtures for paste are invented wines; Charles's real list never goes in the repo.
+- **A focused number box ignores the wheel** — one capture-phase `wheel` listener blurs it.
+  Chrome steps a focused `type=number` on every wheel/trackpad tick over it; scrolling the tall
+  editor to reach Save turned Bottles 2 into 0 (2026-10-23). Every year and price box is a
+  number box too. And taking a wine to 0 bottles in the editor asks first, because 0 hides it.
 - **The table's own order is drinking order** — past the window, drink soon, ready, hold,
   none; then the window that closes soonest. The Wine column sorts by name, then vintage.
 
@@ -54,6 +58,6 @@ commented copy in the repo.
 
 ## Tests
 
-`tests.html`, `EXPECTED = 164`. Run it headless (Playwright) rather than in the Browser pane:
+`tests.html`, `EXPECTED = 167`. Run it headless (Playwright) rather than in the Browser pane:
 the pane throttles hidden timers and its focus heuristics turn the 705px keyboard-focus check
 red on untouched code.
