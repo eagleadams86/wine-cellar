@@ -82,6 +82,11 @@ the family doesn't.
   window stops its lookups** — a `MutationObserver` on `open`, not the `close` event (which some
   engines never deliver), because Escape and a click outside never pass through Cancel; before
   2026-10-23 a closed paste window went on billing through every row.
+- **`added` is a day, a bare year or ''** (SCHEMA 2 / SHARE_PAYLOAD_V 2, 2026-10-23): the last
+  two only for "Already in the cellar", chosen in the wine window by leaving the date blank or
+  ticking Just the year (`dressAdded()`). `cleanAdded()` is the boundary — an ABSENT field is
+  still today, so old records are unchanged; `fmtAdded()` is the one way to print it. Any
+  other source requires the day, and switching to one puts today in an empty box.
 - **Check All Wines** (2026-10-23) reuses that lookup across every wine with `qty > 0`.
   `lookupDiffs`/`applyLookupTo` are the saved-wine twins of `LOOKUP_BOXES`/`applyLookup` (those
   read the FORM; these read a wine) — change a field's rule in both. Pre-tick rule: an EMPTY

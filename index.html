@@ -1125,6 +1125,7 @@
            color: var(--text-secondary); font-weight: var(--fw-bold); padding: 0 var(--sp-3); }
   .checkline { display: flex; align-items: flex-start; gap: var(--sp-4); margin-bottom: var(--sp-4); }
   .checkline input { width: auto; min-height: 0; margin-top: 3px; }
+  #f_yearOnlyLine { margin: 6px 0 0; }
 
   /* ── Dialogs ────────────────────────────────────────────────────────────────
      --border-strong for the edge, not --border: a dialog floats above the page
@@ -1852,8 +1853,11 @@ html[data-booting] footer { visibility: hidden; }
       </select>
     </div>
     <div class="field">
-      <label for="f_added">Date added</label>
+      <label for="f_added" id="f_addedLabel">Date added</label>
       <input type="date" id="f_added">
+      <input type="number" id="f_addedYear" min="1900" step="1" inputmode="numeric" hidden>
+      <label class="checkline" id="f_yearOnlyLine" hidden><input type="checkbox" id="f_yearOnly">
+        Just the year</label>
     </div>
   </div>
   <div class="field">
@@ -2218,8 +2222,10 @@ const TABS        = ['cellar', 'opened'];
    catastrophic for a copy written by a NEWER build — the app would quietly
    delete the fields that build added, then save the result over the good copy.
 
-   BUMP THIS AND THE ALLOWLIST TOGETHER whenever you add a stored field. */
-const SCHEMA = 1;
+   BUMP THIS AND THE ALLOWLIST TOGETHER whenever you add a stored field — or
+   widen what one may hold. 2 (2026-10-23): `added` may be '' or a bare year
+   for a wine already in the cellar; version-1 code turned both into today. */
+const SCHEMA = 2;
 
 /* ── Ids from outside are not trusted ──────────────────────────────────────
    Ids reach `data-id` attributes and <option value>s in a dozen places, so an
@@ -2308,6 +2314,19 @@ function cleanMoney(v) {
 /* One line of text: control characters (a pasted tab or newline) become
    spaces, and the cap is applied in CODE as well as by maxlength, because a
    paste or a backup ignores the attribute. */
+/* When a wine was added: a day, a bare year, or '' — the last two only ever
+   chosen for a wine that was already in the cellar, whose day nobody knows.
+   ABSENT (an old record) or unreadable is today, as it always was; a year
+   after this one is unreadable. */
+const ADDED_YEAR_RE = /^\d{4}$/;
+function cleanAdded(v) {
+  if (v === '') return '';
+  const s = String(v == null ? '' : v);
+  if (DATE_RE.test(s)) return s;
+  if (ADDED_YEAR_RE.test(s) && Number(s) >= 1900 && Number(s) <= thisYear()) return s;
+  return todayISO();
+}
+const fmtAdded = (a) => (DATE_RE.test(a || '') ? fmtDate(a) : ADDED_YEAR_RE.test(a || '') ? a : '');
 function cleanLine(v, cap) {
   return String(v == null ? '' : v).replace(/[\u0000-\u001f\u007f]+/g, ' ').trim().slice(0, cap);
 }
@@ -2370,7 +2389,7 @@ function normalizeState(raw) {
         drinkTo: to,
         location: cleanLine(it.location, 40),
         source: SOURCES.indexOf(it.source) === -1 ? 'other' : it.source,
-        added: DATE_RE.test(String(it.added || '')) ? it.added : todayISO(),
+        added: cleanAdded(it.added),
         notes: cleanNote(it.notes, 300),
       };
     });
@@ -2834,7 +2853,7 @@ function wineFacts(w, shown) {
     off('location') && w.location ? 'Where: ' + w.location : '',
     COLOR_LABEL[w.color] ? 'Colour: ' + COLOR_LABEL[w.color] : '',
     SOURCE_WORDS[w.source] ? 'Came from: ' + SOURCE_WORDS[w.source] : '',
-    DATE_RE.test(w.added || '') ? 'Added: ' + fmtDate(w.added) : '',
+    fmtAdded(w.added) ? 'Added: ' + fmtAdded(w.added) : '',
   ].filter(Boolean).join('\n');
 }
 const NEXT_COLUMNS = ['wine', 'window', 'status', 'qty'];
@@ -3722,7 +3741,8 @@ wireScrollRow(document.querySelector('.tabs'), document.querySelector('.tabrow >
    browser with no CompressionStream. Reading it is what lets the format change
    later without every old link breaking. */
 const SHARE_FORMAT = 1;
-const SHARE_PAYLOAD_V = 1;
+/* 2: `added` may be blank or a bare year (see SCHEMA). */
+const SHARE_PAYLOAD_V = 2;
 const SHARE_WARN_AT = 8000;
 
 const b64urlEncode = (bytes) => {
@@ -4320,10 +4340,16 @@ function openWine(id) {
   $('f_from').value = it && it.drinkFrom != null ? it.drinkFrom : '';
   $('f_to').value = it && it.drinkTo != null ? it.drinkTo : '';
   $('f_source').value = it ? it.source : 'wineaccess';
-  /* A new wine starts on today; a saved one shows its own day. Never later
-     than today — a bottle cannot have been added tomorrow. */
+  /* A new wine starts on today; a saved one shows its own day — or its year,
+     or nothing, which only a wine already in the cellar may have. Never later
+     than today: a bottle cannot have been added tomorrow. */
+  const added = it ? it.added : todayISO();
   $('f_added').max = todayISO();
-  $('f_added').value = it && DATE_RE.test(it.added || '') ? it.added : todayISO();
+  $('f_addedYear').max = thisYear();
+  $('f_yearOnly').checked = ADDED_YEAR_RE.test(added);
+  $('f_added').value = DATE_RE.test(added) ? added : '';
+  $('f_addedYear').value = ADDED_YEAR_RE.test(added) ? added : '';
+  dressAdded();
   $('f_notes').value = it ? it.notes : '';
   $('wineWarn').textContent = '';
   lookupStop();
@@ -4333,6 +4359,29 @@ function openWine(id) {
   openModal($('wineDialog'));
 }
 
+/* "Already in the cellar" may not know when it was added (Charles,
+   2026-10-23): the day becomes optional and "Just the year" swaps the date
+   picker for a year box. Any other source needs the day, so leaving the
+   cellar puts back today in an empty date. */
+function dressAdded() {
+  const cellar = $('f_source').value === 'cellar';
+  if (!cellar) $('f_yearOnly').checked = false;
+  const yearOnly = $('f_yearOnly').checked;
+  $('f_yearOnlyLine').hidden = !cellar;
+  $('f_added').hidden = yearOnly;
+  $('f_addedYear').hidden = !yearOnly;
+  $('f_addedLabel').htmlFor = yearOnly ? 'f_addedYear' : 'f_added';
+  $('f_addedLabel').textContent = cellar ? (yearOnly ? 'Year added (optional)' : 'Date added (optional)') : 'Date added';
+}
+$('f_source').addEventListener('change', () => {
+  if ($('f_source').value !== 'cellar' && !$('f_added').value) $('f_added').value = todayISO();
+  dressAdded();
+});
+$('f_yearOnly').addEventListener('change', () => {
+  /* Going to a year keeps the year of the day that was there. */
+  if ($('f_yearOnly').checked && DATE_RE.test($('f_added').value)) $('f_addedYear').value = $('f_added').value.slice(0, 4);
+  dressAdded();
+});
 $('wineSave').addEventListener('click', () => {
   lookupStop();
   const warn = $('wineWarn');
@@ -4356,9 +4405,20 @@ $('wineSave').addEventListener('click', () => {
   if (fromRaw !== '' && from == null) return bad('Enter the first year to drink it, like 2027.', 'f_from');
   if (toRaw !== '' && to == null) return bad('Enter the last year to drink it, like 2034.', 'f_to');
   if (from != null && to != null && to < from) return bad('The window ends before it starts.', 'f_to');
-  const added = $('f_added').value;
-  if (!DATE_RE.test(added)) return bad('Pick the day it was added.', 'f_added');
-  if (added > todayISO()) return bad('The day it was added cannot be after today.', 'f_added');
+  const cellar = $('f_source').value === 'cellar';
+  let added;
+  if (cellar && $('f_yearOnly').checked) {
+    const raw = $('f_addedYear').value.trim(), y = Number(raw);
+    if (raw && (!Number.isInteger(y) || y < 1900 || y > thisYear()))
+      return bad('Enter the year it was added, like 2019 — or leave it blank.', 'f_addedYear');
+    added = raw ? String(y) : '';
+  } else {
+    added = $('f_added').value;
+    if (!(cellar && added === '')) {
+      if (!DATE_RE.test(added)) return bad('Pick the day it was added.', 'f_added');
+      if (added > todayISO()) return bad('The day it was added cannot be after today.', 'f_added');
+    }
+  }
   const fields = {
     vintage: vintage, name: name, color: $('f_color').value,
     region: cleanLine($('f_region').value, 60), grape: cleanLine($('f_grape').value, 60),
@@ -5985,7 +6045,7 @@ window.__wineTestHooks = {
   pushSnapshot: pushSnapshot, undoBankable: undoBankable,
   buildLookupRequest: buildLookupRequest, lookupWine: lookupWine, readLookup: readLookup,
   lookupErrorMessage: lookupErrorMessage, lookupNoteLine: lookupNoteLine,
-  wineFacts: wineFacts, fmtDate: fmtDate, lookupDiffs: lookupDiffs, applyLookupTo: applyLookupTo, checkWines: checkWines, LOOKUP_TOOL: LOOKUP_TOOL,
+  wineFacts: wineFacts, fmtDate: fmtDate, cleanAdded: cleanAdded, lookupDiffs: lookupDiffs, applyLookupTo: applyLookupTo, checkWines: checkWines, LOOKUP_TOOL: LOOKUP_TOOL,
   LOOKUP_KEY_STORE: LOOKUP_KEY_STORE, SHARE_MAX_BYTES: SHARE_MAX_BYTES, b64urlEncode: b64urlEncode,
 };
 </script>

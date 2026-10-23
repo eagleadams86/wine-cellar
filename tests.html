@@ -927,6 +927,10 @@ function define() {
   t('a date is SHAPE-checked, never parsed loosely', () => {
     eq(one({ added: 'last Tuesday' }).added, H.todayISO(), 'an unreadable date falls back to today');
     eq(one({ added: '2019-07-04' }).added, '2019-07-04', 'a real one is kept exactly');
+    eq([one({ added: '' }).added, one({ added: '2019' }).added], ['', '2019'],
+       'a blank day and a bare year — a cellar wine nobody dated — are kept');
+    eq([H.cleanAdded('3000'), H.cleanAdded('1800'), H.cleanAdded(2019), H.cleanAdded(undefined)],
+       [H.todayISO(), H.todayISO(), '2019', H.todayISO()], 'a year out of range, or no field at all, is today');
   });
   t('settings are type-checked too — they arrive from share links', () => {
     const out = H.normalizeState({ settings: { soonYears: 99, showFinished: 'yes' } });
@@ -2353,7 +2357,7 @@ function define() {
       D.getElementById('f_added').value = '2025-12-24';
       D.getElementById('wineSave').click();
       eq(H.__state().wines.find((w) => w.id === 'fx-hold').added, '2025-12-24', 'and a changed day is saved');
-      W.openWine('fx-hold');
+      W.openWine('fx-ready');   /* Wine Access: the day is required */
       D.getElementById('f_added').value = '';
       D.getElementById('wineSave').click();
       ok(D.getElementById('wineDialog').open && /day it was added/.test(D.getElementById('wineWarn').textContent),
@@ -2361,6 +2365,36 @@ function define() {
       D.getElementById('f_added').value = '2999-01-01';
       D.getElementById('wineSave').click();
       ok(/after today/.test(D.getElementById('wineWarn').textContent), 'and a day after today is refused');
+      D.getElementById('wineDialog').close();
+      /* Already in the cellar: blank, or just a year. */
+      const src = D.getElementById('f_source'), yr = D.getElementById('f_yearOnly');
+      const pick = (v) => { src.value = v; src.dispatchEvent(new W.Event('change')); };
+      const saved = () => H.__state().wines.find((w) => w.id === 'fx-ready').added;
+      W.openWine('fx-ready');
+      ok(D.getElementById('f_yearOnlyLine').hidden, 'Wine Access: no year-only choice');
+      pick('cellar');
+      ok(!D.getElementById('f_yearOnlyLine').hidden && /optional/.test(D.getElementById('f_addedLabel').textContent),
+         'in the cellar the day is optional, and can be just a year');
+      D.getElementById('f_added').value = '';
+      D.getElementById('wineSave').click();
+      eq(saved(), '', 'a blank day saves as blank');
+      W.openWine('fx-ready');
+      eq(D.getElementById('f_added').value, '', 'and reopens blank, not as today');
+      yr.click();
+      ok(D.getElementById('f_added').hidden && !D.getElementById('f_addedYear').hidden, 'Just the year swaps in a year box');
+      eq(D.getElementById('f_addedLabel').htmlFor, 'f_addedYear', 'and the label names it');
+      D.getElementById('f_addedYear').value = '1850';
+      D.getElementById('wineSave').click();
+      ok(/year it was added/.test(D.getElementById('wineWarn').textContent), 'a year out of range is named');
+      D.getElementById('f_addedYear').value = '2019';
+      D.getElementById('wineSave').click();
+      eq(saved(), '2019', 'a year saves as just the year');
+      ok(/Added: 2019/.test(D.querySelector('#cellarTable tr[data-open="fx-ready"]').dataset.tip), 'and the tip says so');
+      W.openWine('fx-ready');
+      ok(yr.checked && D.getElementById('f_addedYear').value === '2019', 'it reopens as a year');
+      pick('wineaccess');
+      ok(!yr.checked && D.getElementById('f_added').value === H.todayISO() && !D.getElementById('f_added').hidden,
+         'leaving the cellar needs a day again, and puts today in the empty box');
     } finally { proto.setItem = realStore; D.getElementById('wineDialog').close(); H.__plant(FIXTURE); }
   });
 
