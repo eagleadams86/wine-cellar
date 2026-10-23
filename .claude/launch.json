@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "wine-cellar",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": ["-m", "http.server", "8025"],
+      "port": 8025
+    }
+  ]
+}

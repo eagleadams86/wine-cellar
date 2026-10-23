@@ -1,0 +1,118 @@
+# Wine Cellar
+
+The wine you own, what it is worth, and **when to drink each bottle**.
+
+**Live: https://eagleadams86.github.io/wine-cellar/**
+
+A single-file web app in the eagleadams86 family — no build step, no account needed, works
+offline. Your cellar lives in your browser; sign in with Google only if you want the same
+cellar on your other devices.
+
+## What It Does
+
+- **Cellar tab** — tiles for bottles, value, and how many bottles are *drink soon*, *ready*
+  and *holding*; a **Drink Next** list of what to open first; the full cellar table (sortable,
+  filterable by status, with Copy and CSV); and a chart of how many bottles are inside their
+  drinking window in each of the coming years.
+- **Opened tab** — every bottle you have opened, with the date, your 1–5 rating and a note.
+- **Opened One** beside each wine takes a bottle off the count and writes a line in that log.
+  Removing a line puts the bottle back, so a mistaken press is easy to undo.
+- **Paste a List** reads the table Claude writes when you ask it to look wines up — see below.
+- **Find** (⌘K), **Settings**, **Back Up** (JSON and CSV, Restore, Delete All), **Share**
+  (a read-only link with the data inside it), four themes plus Auto — the family's chrome.
+
+## How a Status Is Decided
+
+Nothing is typed in: every status is worked out from the wine's drinking window and the
+current year, so the cellar stays right as time passes.
+
+| Status | Means |
+|---|---|
+| **Hold** | the window hasn't opened yet |
+| **Ready** | inside the window, with time to spare |
+| **Drink soon** | inside the window, and it closes within the time set in Settings (a year by default) |
+| **Past window** | the window closed in an earlier year — the one to open next |
+| **No window** | none recorded |
+
+The tiles count **bottles you still have**. Value is per-bottle value × count, shown as a
+range; wines with no value are left out and the page says how many bottles that is.
+
+## Adding Wines From Claude
+
+Ask Claude to look up your bottles and give you a table of **Wine · Approx. value · Drink
+window · Verdict**, then press **Paste a List** and paste it in. Each line needs the vintage
+first (`2019 Albret Lastra Reserva`). The parser understands:
+
+- tab-separated text (from a chat or a spreadsheet), Markdown tables, or columns lined up
+  with spaces;
+- values like `~$25–35 (estimate)` (the *estimate* flag is kept) and `~$36 list, ~$20–27
+  street` (the street price wins);
+- windows like `2027–2034`, `Now–2031` (Now = this year), `2030+` and `by 2029`;
+- a bottle count in the wine cell — `x2` or `(3 bottles)`; one bottle otherwise.
+
+The verdict column is read past and not stored, because the status is worked out from the
+window. The same vintage and name pasted again adds bottles to the wine you have rather than
+making a second row. You see every line before anything is added.
+
+## Cloud Sync
+
+Sign-in uses Google Identity Services (a popup straight to `accounts.google.com`), and the
+cellar is one Firestore document per Google account: `winecellar/{uid}` holding
+`{ state, updatedAt }`. The module is Golf Handicap's, ported whole — including the two rules
+the family learned the hard way: the first sign-in with data on both sides **asks** which copy
+to keep, and an empty copy never overwrites one with data in it. Nothing from Google is
+fetched until you reach for the sync button (or were already signed in on this device).
+
+Firebase project **`winecellar-fa733`** (free Spark plan). Set up 2026-10-23:
+
+- Authentication: Google provider on; `eagleadams86.github.io` in Authorized domains.
+- Firestore: `(default)` database in `nam5`; rules as in [`firestore.rules`](firestore.rules)
+  — each account may read and write only its own document. Nothing here deploys them; if the
+  console rules change, change that file to match.
+- Google Cloud → Credentials → *Web client (auto created by Google Service)*: Authorized
+  JavaScript origins include `https://eagleadams86.github.io` and `http://localhost:8025`. That
+  client ID is `GOOGLE_CLIENT_ID` in `index.html`; serving locally on any other port means
+  sign-in only works in production.
+
+The config in `index.html` is Firebase's public client config, not a secret — access is
+enforced by the rules. An anonymous probe should be refused:
+
+```bash
+curl -s "https://firestore.googleapis.com/v1/projects/winecellar-fa733/databases/(default)/documents/winecellar/probe"
+```
+
+(`PERMISSION_DENIED` is right. A probe can't tell correct per-account rules from locked ones —
+only a real sign-in can.)
+
+## Privacy and Security
+
+Everything stays in this browser unless you sign in. See [privacy.html](privacy.html). Like
+every page on `eagleadams86.github.io`, it ships a Content-Security-Policy and loads no
+third-party script except Google's sync code, which is fetched only for sync. Every field is
+type-checked and capped at the data boundary (`normalizeState`), so a backup, a share link
+or the cloud can never plant anything the app did not expect. Notes are capped at 300
+characters, opened-bottle notes at 140.
+
+## Files
+
+| File | What it is |
+|---|---|
+| `index.html` | The app — markup, styles, logic and the sync module |
+| `theme.css` | The family palette, a byte-copy of `~/claude-theme-pack` — never edit it here |
+| `tests.html` | The suite: loads the real app in a hidden frame; localhost only |
+| `privacy.html` | The privacy policy |
+| `sw.js`, `sw-kill.js` | Offline shell (network-first) and its escape hatch |
+| `manifest.webmanifest`, `icon-*.png`, `favicon.ico` | Install as an app; `make_icons.py` draws the glass |
+| `firestore.rules` | Checked-in copy of the deployed Firestore rules |
+
+## Running It Locally
+
+```bash
+python3 -m http.server 8025
+```
+
+Open `http://localhost:8025/` for the app and `/tests.html` for the suite (159 tests; the
+`EXPECTED` floor in the file fails the run if any go missing). CI runs the same page headless
+on every push, plus CodeQL.
+
+Started from the family starter (`~/claude-starter`) on 2026-10-23.
