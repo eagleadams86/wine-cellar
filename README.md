@@ -40,6 +40,7 @@ cellar on your other devices.
 - **Find** (⌘K), **Settings**, **Back Up** (JSON and CSV, Restore, Delete All — which keeps
   your settings, theme and Claude key), **Share**
   (a read-only link with the data inside it), four themes plus Auto — the family's chrome.
+- **A switched-off button looks switched off** — Add and Look Up in the paste window before anything is pasted, Save Ticked Changes before anything is ticked, Copy Link while the share window is working: dimmed, with the "not allowed" cursor, rather than looking pressable and doing nothing. It comes from `theme.css` (pack rule 20, 2026-10-23), not this page.
 
 ## Look Up with Claude
 
