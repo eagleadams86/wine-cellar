@@ -37,22 +37,36 @@ current year, so the cellar stays right as time passes.
 The tiles count **bottles you still have**. Value is per-bottle value × count, shown as a
 range; wines with no value are left out and the page says how many bottles that is.
 
-## Adding Wines From Claude
+## Adding Wines From a List
 
-Ask Claude to look up your bottles and give you a table of **Wine · Approx. value · Drink
-window · Verdict**, then press **Paste a List** and paste it in. Each line needs the vintage
-first (`2019 Albret Lastra Reserva`). The parser understands:
+Press **Paste a List** and paste one wine per line, straight from a chat or a spreadsheet.
+Two shapes are understood:
 
-- tab-separated text (from a chat or a spreadsheet), Markdown tables, or columns lined up
-  with spaces;
-- values like `~$25–35 (estimate)` (the *estimate* flag is kept) and `~$36 list, ~$20–27
-  street` (the street price wins);
-- windows like `2027–2034`, `Now–2031` (Now = this year), `2030+` and `by 2029`;
-- a bottle count in the wine cell — `x2` or `(3 bottles)`; one bottle otherwise.
+- **A list with a header row** — CSV (like the Cellar table's own ⬇ CSV), tab-separated or a
+  Markdown table. Columns are found by name, in any order: **Wine**, Vintage, Region, Grape,
+  **Bottles**, **Value** (or Value Each / Price), **Window**, **Where**, Colour, Notes. Other
+  columns (Status, Verdict) are read past. Quoted cells may contain commas.
+- **Claude's lookup table** with no header needed — **Wine · Approx. value · Drink window ·
+  Verdict**, in that order, tab-separated, Markdown, or lined up with spaces.
 
-The verdict column is read past and not stored, because the status is worked out from the
-window. The same vintage and name pasted again adds bottles to the wine you have rather than
-making a second row. You see every line before anything is added.
+Each wine starts with its vintage (`2019 Albret Lastra Reserva`, or `NV …`). The parser reads:
+
+- values like `$40-$70`, `~$25–35 (estimate)`, `$20-$25 est.` (both keep the *estimate*
+  flag) and `~$36 list, ~$20–27 street` (the street price wins);
+- windows like `2027–2034`, `2026-2026`, `Now–2031` (Now = this year), `2030+`, `by 2029`;
+  an empty window stays empty (*No window*);
+- the bottle count from a Bottles column, or `x2` / `(3 bottles)` in the wine cell; one
+  bottle otherwise;
+- a Where column per wine — the box in the window fills in only where the list says nothing;
+- the colour from a Colour column, or guessed from the grape and name: Port, Tawny, Sherry
+  → dessert; Champagne, Brut, Prosecco → sparkling; rosé → rosé; Chardonnay, Sauvignon
+  Blanc, Riesling and other white grapes → white; everything else red. The preview shows the
+  guess so it can be checked.
+
+A Status or Verdict column is never stored — the status is worked out from the window. The
+same vintage and name pasted again adds bottles to the wine you have (filling in a missing
+value, window, region or grape) rather than making a second row. You see every line before
+anything is added.
 
 ## Cloud Sync
 
@@ -111,7 +125,7 @@ characters, opened-bottle notes at 140.
 python3 -m http.server 8025
 ```
 
-Open `http://localhost:8025/` for the app and `/tests.html` for the suite (159 tests; the
+Open `http://localhost:8025/` for the app and `/tests.html` for the suite (164 tests; the
 `EXPECTED` floor in the file fails the run if any go missing). CI runs the same page headless
 on every push, plus CodeQL.
 

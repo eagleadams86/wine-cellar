@@ -1718,15 +1718,16 @@ html[data-booting] footer { visibility: hidden; }
      meant to is visible while it can still be fixed. -->
 <dialog id="pasteDialog" aria-labelledby="pasteTitle">
   <h2 id="pasteTitle">Paste a List of Wines</h2>
-  <p>Ask Claude for <strong>Wine · Approx. value · Drink window · Verdict</strong> as a table and
-    paste it here — straight from a chat or a spreadsheet. Each line needs a wine with its vintage
-    first (<em>2019 Albret Lastra Reserva</em>); the value and window are read when they are
-    there. The verdict column is not stored: the app works the status out from the window
-    itself, so it stays right as the years go by.</p>
+  <p>One wine per line, pasted straight from a chat or a spreadsheet: the table Claude writes
+    (<strong>Wine · Approx. value · Drink window · Verdict</strong>), or a CSV with a header row —
+    Wine, Region, Grape, Bottles, Value, Window, Where, in any order. Each wine starts with its
+    vintage (<em>2019 Albret Lastra Reserva</em>, or <em>NV</em>). A Status or Verdict column is
+    not stored: the app works the status out from the window, so it stays right as the years go
+    by. Colour is guessed from the grape — check it below.</p>
   <div class="field">
     <label for="pasteBox">The list</label>
     <textarea id="pasteBox" rows="7" spellcheck="false"
-              placeholder="2022 Haut-Jaugue Saint-Émilion	~$25–35 (estimate)	2027–2034	Hold"></textarea>
+              placeholder="Wine,Region,Grape,Bottles,Value Each,Window,Where"></textarea>
   </div>
   <div class="grid2">
     <div class="field">
@@ -1738,7 +1739,7 @@ html[data-booting] footer { visibility: hidden; }
       </select>
     </div>
     <div class="field">
-      <label for="pasteLocation">Where they are</label>
+      <label for="pasteLocation">Where they are, if the list doesn’t say</label>
       <input type="text" id="pasteLocation" maxlength="40" autocomplete="off" list="locationList"
              value="Cellar">
     </div>
@@ -3379,66 +3380,160 @@ async function decodeShare(token) {
 }
 
 /* ═══════════════════════════════ Paste a list ══════════════════════════════
-   Reads the table Claude writes when asked to look wines up — Wine, value,
-   drinking window, verdict — however it arrives: tab-separated from a chat or
-   a spreadsheet, a Markdown table, or columns lined up with spaces. PURE, so
-   tests.html pins every shape; the dialog only shows what this returns.
+   Reads a list of wines however it arrives, so long as there is one wine per
+   line: the table Claude writes when asked to look wines up (Wine, value,
+   drinking window, verdict), a CSV with a header row (this app's own Cellar
+   export, or a spreadsheet's), tab-separated from a chat or a spreadsheet, a
+   Markdown table, or columns lined up with spaces. PURE, so tests.html pins
+   every shape; the dialog only shows what this returns.
 
-   The VERDICT is read past and dropped. It is a judgement for one year, where
+   WITH A HEADER ROW, columns are found by their NAMES, so any order works and
+   extra columns (Status, Verdict) are read past. Without one, the columns are
+   taken as Claude's lookup table lays them out: wine, value, window.
+
+   A STATUS or VERDICT is never stored. It is a judgement for one year, where
    the window it came from is a fact for every year, and the app works the
    status out from the window. */
-function splitCells(line) {
-  if (line.indexOf('\t') !== -1) return line.split('\t').map((c) => c.trim());
-  if (/^\s*\|/.test(line) || / \| /.test(line))
+
+/* Which way the cells are separated is decided ONCE, from the first line, and
+   used for every line — a value like "~$36 list, ~$20–27 street" has a comma
+   in it, so a per-line guess would split it in two. A CSV is told apart from
+   Claude's space-aligned table by having at least two commas outside quotes. */
+function pasteMode(line) {
+  if (line.indexOf('\t') !== -1) return 'tab';
+  if (/^\s*\|/.test(line) || / \| /.test(line)) return 'pipe';
+  if (splitCsv(line).length >= 3) return 'csv';
+  return 'spaces';
+}
+/* One CSV line, RFC 4180 quoting: a quoted cell may hold commas, and "" inside
+   quotes is one quote. */
+function splitCsv(line) {
+  const out = [];
+  let cur = '', quoted = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (quoted) {
+      if (ch === '"' && line[i + 1] === '"') { cur += '"'; i++; }
+      else if (ch === '"') quoted = false;
+      else cur += ch;
+    } else if (ch === '"') quoted = true;
+    else if (ch === ',') { out.push(cur.trim()); cur = ''; }
+    else cur += ch;
+  }
+  out.push(cur.trim());
+  return out;
+}
+function splitCells(line, mode) {
+  if (mode === 'tab') return line.split('\t').map((c) => c.trim());
+  if (mode === 'pipe')
     return line.replace(/^\s*\|/, '').replace(/\|\s*$/, '').split('|').map((c) => c.trim());
+  if (mode === 'csv') return splitCsv(line);
   return line.split(/\s{2,}/).map((c) => c.trim());
+}
+/* A header cell's name → the field it fills. Matched on the start of the
+   name, so "Value Each", "Value per bottle" and "Approx. value" all count. */
+const PASTE_HEADERS = [
+  ['wine', /^(wine|name)\b/i], ['vintage', /^(vintage|year)\b/i],
+  ['region', /^(region|appellation|origin)\b/i], ['grape', /^(grapes?|variet|blend)/i],
+  ['qty', /^(bottles?|qty|quantity|count)\b/i], ['value', /^(approx\.?\s*)?(value|price)/i],
+  ['window', /^(drink(ing)?\s*)?window|^drink/i], ['location', /^(where|location|place)\b/i],
+  ['color', /^(colou?r|type|style)\b/i], ['notes', /^notes?\b/i],
+];
+function headerMap(cells) {
+  const map = {};
+  cells.forEach((c, i) => {
+    const hit = PASTE_HEADERS.find((h) => h[1].test(c.trim()));
+    if (hit && !(hit[0] in map)) map[hit[0]] = i;
+  });
+  return 'wine' in map ? map : null;
 }
 function parseValueCell(cell) {
   const text = String(cell || '');
   /* "~$36 list, ~$20–27 street": the street price is what a bottle is worth
      to its owner, so a segment that says "street" wins; otherwise the first
-     segment that has a dollar figure in it. */
+     segment that has a dollar figure in it. "est." or "estimate" anywhere is
+     the estimate flag. */
+  const est = /estimat|\best\b/i.test(text);
   const segs = text.split(/[,;]/);
   const seg = segs.find((s) => /street/i.test(s) && /\d/.test(s))
            || segs.find((s) => /\$\s*\d/.test(s)) || segs.find((s) => /\d/.test(s)) || '';
   const num = (s) => Number(String(s).replace(/,/g, ''));
   const m = /\$?\s*(\d[\d,]*(?:\.\d+)?)\s*(?:[–—-]|to)\s*\$?\s*(\d[\d,]*(?:\.\d+)?)/i.exec(seg)
-         || /\$\s*(\d[\d,]*(?:\.\d+)?)/.exec(seg);
-  if (!m) return { low: null, high: null, est: /estimat/i.test(text) };
+         || /\$?\s*(\d[\d,]*(?:\.\d+)?)/.exec(seg);
+  if (!m) return { low: null, high: null, est: est };
   const lo = num(m[1]), hi = m[2] != null ? num(m[2]) : null;
-  return { low: lo, high: hi != null && hi !== lo ? hi : null, est: /estimat/i.test(text) };
+  return { low: lo, high: hi != null && hi !== lo ? hi : null, est: est };
 }
 function parseWindowCell(cell, yr) {
   const t = String(cell || '').trim();
   let m = /(now|\d{4})\s*(?:[–—-]|to)\s*(\d{4})/i.exec(t);
   if (m) return { from: /now/i.test(m[1]) ? yr : Number(m[1]), to: Number(m[2]) };
-  if ((m = /(\d{4})\s*\+/.exec(t))) return { from: Number(m[1]), to: null };
+  if ((m = /(\d{4})\s*\+/.exec(t)) || (m = /\bfrom\s*(\d{4})/i.exec(t))) return { from: Number(m[1]), to: null };
   if ((m = /\bby\s*(\d{4})/i.exec(t))) return { from: null, to: Number(m[1]) };
   if (/^now\b/i.test(t)) return { from: yr, to: null };
   return { from: null, to: null };
 }
+/* A colour from a Colour column when there is one, else a guess from the
+   grape and the name — only for what is unmistakable (Port, Champagne,
+   Chardonnay); everything else is red, as a new wine is in the editor. */
+const WHITE_GRAPES = /chardonnay|sauvignon blanc|riesling|pinot gri|viognier|chenin|albari|gr[uü]ner|friulano|vermentino|semillon|s[ée]millon|marsanne|roussanne|gew[uü]rz|muscadet|verdejo|garganega|assyrtiko|\bblanc\b(?!.*\bnoir)/i;
+function guessColor(colorCell, grape, name) {
+  const c = String(colorCell || '').toLowerCase();
+  if (/ros[eé]/.test(c)) return 'rose';
+  if (/sparkl|fizz|bubbl/.test(c)) return 'sparkling';
+  if (/dessert|fortified|sweet|port/.test(c)) return 'dessert';
+  if (/white/.test(c)) return 'white';
+  if (/red/.test(c)) return 'red';
+  const t = grape + ' ' + name;
+  if (/\b(port|tawny|ruby|sherry|madeira|sauternes|tokaji|ice ?wine)\b/i.test(t)) return 'dessert';
+  if (/champagne|\bbrut\b|prosecco|\bcava\b|cr[eé]mant|sparkling/i.test(t)) return 'sparkling';
+  /* Not `\b` after it: é is not a word character to a regex, so `\b` would
+     never match there. */
+  if (/\bros[eé](?![a-z])/i.test(t)) return 'rose';
+  if (WHITE_GRAPES.test(grape) || /chardonnay|riesling|sauvignon blanc/i.test(name)) return 'white';
+  return 'red';
+}
 function parseWineList(text, yr) {
   const rows = [], skipped = [];
-  String(text || '').split(/\r?\n/).forEach((line, i) => {
+  const lines = String(text || '').split(/\r?\n/);
+  const first = lines.find((l) => l.trim()) || '';
+  const mode = pasteMode(first);
+  let cols = null;
+  lines.forEach((line, i) => {
     if (!line.trim()) return;
-    /* A Markdown table's rule line, and the header row, are not wines. */
+    /* A Markdown table's rule line is not a wine. */
     if (/^\s*\|?\s*:?-{3,}/.test(line)) return;
-    const cells = splitCells(line);
-    if (/^wine$/i.test(cells[0]) || (/value/i.test(line) && /window/i.test(line) && !/\d{4}/.test(cells[0]))) return;
-    let wine = cells[0].replace(/\*\*|__/g, '').trim();
-    /* "x2", "(3 bottles)" anywhere in the wine cell is the bottle count. */
+    const cells = splitCells(line, mode);
+    /* The header row: its columns become the map for every line after it. */
+    const head = headerMap(cells);
+    if (head && !/\d{4}/.test(cells[head.wine] || '')) { cols = head; return; }
+    const at = (k, fallback) => {
+      const ix = cols ? cols[k] : fallback;
+      return ix == null ? '' : String(cells[ix] == null ? '' : cells[ix]).trim();
+    };
+    let wine = at('wine', 0).replace(/\*\*|__/g, '').trim();
+    /* "x2", "(3 bottles)" in the wine cell is the bottle count — unless the
+       list has a Bottles column, which wins. */
     let qty = 1;
     const q = /\(?\b(?:x\s*(\d{1,3})|(\d{1,3})\s*(?:bottles?|btls?))\b\)?/i.exec(wine);
     if (q) { qty = Number(q[1] || q[2]); wine = (wine.slice(0, q.index) + wine.slice(q.index + q[0].length)).trim(); }
+    const qCell = at('qty');
+    if (qCell !== '' && /^\d{1,3}$/.test(qCell)) qty = Number(qCell);
     const vm = /^(\d{4}|NV)\b[\s,.-]*(.*)$/i.exec(wine);
-    const vintage = vm && /\d/.test(vm[1]) ? Number(vm[1]) : null;
+    let vintage = vm && /\d/.test(vm[1]) ? Number(vm[1]) : null;
+    if (vintage == null && /^\d{4}$/.test(at('vintage'))) vintage = Number(at('vintage'));
     const name = cleanLine(vm ? vm[2] : wine, 80);
     if (!name) { skipped.push(i + 1); return; }
-    const val = parseValueCell(cells[1]);
-    const win = parseWindowCell(cells[2], yr);
-    rows.push({ vintage: cleanYear(vintage), name: name, qty: qty,
+    const val = parseValueCell(at('value', 1));
+    const win = parseWindowCell(at('window', 2), yr);
+    const grape = cleanLine(at('grape'), 60);
+    rows.push({ vintage: cleanYear(vintage), name: name, qty: Math.min(999, qty),
                 valueLow: cleanMoney(val.low), valueHigh: cleanMoney(val.high), valueEst: val.est,
-                drinkFrom: cleanYear(win.from), drinkTo: cleanYear(win.to), line: i + 1 });
+                drinkFrom: cleanYear(win.from), drinkTo: cleanYear(win.to),
+                region: cleanLine(at('region'), 60), grape: grape,
+                color: guessColor(at('color'), grape, name),
+                location: cleanLine(at('location'), 40), notes: cleanNote(at('notes'), 300),
+                line: i + 1 });
   });
   return { rows: rows, skipped: skipped };
 }
@@ -3647,11 +3742,13 @@ function renderPaste() {
       + (pasted.skipped.length ? ' Not read: line ' + pasted.skipped.join(', ') + '.' : '')
     : '';
   $('pastePreview').innerHTML = pasted.rows.length
-    ? '<table><thead><tr><th scope="col">Wine</th><th scope="col" class="num">Bottles</th>'
+    ? '<table><thead><tr><th scope="col">Wine</th><th scope="col">Colour</th>'
+      + '<th scope="col" class="num">Bottles</th>'
       + '<th scope="col" class="num">Value each</th><th scope="col">Window</th><th scope="col">Status</th>'
       + '</tr></thead><tbody>' + pasted.rows.map((r) => {
         const had = state.wines.find((w) => sameWine(w, r));
         return '<tr><th scope="row">' + esc(wineLabel(r)) + '</th>'
+          + '<td>' + esc(COLOR_LABEL[r.color]) + '</td>'
           + '<td class="num">' + esc(r.qty) + '</td><td class="num">' + esc(fmtValue(r)) + '</td>'
           + '<td>' + esc(fmtWindow(r)) + '</td><td>'
           + (had ? '<span class="pill">Adds to the one you have</span>' : pillFor(statusOf(r, yr, soon)))
@@ -3675,20 +3772,23 @@ $('pasteAdd').addEventListener('click', () => {
         had.valueLow = r.valueLow; had.valueHigh = r.valueHigh; had.valueEst = r.valueEst;
       }
       if (had.drinkFrom == null && had.drinkTo == null) { had.drinkFrom = r.drinkFrom; had.drinkTo = r.drinkTo; }
+      if (!had.region) had.region = r.region;
+      if (!had.grape) had.grape = r.grape;
       topped++;
       return;
     }
-    state.wines.push({ id: uid(), vintage: r.vintage, name: r.name, color: 'red', region: '', grape: '',
-      qty: r.qty, valueLow: r.valueLow, valueHigh: r.valueHigh, valueEst: r.valueEst,
-      drinkFrom: r.drinkFrom, drinkTo: r.drinkTo, location: location, source: source,
-      added: todayISO(), notes: '' });
+    /* A Where column in the list beats the box in the window: it is per wine. */
+    state.wines.push({ id: uid(), vintage: r.vintage, name: r.name, color: r.color, region: r.region,
+      grape: r.grape, qty: r.qty, valueLow: r.valueLow, valueHigh: r.valueHigh, valueEst: r.valueEst,
+      drinkFrom: r.drinkFrom, drinkTo: r.drinkTo, location: r.location || location, source: source,
+      added: todayISO(), notes: r.notes });
     added++;
   });
   state = normalizeState(state);
   save();
   $('pasteDialog').close();
   toast([added ? plural(added, 'wine') + ' added' : '', topped ? plural(topped, 'wine') + ' topped up' : '']
-    .filter(Boolean).join(', ') + ' — open each to add its colour, region and grape', 6000);
+    .filter(Boolean).join(', '), 5000);
 });
 $('pasteCancel').addEventListener('click', () => $('pasteDialog').close());
 $('pasteBtn').addEventListener('click', openPaste);

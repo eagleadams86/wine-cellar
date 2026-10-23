@@ -37,6 +37,10 @@ the family doesn't.
   gate, `syncDecision`, `forCloud`, `describeSyncError`, the relisten timer). A fix to sync
   starts in Golf Handicap or is mirrored there. The CSP's external hosts are exactly Golf's
   list, and a test pins them.
+- **Paste reads by header NAME when there is a header row** (`headerMap`), else positionally
+  as Claude's lookup table (wine, value, window). The separator is decided ONCE from the first
+  line — a comma inside Claude's value cell must not turn its space-aligned table into a CSV.
+  Test fixtures for paste are invented wines; Charles's real list never goes in the repo.
 - **The table's own order is drinking order** — past the window, drink soon, ready, hold,
   none; then the window that closes soonest. The Wine column sorts by name, then vintage.
 
@@ -50,6 +54,6 @@ commented copy in the repo.
 
 ## Tests
 
-`tests.html`, `EXPECTED = 159`. Run it headless (Playwright) rather than in the Browser pane:
+`tests.html`, `EXPECTED = 164`. Run it headless (Playwright) rather than in the Browser pane:
 the pane throttles hidden timers and its focus heuristics turn the 705px keyboard-focus check
 red on untouched code.
