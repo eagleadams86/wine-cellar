@@ -2014,17 +2014,15 @@ html[data-booting] footer { visibility: hidden; }
     </div>
     <div class="field">
       <label for="f_source">Came from</label>
-      <select id="f_source">
-        <option value="wineaccess">Wine Access</option>
-        <option value="cellar">Already in the cellar</option>
-        <option value="other">Somewhere else</option>
-      </select>
+      <input type="text" id="f_source" maxlength="40" autocomplete="off" list="sourceList"
+             placeholder="e.g. a wine club, a shop, a gift">
+      <datalist id="sourceList"></datalist>
     </div>
     <div class="field">
       <label for="f_added" id="f_addedLabel">Date added</label>
       <input type="date" id="f_added">
       <input type="number" id="f_addedYear" min="1900" step="1" inputmode="numeric" hidden>
-      <label class="checkline" id="f_yearOnlyLine" hidden><input type="checkbox" id="f_yearOnly">
+      <label class="checkline" id="f_yearOnlyLine"><input type="checkbox" id="f_yearOnly">
         Just the year</label>
     </div>
   </div>
@@ -2174,11 +2172,8 @@ html[data-booting] footer { visibility: hidden; }
   <div class="grid2">
     <div class="field">
       <label for="pasteSource">These came from</label>
-      <select id="pasteSource">
-        <option value="cellar">Already in the cellar</option>
-        <option value="wineaccess">Wine Access</option>
-        <option value="other">Somewhere else</option>
-      </select>
+      <input type="text" id="pasteSource" maxlength="40" autocomplete="off" list="sourceList"
+             placeholder="e.g. a wine club, a shop">
     </div>
     <div class="field">
       <label for="pasteLocation">Where they are, if the list doesn’t say</label>
@@ -2491,7 +2486,7 @@ const TABS        = ['cellar', 'opened'];
    3 (2026-10-23): `paid`, what one bottle actually cost. 4 (2026-10-24):
    `checkedAt`, when Claude last answered for the wine. 5 (2026-10-24): an
    opened line's `region`, `grape` and `paid`, copied from its wine. */
-const SCHEMA = 10;
+const SCHEMA = 11;
 
 /* ── Ids from outside are not trusted ──────────────────────────────────────
    Ids reach `data-id` attributes and <option value>s in a dozen places, so an
@@ -2557,8 +2552,15 @@ function thisYear() { return new Date().getFullYear(); }
 const COLORS = ['red', 'white', 'rose', 'sparkling', 'dessert'];
 const COLOR_LABEL = { red: 'Red', white: 'White', rose: 'Rosé', sparkling: 'Sparkling',
                       dessert: 'Dessert' };
-const SOURCES = ['wineaccess', 'cellar', 'other'];
-const SOURCE_LABEL = { wineaccess: 'Wine Access', cellar: 'Cellar', other: 'Elsewhere' };
+/* Where a wine came from is the owner's own words since SCHEMA 11 (Charles,
+   2026-10-24: "someone else may use this app" — it was three fixed choices,
+   one of them a shop's name). The old choices' stored keys become words;
+   "Somewhere else" said nothing, so it becomes blank. */
+const OLD_SOURCES = { wineaccess: 'Wine Access', cellar: 'Already in the cellar', other: '' };
+function cleanSource(v) {
+  const k = String(v == null ? '' : v);
+  return Object.prototype.hasOwnProperty.call(OLD_SOURCES, k) ? OLD_SOURCES[k] : cleanLine(k, 40);
+}
 
 /* ── Field cleaners, one per KIND of value ──────────────────────────────────
    Every one answers junk with a safe value rather than a throw.
@@ -2874,7 +2876,7 @@ function normalizeState(raw) {
         drinkFrom: from,
         drinkTo: to,
         location: cleanLine(it.location, 40),
-        source: SOURCES.indexOf(it.source) === -1 ? 'other' : it.source,
+        source: cleanSource(it.source),
         added: cleanAdded(it.added),
         notes: cleanNote(it.notes, 300),
         checkedAt: cleanChecked(it.checkedAt),
@@ -3551,7 +3553,6 @@ function wineNameCell(w) {
    where it came from and when it was added (and Paid while that column is
    hidden). A blank field is left out. The
    labels and words are the wine window's own. The dot still means notes only. */
-const SOURCE_WORDS = { wineaccess: 'Wine Access', cellar: 'Already in the cellar', other: 'Somewhere else' };
 function wineFacts(w, shown) {
   const off = (k) => shown.indexOf(k) === -1;
   return [
@@ -3561,7 +3562,7 @@ function wineFacts(w, shown) {
     off('paid') && w.paid != null ? 'Paid: ' + fmtPaid(w.paid) + (dealOf(w) ? ' (' + DEAL_WORDS[dealOf(w)] + ')' : '') : '',
     off('location') && w.location ? 'Where: ' + w.location : '',
     COLOR_LABEL[w.color] ? 'Colour: ' + COLOR_LABEL[w.color] : '',
-    SOURCE_WORDS[w.source] ? 'Came from: ' + SOURCE_WORDS[w.source] : '',
+    w.source ? 'Came from: ' + w.source : '',
     fmtAdded(w.added) ? 'Added: ' + fmtAdded(w.added) : '',
   ].filter(Boolean).join('\n');
 }
@@ -3765,7 +3766,7 @@ function visibleWines() {
   const yr = thisYear(), soon = state.settings.soonYears;
   let rows = state.wines.filter((w) => w.qty > 0 || state.settings.showFinished || viewOnly);
   const total = rows.length;
-  if (q) rows = rows.filter((w) => [wineLabel(w), w.region, w.subregion, w.grape, w.location, w.notes,
+  if (q) rows = rows.filter((w) => [wineLabel(w), w.region, w.subregion, w.grape, w.location, w.notes, w.source,
     COLOR_LABEL[w.color]].some((t) => foldHas(t, q)));
   if (only) rows = rows.filter((w) => statusPick.has(statusOf(w, yr, soon)));
   /* The table's OWN order is the order you would drink them in: status first,
@@ -4004,6 +4005,12 @@ function renderLocations() {
     seen.set(w.location.toLowerCase(), w.location); });
   document.getElementById('locationList').innerHTML = [...seen.values()].sort()
     .map((l) => '<option value="' + esc(l) + '"></option>').join('');
+  /* And where wines came from, the same way, so "Wine Access" is offered back
+     rather than retyped as "wine access". */
+  const came = new Map();
+  state.wines.forEach((w) => { if (w.source && !came.has(w.source.toLowerCase())) came.set(w.source.toLowerCase(), w.source); });
+  document.getElementById('sourceList').innerHTML = [...came.values()].sort()
+    .map((l) => '<option value="' + esc(l) + '"></option>').join('');
 }
 
 /* ═══════════════════════════════ Find ═══════════════════════════════════════
@@ -4041,7 +4048,7 @@ function searchApp(st, query) {
   /* A wine matches on everything written about it; the vintage is part of its
      label, so "2019" finds the 2019s. */
   wines.slice().sort((a, b) => wineLabel(a).localeCompare(wineLabel(b))).forEach((w) => {
-    if (![wineLabel(w), w.region, w.subregion, w.grape, w.location, w.notes].some(has)) return;
+    if (![wineLabel(w), w.region, w.subregion, w.grape, w.location, w.notes, w.source].some(has)) return;
     push({ view: 'cellar', id: w.id, where: wineLabel(w),
            snippet: [plural(w.qty, 'bottle'), w.region, fmtWindow(w) !== '—' ? 'drink ' + fmtWindow(w) : '',
                      w.location].filter(Boolean).join(' · ') });
@@ -5302,7 +5309,7 @@ function sampleData() {
           location: 'Rack A', notes: 'Its window closes this year — the one to open first.' }),
       w({ id: 'demo-ready', vintage: Y - 3, name: 'Example Ridge Pinot Noir', region: 'Sonoma Coast',
           grape: 'Pinot Noir', qty: 3, valueLow: 35, valueHigh: 45, valueEst: true, paid: 39.99,
-          drinkFrom: Y - 1, drinkTo: Y + 5, location: 'Rack A', source: 'wineaccess' }),
+          drinkFrom: Y - 1, drinkTo: Y + 5, location: 'Rack A', source: 'Wine club' }),
       w({ id: 'demo-hold', vintage: Y - 2, name: 'Sample Estate Cabernet Sauvignon', region: 'Napa Valley', subregion: 'Oakville',
           grape: 'Cabernet Sauvignon', qty: 6, valueLow: 60, valueHigh: 75, paid: 52, drinkFrom: Y + 3,
           drinkTo: Y + 14, location: 'Rack B', notes: 'Bought by the case to open one a year.' }),
@@ -5315,7 +5322,7 @@ function sampleData() {
       w({ id: 'demo-none', vintage: Y - 4, name: 'Mystery Bottle From a Friend', qty: 1,
           location: 'Rack B', source: 'other', notes: 'No label we could read — no value, no window.' }),
       w({ id: 'demo-finished', vintage: Y - 5, name: 'Long Gone Grenache', region: 'Barossa Valley',
-          grape: 'Grenache', qty: 0, valueLow: 30, drinkFrom: Y - 3, drinkTo: Y + 2, source: 'wineaccess' }),
+          grape: 'Grenache', qty: 0, valueLow: 30, drinkFrom: Y - 3, drinkTo: Y + 2, source: 'Wine club' }),
     ],
     opened: [
       { id: 'demo-o1', wineId: 'demo-finished', date: back(100), rating: 4,
@@ -5382,7 +5389,7 @@ function openWine(id) {
   $('f_paid').value = it && it.paid != null ? it.paid : '';
   $('f_from').value = it && it.drinkFrom != null ? it.drinkFrom : '';
   $('f_to').value = it && it.drinkTo != null ? it.drinkTo : '';
-  $('f_source').value = it ? it.source : 'wineaccess';
+  $('f_source').value = it ? it.source : '';
   /* A new wine starts on today; a saved one shows its own day — or its year,
      or nothing, which only a wine already in the cellar may have. Never later
      than today: a bottle cannot have been added tomorrow. */
@@ -5553,24 +5560,18 @@ $('wineDelete').addEventListener('click', () => {
   toast('Wine deleted');
 });
 
-/* "Already in the cellar" may not know when it was added (Charles,
-   2026-10-23): the day becomes optional and "Just the year" swaps the date
-   picker for a year box. Any other source needs the day, so leaving the
-   cellar puts back today in an empty date. */
+/* The day a wine was added is optional for EVERY wine, and "Just the year"
+   swaps the date picker for a year box (Charles, 2026-10-24 — it was only for
+   "Already in the cellar", which stopped being a fixed choice). A new wine
+   still starts on today. */
 function dressAdded() {
-  const cellar = $('f_source').value === 'cellar';
-  if (!cellar) $('f_yearOnly').checked = false;
   const yearOnly = $('f_yearOnly').checked;
-  $('f_yearOnlyLine').hidden = !cellar;
+  $('f_yearOnlyLine').hidden = false;
   $('f_added').hidden = yearOnly;
   $('f_addedYear').hidden = !yearOnly;
   $('f_addedLabel').htmlFor = yearOnly ? 'f_addedYear' : 'f_added';
-  $('f_addedLabel').textContent = cellar ? (yearOnly ? 'Year added (optional)' : 'Date added (optional)') : 'Date added';
+  $('f_addedLabel').textContent = yearOnly ? 'Year added (optional)' : 'Date added (optional)';
 }
-$('f_source').addEventListener('change', () => {
-  if ($('f_source').value !== 'cellar' && !$('f_added').value) $('f_added').value = todayISO();
-  dressAdded();
-});
 $('f_yearOnly').addEventListener('change', () => {
   /* Going to a year keeps the year of the day that was there. */
   if ($('f_yearOnly').checked && DATE_RE.test($('f_added').value)) $('f_addedYear').value = $('f_added').value.slice(0, 4);
@@ -5601,17 +5602,16 @@ $('wineSave').addEventListener('click', () => {
   if (fromRaw !== '' && from == null) return bad('Enter the first year to drink it, like 2027.', 'f_from');
   if (toRaw !== '' && to == null) return bad('Enter the last year to drink it, like 2034.', 'f_to');
   if (from != null && to != null && to < from) return bad('The window ends before it starts.', 'f_to');
-  const cellar = $('f_source').value === 'cellar';
   let added;
-  if (cellar && $('f_yearOnly').checked) {
+  if ($('f_yearOnly').checked) {
     const raw = $('f_addedYear').value.trim(), y = Number(raw);
     if (raw && (!Number.isInteger(y) || y < 1900 || y > thisYear()))
       return bad('Enter the year it was added, like 2019 — or leave it blank.', 'f_addedYear');
     added = raw ? String(y) : '';
   } else {
     added = $('f_added').value;
-    if (!(cellar && added === '')) {
-      if (!DATE_RE.test(added)) return bad('Pick the day it was added.', 'f_added');
+    if (added !== '') {
+      if (!DATE_RE.test(added)) return bad('Pick the day it was added — or leave it blank.', 'f_added');
       if (added > todayISO()) return bad('The day it was added cannot be after today.', 'f_added');
     }
   }
@@ -5623,7 +5623,7 @@ $('wineSave').addEventListener('click', () => {
     qty: qty, location: cleanLine($('f_location').value, 40),
     valueLow: low != null ? low : high, valueHigh: low != null ? high : null,
     valueEst: $('f_est').checked, paid: paid, drinkFrom: from, drinkTo: to,
-    source: $('f_source').value, added: added, notes: cleanNote($('f_notes').value, 300),
+    source: cleanSource($('f_source').value), added: added, notes: cleanNote($('f_notes').value, 300),
   };
   if (editingId) {
     /* Re-found by id at the moment of saving: another tab or device may have
@@ -6139,7 +6139,7 @@ function renderPaste() {
 $('pasteBox').addEventListener('input', renderPaste);
 $('pasteAdd').addEventListener('click', () => {
   if (!pasted.rows.length) return;
-  const source = SOURCES.indexOf($('pasteSource').value) === -1 ? 'other' : $('pasteSource').value;
+  const source = cleanSource($('pasteSource').value);
   const location = cleanLine($('pasteLocation').value, 40);
   let added = 0, topped = 0;
   pasted.rows.forEach((r) => {
@@ -6905,7 +6905,7 @@ function csvWines(st) {
       w.valueLow == null ? '' : w.valueLow, w.valueHigh == null ? (w.valueLow == null ? '' : w.valueLow) : w.valueHigh,
       w.valueEst ? 'yes' : '', w.paid == null ? '' : w.paid, w.drinkFrom == null ? '' : w.drinkFrom, w.drinkTo == null ? '' : w.drinkTo,
       w.qty ? STATUS[statusOf(w, yr, st.settings.soonYears)].label : 'Finished', w.location,
-      SOURCE_LABEL[w.source], w.added, w.notes.replace(/\n/g, ' ')]));
+      w.source, w.added, w.notes.replace(/\n/g, ' ')]));
   return toCsv(rows);
 }
 function csvOpened(st) {
@@ -7779,7 +7779,7 @@ window.__wineTestHooks = {
   shareWines: shareWines, statusOf: statusOf, STATUS: STATUS, parseWineList: parseWineList,
   sameWine: sameWine, syncDecision: syncDecision, makePushGate: makePushGate,
   UPDATED_KEY: UPDATED_KEY, OPENED_COLUMNS: OPENED_COLUMNS,
-  knownNames: knownNames, searchFold: searchFold, visibleWines: visibleWines, groupedRegion: groupedRegion, groupedGrape: groupedGrape,
+  knownNames: knownNames, cleanSource: cleanSource, searchFold: searchFold, visibleWines: visibleWines, groupedRegion: groupedRegion, groupedGrape: groupedGrape,
   openedFacts: openedFacts, timingOf: timingOf, ageAtOpening: ageAtOpening, likeGroups: likeGroups, computeOpened: computeOpened, TIMING: TIMING,
   encodeShare: encodeShare, decodeShare: decodeShare, csvWines: csvWines, csvOpened: csvOpened, csvCell: csvCell,
   raisesKeyboard: raisesKeyboard, opensOnFocus: opensOnFocus, esc: esc, todayISO: todayISO, fmtMoney: fmtMoney,

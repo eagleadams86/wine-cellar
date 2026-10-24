@@ -30,9 +30,10 @@ cellar on your other devices.
   but a text area (Notes, the pasted list), where Enter is a new line. On a focused button, Enter
   presses that button.
 - **Date added** in the wine window starts on today for a new wine and can be changed to the
-  day the bottles really arrived (never later than today). Pasted wines are added today. For a
-  wine **Already in the cellar** the date is optional — leave it blank, or tick **Just the
-  year** and give only the year.
+  day the bottles really arrived (never later than today). Pasted wines are added today. The
+  date is optional for any wine — leave it blank, or tick **Just the year** and give only the year.
+- **Came from** is your own words — a wine club, a shop, a gift — and the box offers back the
+  ones you have used before. (It used to be three fixed choices; those became words.)
 - **Point at a row to see the rest of the wine** — the bubble (Money Map's row tip) lists every
   field the table has no column for: colour, where it came from and when it was added. Then the
   wine's notes, if it has any; a small dot after the name still says it has notes. On a phone,

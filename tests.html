@@ -51,7 +51,7 @@
    go MISSING look exactly like tests that pass — a suite that quietly shrank to
    three checks still says "all 3 tests pass". RAISE THIS when you add tests, and
    lower it only when you retire one deliberately. */
-const EXPECTED = 277;
+const EXPECTED = 278;
 
 /* ── It refuses to run anywhere but localhost, and that is load-bearing ──────
    GitHub Pages publishes this page BESIDE the app, where the iframe below would
@@ -1635,6 +1635,15 @@ function define() {
     eq(H.searchApp(one('Alpha'), 'navar').hits.length, 1, 'and of the region');
     eq(H.searchApp(one('Alpha'), '2019').hits.length, 1, 'and the vintage, which is part of its label');
   });
+  t('Came from is the owner’s own words; the three old choices become words', () => {
+    eq([H.cleanSource('wineaccess'), H.cleanSource('cellar'), H.cleanSource('other')], ['Wine Access', 'Already in the cellar', ''],
+       'what older saves, backups and links hold ("Somewhere else" said nothing)');
+    eq(H.cleanSource('Corner Shop\tdowntown ' + 'x'.repeat(80)).length, 40, 'capped, on one line');
+    eq(H.normalizeState({ wines: [{ id: 'a', name: 'x', source: 'A gift from Sam' }] }).wines[0].source, 'A gift from Sam');
+    ok(!/Wine Access/.test(W.document.getElementById('f_source').outerHTML + W.document.getElementById('pasteSource').outerHTML),
+       'and no shop’s name is built into the boxes');
+    eq(W.document.getElementById('f_source').tagName, 'INPUT');
+  });
   t('Find ignores accents, both ways round — "resonance" finds Résonance', () => {
     eq(H.searchFold('Résonance Découverte'), 'resonance decouverte');
     eq(H.searchFold('Cœur · Ærø · Straße · Rebel’s'), 'coeur · aero · strasse · rebel\'s', 'letters NFD leaves whole, and the curly apostrophe');
@@ -2445,7 +2454,7 @@ function define() {
        'and the button still reads as just the name');
     eq(row('fx-ready').dataset.tip.split('\n\n').length, 2, 'no note: the hint and the fields, no empty block');
     ok(!row('fx-ready').querySelector('.notedot'), 'and no dot — the dot still means a note');
-    eq(H.wineFacts({ color: 'red', source: 'bogus', added: 'x', region: '', grape: '' }, []), 'Colour: Red',
+    eq(H.wineFacts({ color: 'red', source: '', added: 'x', region: '', grape: '' }, []), 'Colour: Red',
        'a blank or unknown field is left out, never shown as "undefined"');
     ok(!W.document.querySelector('#cellarTable [title]'),
        'never a native title as well — it would come up a second after, as a second bubble');
@@ -2488,24 +2497,17 @@ function define() {
       D.getElementById('f_added').value = '2025-12-24';
       D.getElementById('wineSave').click();
       eq(H.__state().wines.find((w) => w.id === 'fx-hold').added, '2025-12-24', 'and a changed day is saved');
-      W.openWine('fx-ready');   /* Wine Access: the day is required */
-      D.getElementById('f_added').value = '';
-      D.getElementById('wineSave').click();
-      ok(D.getElementById('wineDialog').open && /day it was added/.test(D.getElementById('wineWarn').textContent),
-         'an emptied box is named, not saved as nothing');
-      D.getElementById('f_added').value = '2999-01-01';
-      D.getElementById('wineSave').click();
-      ok(/after today/.test(D.getElementById('wineWarn').textContent), 'and a day after today is refused');
-      D.getElementById('wineDialog').close();
-      /* Already in the cellar: blank, or just a year. */
-      const src = D.getElementById('f_source'), yr = D.getElementById('f_yearOnly');
-      const pick = (v) => { src.value = v; src.dispatchEvent(new W.Event('change')); };
+      /* Every wine may leave the day blank, or give just a year (Charles,
+         2026-10-24 — it used to be "Already in the cellar" only). */
+      const yr = D.getElementById('f_yearOnly');
       const saved = () => H.__state().wines.find((w) => w.id === 'fx-ready').added;
       W.openWine('fx-ready');
-      ok(D.getElementById('f_yearOnlyLine').hidden, 'Wine Access: no year-only choice');
-      pick('cellar');
+      eq(D.getElementById('f_source').value, 'Wine Access', 'an old fixed choice reads as its words');
       ok(!D.getElementById('f_yearOnlyLine').hidden && /optional/.test(D.getElementById('f_addedLabel').textContent),
-         'in the cellar the day is optional, and can be just a year');
+         'the day is optional for any wine, and can be just a year');
+      D.getElementById('f_added').value = '2999-01-01';
+      D.getElementById('wineSave').click();
+      ok(/after today/.test(D.getElementById('wineWarn').textContent), 'a day after today is refused');
       D.getElementById('f_added').value = '';
       D.getElementById('wineSave').click();
       eq(saved(), '', 'a blank day saves as blank');
@@ -2523,9 +2525,6 @@ function define() {
       ok(/Added: 2019/.test(D.querySelector('#cellarTable tr[data-open="fx-ready"]').dataset.tip), 'and the tip says so');
       W.openWine('fx-ready');
       ok(yr.checked && D.getElementById('f_addedYear').value === '2019', 'it reopens as a year');
-      pick('wineaccess');
-      ok(!yr.checked && D.getElementById('f_added').value === H.todayISO() && !D.getElementById('f_added').hidden,
-         'leaving the cellar needs a day again, and puts today in the empty box');
     } finally { proto.setItem = realStore; D.getElementById('wineDialog').close(); H.__plant(FIXTURE); }
   });
 

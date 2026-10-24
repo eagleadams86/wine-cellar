@@ -191,11 +191,16 @@ the family doesn't.
   Paid column HIDES while no wine has a price paid, so column counts and `shown` keys come from
   the rendered `cols`, not `COLUMNS`. Shares only with `sharePaid` ticked (off by default).
   The estimate box was kept on purpose: a deal against a guessed range is shakier.
-- **`added` is a day, a bare year or ''** (SCHEMA 2 / SHARE_PAYLOAD_V 2, 2026-10-23): the last
-  two only for "Already in the cellar", chosen in the wine window by leaving the date blank or
-  ticking Just the year (`dressAdded()`). `cleanAdded()` is the boundary — an ABSENT field is
-  still today, so old records are unchanged; `fmtAdded()` is the one way to print it. Any
-  other source requires the day, and switching to one puts today in an empty box.
+- **`added` is a day, a bare year or ''** (SCHEMA 2 / SHARE_PAYLOAD_V 2, 2026-10-23), chosen in the
+  wine window by leaving the date blank or ticking Just the year (`dressAdded()`) — for EVERY wine
+  since 2026-10-24 (Charles chose "date optional for all" when Came From became free text; it was
+  "Already in the cellar" only). `cleanAdded()` is the boundary — an ABSENT field is still today,
+  so old records are unchanged; `fmtAdded()` is the one way to print it. A new wine starts on today.
+- **`source` (Came from) is free text, 40 chars** (SCHEMA 11, 2026-10-24, Charles: "someone else
+  may use this app" — no shop's name built in). `cleanSource()` is the boundary and turns the old
+  keys into words (`wineaccess` → Wine Access, `cellar` → Already in the cellar, `other` → '')
+  wherever they arrive — old saves, backups, share links. `#sourceList` offers back used values
+  (`renderLocations`); paste's `#pasteSource` is a text box too. Find searches it.
 - **Wrong-wine sources** (2026-10-23): `readLookup(found, asked)` drops a source whose PATH has a
   vintage year and shares no distinctive word (`wineWords`, minus `SOURCE_COMMON`) with the asked
   name or Claude's `matched_wine`; `r.dropped` is said on screen (`droppedLine`). Every caller passes
@@ -295,6 +300,6 @@ was a one-line version of the cellar rule.
 
 ## Tests
 
-`tests.html`, `EXPECTED = 277`. Run it headless (Playwright) rather than in the Browser pane:
+`tests.html`, `EXPECTED = 278`. Run it headless (Playwright) rather than in the Browser pane:
 the pane throttles hidden timers and its focus heuristics turn the 705px keyboard-focus check
 red on untouched code.
