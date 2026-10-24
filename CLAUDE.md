@@ -162,9 +162,19 @@ the family doesn't.
   wrapped alone (a button is an atomic box), and the joiner alone still let it go 57 times in a
   940-case width sweep. Glued: 0. Touch shows no tip on a row that
   opens the editor. Since 2026-10-23 EVERY row has a tip: `wineFacts(w, shown)` lists each field
-  the table has no column for (`shown` = its column keys; Drink Next passes `NEXT_COLUMNS`), then
+  the table has no column for (`shown` = its column keys), then
   the notes. A new column must be added to that table's keys, or the tip repeats it. The dot
   still means notes only.
+- **No Drink Next; the status tiles ARE the filter** (2026-10-24, Charles): the Cellar's default
+  order is already drinking order, so the Drink Next card went (an old `next` in `wine-folded` is
+  inert). At a Glance is Bottles · Value · Past Window · Drink Soon · Ready · Holding — Past has
+  its own `.stat.err` tile (Drink Soon no longer adds it in) and Opened left the row (still six
+  tiles, so the tile-row table is unchanged). The four status tiles are `button.stat`
+  `aria-pressed` toggles; the Cellar's Status box is a `<details>` of tick boxes in `STATUS` rank
+  order. Both press ONE `statusPick` Set through `setStatusPick()`, which redraws the list and
+  repaints both controls — never the tiles' markup, or the pressed tile loses focus. A tile press
+  unfolds a folded Cellar and holds the page still (a scroll to the Cellar was considered and put
+  aside). Page-life only, like the select it replaced.
 - **Folding is device-local** (`wine-folded`, a list of `data-fold` names), not in `state` as
   Money Map keeps it: it is screen layout, so it neither syncs nor rides in a share link, and
   needs no SCHEMA bump. The full-screen chart button stays a child of `#chartCard` (it is

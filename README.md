@@ -10,14 +10,20 @@ cellar on your other devices.
 
 ## What It Does
 
-- **Cellar tab** — tiles for bottles, value, and how many bottles are *drink soon*, *ready*
-  and *holding*; a **Drink Next** list of what to open first and where each bottle is; the full cellar table (sortable,
-  filterable by status, with Copy and CSV); and a chart of how many bottles are inside their
+- **Cellar tab** — tiles for bottles, value, and how many bottles are *past their window*,
+  *drink soon*, *ready* and *holding*; the full cellar table, which opens in drinking order (past
+  window first, then the windows that close soonest — so it doubles as the list of what to open
+  next), sortable, filterable, with Copy and CSV; and a chart of how many bottles are inside their
   drinking window in each of the coming years.
+- **The status tiles are filters.** Press **Past Window**, **Drink Soon**, **Ready** or
+  **Holding** to show just those wines in the Cellar list, and again to take it off; several can
+  be on at once, each marked with a ✓. The **Status** box in the Cellar is the same filter as a
+  list of tick boxes in priority order — Past window, Drink soon, Ready, Hold, No window — and
+  **Clear** lets them all go. The page stays where it is when you press a tile.
 - **Paid per bottle** in the wine window records what one bottle actually cost (to the cent).
   Once any wine has one, the Cellar table grows a **Paid** column that says, under each price,
   whether you paid **under value**, **in range** or **over value** against the Value Each range —
-  in words, never colour. Drink Next shows it in the hover bubble. It goes into the CSV, a pasted
+  in words, never colour. It goes into the CSV, a pasted
   list can carry a **Paid** (or Price Paid / Cost) column, and a share link carries it only if you
   tick **What you paid** in the Share window.
 - **Enter saves** the wine window, Opened a Bottle, Paste a List and Check All Wines — anywhere
@@ -28,20 +34,19 @@ cellar on your other devices.
   wine **Already in the cellar** the date is optional — leave it blank, or tick **Just the
   year** and give only the year.
 - **Point at a row to see the rest of the wine** — the bubble (Money Map's row tip) lists every
-  field the table has no column for: colour, where it came from and when it was added in the
-  Cellar table, plus region, grape and value in the shorter Drink Next table. Then the
+  field the table has no column for: colour, where it came from and when it was added. Then the
   wine's notes, if it has any; a small dot after the name still says it has notes. On a phone,
   tap the wine to see it all in its window.
 - **Opened tab** — every bottle you have opened, with the date, your 1–5 rating and a note.
   Press a line to change its date, rating or note; the bottle count is left alone.
-- **Folding cards** — Drink Next, Cellar and Drinking Windows Ahead fold up to their heading
+- **Folding cards** — Cellar and Drinking Windows Ahead fold up to their heading
   (press the heading band, as in Money Map). Which ones you folded is remembered on this device.
 - **When a list doesn't fit as a table** — on a phone, or a half-screen window — it turns into
   a stack of cards, one to a line so it still reads in its sort order: the wine and its status
   pill on top, the labelled fields below, each at its own width and as many to a line as
-  fit, so a long region or grape gets room instead of wrapping), and the row's buttons at the bottom. It switches whenever the table could not give each
+  fit, so a long region or grape gets room instead of wrapping. It switches whenever the table could not give each
   text column about two words a line, so it never scrolls sideways or squeezes into tall rows.
-  This covers Drink Next, the Cellar, the Opened log and the paste preview. The column headings
+  This covers the Cellar, the Opened log and the paste preview. The column headings
   become a row of **Sort by** buttons. It is layout only: Copy and CSV still export the full table.
 - **Opened One** and **Delete Wine** are in the wine's own window (press its row): Opened One
   takes a bottle off the count and writes a line in that log, asking first if you had changed

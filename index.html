@@ -883,9 +883,21 @@
   /* The status tiles carry their status on the 6px edge — the family's RAG
      tile, Sprint Predictability's `.tile.green` pattern — so the row reads the
      same way as the pills in the table. */
+  .stat.err  { border-left-color: var(--err); }
   .stat.ok   { border-left-color: var(--ok); }
   .stat.warn { border-left-color: var(--warn); }
   .stat.hold { border-left-color: var(--accent); }
+  /* The four status tiles are TOGGLES for the Cellar's status filter
+     (2026-10-24): buttons, so they reach the keyboard and say aria-pressed.
+     Unset here is only what the base button rule adds that a tile is not —
+     the box, edge and padding are the tile's own. Hover is the base button's
+     border, which leaves the status edge alone (`.stat.ok` outranks it). On:
+     an inset ring in the accent (a ring, not a shadow — pack rule 14) and a ✓
+     after the label, so the state is never colour alone; forced colours get
+     pack rule 19's Highlight fill off aria-pressed. */
+  button.stat { width: 100%; min-height: 0; text-align: left; font-size: inherit; white-space: normal; }
+  button.stat[aria-pressed="true"] { box-shadow: inset 0 0 0 2px var(--accent); }
+  button.stat[aria-pressed="true"] .label::after { content: ' ✓'; }
   /* What a tile's number counts, under it — quieter than the label above. */
   .stat .v .sub { display: block; font-size: var(--fs-xs); font-weight: var(--fw-normal);
                   color: var(--text-secondary); margin-top: 2px; }
@@ -973,7 +985,7 @@
 
      The headings are not hidden: a sortable heading row becomes a wrapping
      row of SORT BUTTONS under a "Sort by" label, so the cards keep the sort.
-     A heading row with nothing to press (Drink Next, the paste preview) goes. */
+     A heading row with nothing to press (the paste preview) goes. */
   /* The test fitCards() lays a table out under for a moment: every TEXT column
      (not a number, not a nowrap window or price, not the pill or the buttons)
      at least 10rem — two or three words a line. A table that cannot give its
@@ -1092,6 +1104,22 @@
   /* The count is pushed to the right-hand end of the row and sits on the same
      baseline as the controls, rather than taking a line of its own. */
   .filterbar .hint { margin: 0 0 var(--sp-4) auto; }
+  /* The status dropdown wears a field's own box (the select it replaced), and
+     opens a panel of tick boxes under it — a surface and a border, no shadow
+     (pack rule 14). */
+  .statuspick { position: relative; min-width: 12ch; }
+  .statuspick > summary { list-style: none; display: flex; align-items: center; gap: var(--sp-4);
+    min-height: var(--control-h); background: var(--surface); color: var(--text-primary);
+    border: 1px solid var(--input-border); border-radius: var(--radius-sm);
+    padding: var(--sp-3) var(--sp-4); cursor: pointer; white-space: nowrap; }
+  .statuspick > summary::-webkit-details-marker { display: none; }
+  .statuspick > summary .pickchev { margin-left: auto; color: var(--text-secondary); font-size: var(--fs-sm); line-height: 1; }
+  .statuspick .pickpanel { position: absolute; z-index: 20; top: calc(100% + 4px); left: 0;
+    min-width: 100%; width: max-content; background: var(--surface);
+    border: 1px solid var(--border-strong); border-radius: var(--radius-sm); padding: 10px 14px 4px; }
+  .statuspick .pickpanel .checkline { margin-bottom: var(--sp-4); white-space: nowrap; }
+  /* `.filterbar input` gives the Find box a 12ch floor; a tick box is not that. */
+  .statuspick .pickpanel input { min-width: 0; }
 
   /* ── Fields ─────────────────────────────────────────────────────────────────
      The TYPE LIST is the theme pack's own, and it has to be: it is the same list
@@ -1672,15 +1700,6 @@ html[data-booting] footer { visibility: hidden; }
       <p class="warn-line" id="overviewWarn" role="status"></p>
     </div>
 
-    <div class="card" id="nextCard" data-fold="next">
-      <h2>Drink Next
-        <span class="spacer"></span>
-        <span class="pill" id="nextCount"></span>
-      </h2>
-      <p class="chart-title">What to open first: bottles past their window, then the windows that close soonest.</p>
-      <div id="nextList"></div>
-    </div>
-
     <div class="card" id="cellarCard" data-fold="cellar">
       <h2>Cellar
         <span class="spacer"></span>
@@ -1705,16 +1724,23 @@ html[data-booting] footer { visibility: hidden; }
           <input type="search" id="findBox" maxlength="60" placeholder="wine, region, grape, place…"
                  autocomplete="off" data-keep-caret>
         </div>
+        <!-- Several statuses at once (Charles, 2026-10-24), in the table's
+             priority order. A <details> of tick boxes: native, keyboard-ready,
+             and it stays open while you tick. None ticked is every status. The
+             status tiles in At a Glance press the same boxes (setStatusPick). -->
         <div class="field">
-          <label for="statusFilter">Status</label>
-          <select id="statusFilter">
-            <option value="">Every status</option>
-            <option value="soon">Drink soon</option>
-            <option value="ready">Ready</option>
-            <option value="hold">Hold</option>
-            <option value="past">Past window</option>
-            <option value="none">No window</option>
-          </select>
+          <label id="statusLabel">Status</label>
+          <details class="statuspick" id="statusPick">
+            <summary aria-labelledby="statusLabel statusSum"><span id="statusSum">Every status</span>
+              <span class="pickchev" aria-hidden="true">▾</span></summary>
+            <div class="pickpanel" role="group" aria-labelledby="statusLabel">
+              <label class="checkline"><input type="checkbox" value="past">Past window</label>
+              <label class="checkline"><input type="checkbox" value="soon">Drink soon</label>
+              <label class="checkline"><input type="checkbox" value="ready">Ready</label>
+              <label class="checkline"><input type="checkbox" value="hold">Hold</label>
+              <label class="checkline"><input type="checkbox" value="none">No window</label>
+            </div>
+          </details>
         </div>
         <button type="button" class="link" id="clearFind">Clear</button>
         <p class="hint" id="findNote" role="status"></p>
@@ -2772,6 +2798,9 @@ const STATUS = {
   hold:  { label: 'Hold',        cls: 'hold', rank: 3 },
   none:  { label: 'No window',   cls: '',     rank: 4 },
 };
+/* Which statuses the Cellar is filtered to; empty is every one. Page-life
+   only, like the select it replaced. Declared here, before the first render. */
+const statusPick = new Set();
 function statusOf(w, yr, soon) {
   const f = w.drinkFrom, t = w.drinkTo;
   if (f == null && t == null) return 'none';
@@ -2789,7 +2818,7 @@ function inWindow(w, y) {
 const CHART_YEARS = 15;   /* this year and the fourteen after it, at most */
 
 /* computeAll() is the ONLY place the figures are worked out. Every tile, the
-   chart and the Drink Next list read from it, so no two parts of the screen can
+   chart and the Cellar's status filter read from it, so no two parts of the screen can
    disagree. Pure: the year is an argument, so a test can pin any year. Only
    wines with bottles left count — a finished wine is history, not cellar. */
 function computeAll(st, yr) {
@@ -2807,13 +2836,6 @@ function computeAll(st, yr) {
     high += q * (r.w.valueHigh == null ? r.w.valueLow : r.w.valueHigh);
     if (r.w.valueEst) estimated += q;
   });
-  /* Drink Next: what is drinkable now, the soonest-closing window first. A
-     wine already past its window leads — it is the one most worth opening. */
-  const next = rows.filter((r) => r.status === 'past' || r.status === 'soon' || r.status === 'ready')
-    .sort((a, b) => STATUS[a.status].rank - STATUS[b.status].rank
-      || (a.w.drinkTo == null ? 9999 : a.w.drinkTo) - (b.w.drinkTo == null ? 9999 : b.w.drinkTo)
-      || a.w.name.localeCompare(b.w.name))
-    .slice(0, 5);
   /* The chart's years run from this one to the last window's end, capped. A
      cellar of open-ended windows stops at the cap rather than running forever. */
   const lastEnd = rows.reduce((m, r) => Math.max(m,
@@ -2827,8 +2849,7 @@ function computeAll(st, yr) {
   return {
     rows: rows, wines: rows.length, bottles: bottles,
     value: { low: low, high: high, unvalued: unvalued, estimated: estimated },
-    next: next, years: years,
-    opened: st.opened.length,
+    years: years,
   };
 }
 
@@ -2854,7 +2875,6 @@ function render() {
   const c = computeAll(state, thisYear());
   renderViewbar();
   renderStats(c);
-  renderNext(c);
   renderChart(c);
   /* Last, and after the chart: it asks whether there is anything under the
      button, and brings the window back down if what was filling it has gone. */
@@ -2889,22 +2909,30 @@ const plural = (n, one, many) => n + ' ' + (n === 1 ? one : (many || one + 's'))
    Bottle counts, not wine counts: six bottles of one wine is six chances to
    drink it at the right time. */
 function renderStats(c) {
+  /* [label, figure, what it counts, status key]. Past window has its own tile
+     (it used to ride inside Drink Soon), in the table's priority order, and
+     Opened left the row (Charles, 2026-10-24) — the Opened tab counts it. */
   const tiles = [
     ['Bottles', String(c.bottles.all), plural(c.wines, 'wine')],
     ['Value', c.bottles.all - c.value.unvalued ? fmtRange(c.value.low, c.value.high) : '—',
      c.value.estimated ? 'includes estimates' : 'per bottle × count'],
-    ['Drink Soon', String(c.bottles.soon + c.bottles.past),
-     c.bottles.past ? plural(c.bottles.past, 'bottle') + ' past the window' : 'window closing'],
-    ['Ready', String(c.bottles.ready), 'inside the window'],
-    ['Holding', String(c.bottles.hold), 'not ready yet'],
-    ['Opened', String(c.opened), 'bottles logged'],
+    ['Past Window', String(c.bottles.past), 'closed before this year', 'past'],
+    ['Drink Soon', String(c.bottles.soon), 'window closing', 'soon'],
+    ['Ready', String(c.bottles.ready), 'inside the window', 'ready'],
+    ['Holding', String(c.bottles.hold), 'not ready yet', 'hold'],
   ];
-  /* The status tiles wear their status's edge, the family's RAG-tile pattern,
-     so the row reads the same way the pills in the table do. */
-  const edge = { 'Drink Soon': 'warn', Ready: 'ok', Holding: 'hold' };
-  document.getElementById('stats').innerHTML = tiles.map((t) =>
-    '<div class="stat' + (edge[t[0]] ? ' ' + edge[t[0]] : '') + '"><div class="label">' + esc(t[0]) + '</div>'
-    + '<div class="v">' + esc(t[1]) + '<span class="sub">' + esc(t[2]) + '</span></div></div>').join('');
+  /* A status tile wears its status's edge, the family's RAG-tile pattern, so
+     the row reads the same way the pills in the table do — and is a toggle for
+     that status in the Cellar's filter (see setStatusPick) — in a shared view
+     too, since filtering writes nothing. */
+  document.getElementById('stats').innerHTML = tiles.map((t) => {
+    const inner = '<div class="label">' + esc(t[0]) + '</div>'
+      + '<div class="v">' + esc(t[1]) + '<span class="sub">' + esc(t[2]) + '</span></div>';
+    return t[3]
+      ? '<button type="button" class="stat ' + STATUS[t[3]].cls + '" data-status="' + t[3] + '" aria-pressed="'
+        + statusPick.has(t[3]) + '">' + inner + '</button>'
+      : '<div class="stat">' + inner + '</div>';
+  }).join('');
 
   /* Oddities are never silent — every app in this family names what is
      unusual rather than quietly leaving it out. */
@@ -2960,8 +2988,8 @@ function wineNameCell(w) {
 /* A row's hover carries every field its table has NO column for — Charles,
    2026-10-23 — one "Label: value" per line, then the notes as their own block.
    `shown` is the table's column keys, so the Cellar grid's tip adds colour,
-   where it came from and when it was added, and Drink Next's (five columns)
-   adds region, grape and value as well. A blank field is left out. The
+   where it came from and when it was added (and Paid while that column is
+   hidden). A blank field is left out. The
    labels and words are the wine window's own. The dot still means notes only. */
 const SOURCE_WORDS = { wineaccess: 'Wine Access', cellar: 'Already in the cellar', other: 'Somewhere else' };
 function wineFacts(w, shown) {
@@ -2977,32 +3005,9 @@ function wineFacts(w, shown) {
     fmtAdded(w.added) ? 'Added: ' + fmtAdded(w.added) : '',
   ].filter(Boolean).join('\n');
 }
-const NEXT_COLUMNS = ['wine', 'window', 'status', 'location', 'qty'];
 const wineTip = (w, shown) => rowTip(viewOnly ? '' : 'Click to edit',
   [wineFacts(w, shown), (w.notes || '').trim()].filter(Boolean).join('\n\n'));
 
-function renderNext(c) {
-  document.getElementById('nextCount').textContent = plural(c.next.length, 'wine');
-  const wrap = document.getElementById('nextList');
-  if (!c.next.length) {
-    wrap.innerHTML = '<p class="empty">No wine with bottles left is inside its drinking window '
-      + 'this year.</p>';
-    return;
-  }
-  wrap.innerHTML = '<div class="table-scroll"><table id="nextTable" class="cards"><thead><tr>'
-    + '<th scope="col">Wine</th><th scope="col">Window</th><th scope="col">Status</th>'
-    + '<th scope="col">Where</th><th scope="col" class="num">Bottles</th></tr></thead><tbody>'
-    + c.next.map((r) => '<tr' + (viewOnly ? '' : ' class="rowlink" data-open="' + esc(r.w.id) + '"')
-      + wineTip(r.w, NEXT_COLUMNS) + '>'
-      + '<th scope="row">' + wineNameCell(r.w) + '</th>'
-      + '<td class="nowrap" data-label="Window">' + esc(fmtWindow(r.w)) + '</td>'
-      + '<td data-label="Status">' + pillFor(r.status) + '</td>'
-      /* Where, so the list that says what to open also says where to find it
-         (Charles, 2026-10-23). */
-      + '<td data-label="Where">' + esc(r.w.location) + '</td>'
-      + '<td class="num" data-label="Bottles">' + esc(r.w.qty) + '</td></tr>').join('')
-    + '</tbody></table></div>';
-}
 
 /* The chart is SVG, so it follows a theme change and the print palette with no
    help from script. Everything is drawn from computeAll(), never from a second
@@ -3140,13 +3145,13 @@ function compareWines(a, b, key, sign, yr, soon) {
 
 function visibleWines() {
   const q = document.getElementById('findBox').value.trim().toLowerCase();
-  const only = document.getElementById('statusFilter').value;
+  const only = statusPick.size > 0;
   const yr = thisYear(), soon = state.settings.soonYears;
   let rows = state.wines.filter((w) => w.qty > 0 || state.settings.showFinished || viewOnly);
   const total = rows.length;
   if (q) rows = rows.filter((w) => [wineLabel(w), w.region, w.grape, w.location, w.notes,
     COLOR_LABEL[w.color]].some((t) => String(t || '').toLowerCase().indexOf(q) !== -1));
-  if (only) rows = rows.filter((w) => statusOf(w, yr, soon) === only);
+  if (only) rows = rows.filter((w) => statusPick.has(statusOf(w, yr, soon)));
   /* The table's OWN order is the order you would drink them in: status first,
      then the window that closes soonest. */
   rows.sort((a, b) => sortKey
@@ -5428,7 +5433,6 @@ function onWineTableClick(e) {
   if (row) openWine(row.getAttribute('data-open'));
 }
 $('listWrap').addEventListener('click', onWineTableClick);
-$('nextList').addEventListener('click', onWineTableClick);
 
 $('openedWrap').addEventListener('click', (e) => {
   const sort = e.target.closest('[data-sort]');
@@ -5463,7 +5467,52 @@ $('openRemove').addEventListener('click', () => {
 
 /* Find. Redraws the table only — never the controls, or the caret is lost. */
 $('findBox').addEventListener('input', renderList);
-$('statusFilter').addEventListener('change', renderList);
+/* The status filter: ONE set, pressed from the dropdown's tick boxes and from
+   the status tiles, and drawn back onto both by setStatusPick — so they can
+   never disagree. Neither redraws the tiles (that would take the focus off the
+   tile just pressed); the list is redrawn, and the page holds still (Charles,
+   2026-10-24 — a scroll to the Cellar was tried in the plan and put aside). */
+function statusSummary() {
+  const keys = Object.keys(STATUS).filter((k) => statusPick.has(k));
+  return !keys.length ? 'Every status'
+    : keys.length <= 2 ? keys.map((k) => STATUS[k].label).join(', ') : keys.length + ' statuses';
+}
+function setStatusPick(keys) {
+  statusPick.clear();
+  keys.forEach((k) => { if (STATUS[k]) statusPick.add(k); });
+  $('statusSum').textContent = statusSummary();
+  $('statusPick').querySelectorAll('input[type="checkbox"]').forEach((b) => { b.checked = statusPick.has(b.value); });
+  document.querySelectorAll('#stats [data-status]').forEach((b) =>
+    b.setAttribute('aria-pressed', String(statusPick.has(b.dataset.status))));
+  renderList();
+}
+$('statusPick').addEventListener('change', (e) => {
+  const box = e.target.closest('input[type="checkbox"]');
+  if (!box) return;
+  const next = new Set(statusPick);
+  next[box.checked ? 'add' : 'delete'](box.value);
+  setStatusPick([...next]);
+});
+$('stats').addEventListener('click', (e) => {
+  const tile = e.target.closest('[data-status]');
+  if (!tile) return;
+  const next = new Set(statusPick), k = tile.dataset.status;
+  next[next.has(k) ? 'delete' : 'add'](k);
+  /* A filter behind a folded card would change nothing you can see. */
+  const card = $('cellarCard');
+  if (card.classList.contains('boxshut')) setFold(card, false);
+  setStatusPick([...next]);
+});
+/* Escape and a press anywhere else close the dropdown, as a select would. */
+$('statusPick').addEventListener('keydown', (e) => {
+  if (e.key !== 'Escape' || !$('statusPick').open) return;
+  e.preventDefault();
+  $('statusPick').open = false;
+  $('statusPick').querySelector('summary').focus();
+});
+document.addEventListener('click', (e) => {
+  if ($('statusPick').open && !$('statusPick').contains(e.target)) $('statusPick').open = false;
+});
 /* One listener for every export button there will ever be, delegated at <main>
    so a re-render never has to re-wire them. */
 document.getElementById('main').addEventListener('click', (e) => {
@@ -5472,8 +5521,8 @@ document.getElementById('main').addEventListener('click', (e) => {
 });
 $('clearFind').addEventListener('click', () => {
   $('findBox').value = '';
-  $('statusFilter').value = '';
-  renderList();
+  $('statusPick').open = false;
+  setStatusPick([]);
   $('findBox').focus();
 });
 
@@ -5498,6 +5547,7 @@ $('firstRestore').addEventListener('click', () => $('importFile').click());
 const HELP = {
   status: ['How a Wine’s Status Is Decided', `<p>Every status is worked out from the wine’s <strong>drinking window</strong> and this year — nothing is typed in, so the cellar stays right as the years go by.</p>
     <p><strong>Hold</strong> — the window hasn’t opened yet. <strong>Ready</strong> — inside the window, with time to spare. <strong>Drink soon</strong> — inside the window, and it closes within the time set in Settings (a year, to start with). <strong>Past window</strong> — the window closed in an earlier year; it may still be lovely, but it is the one to open next. <strong>No window</strong> — none was recorded, so nothing can be said.</p>
+    <p>Press <strong>Past Window</strong>, <strong>Drink Soon</strong>, <strong>Ready</strong> or <strong>Holding</strong> to show just those wines in the Cellar list; press it again to take it off. You can press several, and the Status box in the Cellar ticks the same ones.</p>
     <p>The tiles count <strong>bottles</strong>, not wines, and only bottles you still have. The value is each wine’s value per bottle times its count, shown as a range when the value is one; a wine with no value is left out and the line under the tiles says how many bottles that is.</p>`],
   chart: ['How This Chart Is Drawn', `<p>One bar per year, from this one on: how many of your bottles are <strong>inside their drinking window</strong> that year. A wine counts in every year of its window, so the bars overlap on purpose — the shape shows when the cellar is at its best and when bottles start running out of time.</p>
     <p>A window with no end counts in every year shown; a wine with no window is not drawn at all. Bottles are counted as they stand today, so the chart does not know what you will open between now and then. Each bar is a tint with the colour itself on the edge, from the shared palette.</p>`],
@@ -6339,7 +6389,7 @@ window.wcAdopt = (incoming, updatedAt) => {
    the observer would be reported straight back to it; height alone is ignored.
    A box with no width (a hidden tab, a closed window) is left to be decided
    when it shows. */
-const CARD_HOSTS = ['nextList', 'listWrap', 'openedWrap', 'pastePreview'];
+const CARD_HOSTS = ['listWrap', 'openedWrap', 'pastePreview'];
 function fitCards() {
   CARD_HOSTS.forEach((id) => {
     const host = document.getElementById(id);
