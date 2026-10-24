@@ -94,6 +94,8 @@ cellar on your other devices.
   is no redo; ⌘Z goes straight back. The history lives in memory, so a reload starts it
   fresh, and it clears when another tab or another signed-in device changes the cellar —
   undoing past their work would overwrite it.
+- **Accents don't matter when you search.** Every Find — the Cellar's, the Opened list's and ⌘K —
+  matches "resonance" to Résonance, "coeur" to Cœur and "rebel's" to Rebel’s, in either direction.
 - **Find** (⌘K), **Settings**, **Back Up** (JSON and CSV, Restore, Delete All — which keeps
   your settings, theme and Claude key), **Share**
   (a read-only link with the data inside it), four themes plus Auto — the family's chrome.

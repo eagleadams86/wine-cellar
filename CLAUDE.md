@@ -93,6 +93,11 @@ the family doesn't.
 
 ## Decisions — Don't Undo
 
+- **Every Find folds text through `searchFold()`** (2026-10-24, Charles: "resonance" must find
+  Résonance) — NFD minus marks, lower case, `FOLD_LETTERS` (œ æ ß ø ł đ ð þ ı) spelled out, curly
+  apostrophes straightened, applied to the query AND each field via `foldHas`. The Cellar's Find,
+  the Opened Find and `searchApp` (⌘K) all use it; a new search must too.
+
 - **Status is derived, never stored** (`statusOf(w, year, soonYears)`). The verdict column in
   a pasted Claude table is read past on purpose: a verdict is right for one year, a window
   for all of them.
@@ -280,6 +285,6 @@ was a one-line version of the cellar rule.
 
 ## Tests
 
-`tests.html`, `EXPECTED = 272`. Run it headless (Playwright) rather than in the Browser pane:
+`tests.html`, `EXPECTED = 273`. Run it headless (Playwright) rather than in the Browser pane:
 the pane throttles hidden timers and its focus heuristics turn the 705px keyboard-focus check
 red on untouched code.

@@ -3733,14 +3733,25 @@ function compareWines(a, b, key, sign, yr, soon) {
   return (a.name.localeCompare(b.name) || (a.vintage || 0) - (b.vintage || 0)) * sign;
 }
 
+/* What every Find compares: case, accents and the letters typed without them
+   are all one (Charles, 2026-10-24 — "resonance" must find Résonance). Accents
+   come off through NFD; the letters NFD leaves whole are spelled out, and a
+   curly apostrophe is a straight one, so "rebel's" finds Rebel’s. */
+const FOLD_LETTERS = { 'œ': 'oe', 'æ': 'ae', 'ß': 'ss', 'ø': 'o', 'ł': 'l', 'đ': 'd', 'ð': 'd', 'þ': 'th', 'ı': 'i' };
+function searchFold(s) {
+  return String(s == null ? '' : s).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+    .replace(/[œæßøłđðþı]/g, (c) => FOLD_LETTERS[c]).replace(/[\u2018\u2019\u02bc]/g, "'");
+}
+const foldHas = (t, q) => searchFold(t).indexOf(q) !== -1;
+
 function visibleWines() {
-  const q = document.getElementById('findBox').value.trim().toLowerCase();
+  const q = searchFold(document.getElementById('findBox').value.trim());
   const only = statusPick.size > 0;
   const yr = thisYear(), soon = state.settings.soonYears;
   let rows = state.wines.filter((w) => w.qty > 0 || state.settings.showFinished || viewOnly);
   const total = rows.length;
   if (q) rows = rows.filter((w) => [wineLabel(w), w.region, w.subregion, w.grape, w.location, w.notes,
-    COLOR_LABEL[w.color]].some((t) => String(t || '').toLowerCase().indexOf(q) !== -1));
+    COLOR_LABEL[w.color]].some((t) => foldHas(t, q)));
   if (only) rows = rows.filter((w) => statusPick.has(statusOf(w, yr, soon)));
   /* The table's OWN order is the order you would drink them in: status first,
      then the window that closes soonest. */
@@ -3820,10 +3831,10 @@ function visibleOpened() {
   const sign = (openedSortKey ? openedSortDir : 'desc') === 'asc' ? 1 : -1;
   const blankLast = (x, y2, f) => (x == null && y2 == null) ? 0 : x == null ? 1 : y2 == null ? -1 : f(x, y2) * sign;
   /* Find, in the list: every word you can see on a line, the date as shown. */
-  const q = document.getElementById('openedFind').value.trim().toLowerCase();
+  const q = searchFold(document.getElementById('openedFind').value.trim());
   let rows = !q ? state.opened.slice() : state.opened.filter((o) =>
     [o.label, o.region, o.subregion, o.grape, o.place, o.note, fmtDate(o.date), o.paid == null ? '' : fmtPaid(o.paid),
-     TIMING[timingOf(o)].label].some((t) => String(t || '').toLowerCase().indexOf(q) !== -1));
+     TIMING[timingOf(o)].label].some((t) => foldHas(t, q)));
   if (timingPick.size) rows = rows.filter((o) => timingPick.has(timingOf(o)));
   return rows.sort((a, b) => {
     if (key === 'timing')
@@ -4001,11 +4012,11 @@ const SEARCH_CAP = 80;
 const SEARCH_VIEW_LABEL = { cellar: 'Cellar', opened: 'Opened' };
 
 function searchApp(st, query) {
-  const q = String(query || '').trim().toLowerCase();
+  const q = searchFold(String(query || '').trim());
   if (q.length < 2) return { hits: [], more: 0 };
   const hits = [];
   let dropped = 0;
-  const has = (t) => t != null && String(t).toLowerCase().indexOf(q) !== -1;
+  const has = (t) => t != null && foldHas(t, q);
   const push = (r) => { if (hits.length < SEARCH_CAP) hits.push(r); else dropped++; };
   /* `st` itself is guarded, not just its fields — a search that throws takes
      the dialog down with it. */
@@ -7709,7 +7720,7 @@ window.__wineTestHooks = {
   shareWines: shareWines, statusOf: statusOf, STATUS: STATUS, parseWineList: parseWineList,
   sameWine: sameWine, syncDecision: syncDecision, makePushGate: makePushGate,
   UPDATED_KEY: UPDATED_KEY, OPENED_COLUMNS: OPENED_COLUMNS,
-  knownNames: knownNames, groupedRegion: groupedRegion, groupedGrape: groupedGrape,
+  knownNames: knownNames, searchFold: searchFold, visibleWines: visibleWines, groupedRegion: groupedRegion, groupedGrape: groupedGrape,
   openedFacts: openedFacts, timingOf: timingOf, ageAtOpening: ageAtOpening, likeGroups: likeGroups, computeOpened: computeOpened, TIMING: TIMING,
   encodeShare: encodeShare, decodeShare: decodeShare, csvWines: csvWines, csvOpened: csvOpened, csvCell: csvCell,
   raisesKeyboard: raisesKeyboard, opensOnFocus: opensOnFocus, esc: esc, todayISO: todayISO, fmtMoney: fmtMoney,
