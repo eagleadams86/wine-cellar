@@ -2909,7 +2909,7 @@ function define() {
     const many = ['aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.com', 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.com', 'ccccccccccccccccccccccccccccccccc.com'];
     const line = H.lookupNoteLine(r(long, many), '2026-10-24');
     ok(line.length <= 200, line.length);
-    ok(!/c{5,}\.com/.test(line) && /\.com$/.test(line), 'a website that does not fit is dropped whole: ' + line);
+    ok(line.indexOf('ccccc') === -1 && line.endsWith('.com'), 'a website that does not fit is dropped whole: ' + line);
   });
   t('a newer check replaces the Looked up line rather than stacking a second', () => {
     const w = { valueLow: null, valueHigh: null, notes: 'Mine.\nLooked up 2020-01-01' };
