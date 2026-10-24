@@ -2080,8 +2080,11 @@ html[data-booting] footer { visibility: hidden; }
   </div>
   <div class="field">
     <label for="o_note">Note</label>
-    <input type="text" id="o_note" maxlength="140" autocomplete="off" data-keep-caret
-           placeholder="Who with, what you ate, what you’d do differently…">
+    <!-- A textarea, like the wine's Notes (Charles, 2026-10-24), so a long note
+         can be read whole while it is written. Still one line when saved:
+         cleanLine turns a line break into a space, as the list shows it. -->
+    <textarea id="o_note" maxlength="140" rows="3" data-keep-caret
+              placeholder="Who with, what you ate, what you’d do differently…"></textarea>
   </div>
   <p class="warn-line" id="openWarn" role="status"></p>
   <div class="row-actions">
