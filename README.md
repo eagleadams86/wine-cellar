@@ -42,7 +42,7 @@ cellar on your other devices.
   or deleted; Paid shows once any bottle has one), your 1–5 rating and a note. **Find** narrows
   the list by any of those words, like the Cellar's.
   Press a line to change its date, rating or note; the bottle count is left alone.
-- **Folding cards** — Cellar and Drinking Windows Ahead fold up to their heading
+- **Folding cards** — At a Glance, Cellar and Drinking Windows Ahead fold up to their heading
   (press the heading band, as in Money Map). Which ones you folded is remembered on this device.
 - **When a list doesn't fit as a table** — on a phone, or a half-screen window — it turns into
   a stack of cards, one to a line so it still reads in its sort order: the wine and its status
