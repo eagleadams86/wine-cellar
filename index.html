@@ -4941,7 +4941,9 @@ const LOOKUP_TOOL = {
       region: { type: 'string', description: 'Exactly two parts, "Area, State or Country": the wine area a drinker '
         + 'would group by, then the US state or the country, spelled out. E.g. "Napa Valley, California", '
         + '"Willamette Valley, Oregon", "Douro, Portugal", "Burgundy, France", "Tuscany, Italy". No sub-district, '
-        + 'brackets, abbreviations or classification (IGT, DOC, AVA). Empty if unknown.' },
+        + 'brackets, abbreviations or classification (IGT, DOC, AVA). A wine from a whole state or country - '
+        + 'labelled just "California", "Washington" or "Spain" - has that state or country ALONE here, e.g. '
+        + '"California", and an empty appellation. Empty only if unknown.' },
       appellation: { type: 'string', description: 'The narrower appellation or sub-district, if finer than the area, '
         + 'e.g. "Stags Leap District" or "Dundee Hills". Empty if none.' },
       grape: { type: 'string', description: 'In this order: (1) labelled by a grape that is 75% or more (most New '
@@ -5015,7 +5017,9 @@ function knownNames(st) {
   };
   const all = st.wines.concat(st.opened);
   return {
-    regions: pick(all.map((x) => x.region), (x) => !/[()%\d]/.test(x) && x.split(',').length === 2),
+    /* Two parts, or a whole US state alone (a statewide wine's region). */
+    regions: pick(all.map((x) => x.region), (x) => !/[()%\d]/.test(x)
+      && (x.split(',').length === 2 || Object.values(US_STATES).indexOf(x) !== -1)),
     grapes: pick(all.map((x) => x.grape), (x) => !/[()%\d,\/]/.test(x)),
   };
 }
@@ -5181,9 +5185,12 @@ function readLookup(found, asked) {
     labelVintage: cleanYear(f.label_vintage),
     confidence: ['high', 'medium', 'low'].indexOf(f.confidence) === -1 ? 'low' : f.confidence,
     color: COLORS.indexOf(f.color) === -1 ? null : f.color,
-    region: cleanLine(f.region, 60),
+    /* A sub-region with no region above it is a region: a statewide wine came
+       back as region "" and appellation "California" (Josh Cellars, Charles,
+       2026-10-24) — the two-part format had no room for it. It moves UP. */
+    region: cleanLine(f.region, 60) || cleanLine(f.appellation, 60),
     /* The tool's `appellation` is the wine's Sub-region. Never the region again. */
-    subregion: sameText(f.appellation, f.region) ? '' : cleanLine(f.appellation, 60),
+    subregion: sameText(f.appellation, f.region) || !cleanLine(f.region, 60) ? '' : cleanLine(f.appellation, 60),
     grape: cleanLine(f.grape, 60),
     valueLow: low,
     valueHigh: high == null || high === low ? null : high,
