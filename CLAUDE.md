@@ -63,7 +63,9 @@ the family doesn't.
   switch changes the host's height, which would loop). A hidden box (zero width) is decided when
   it shows. A new card table must sit in a host listed in `CARD_HOSTS`. **One card to a line at
   every width** — Charles, for the sort order; a 2-up grid was tried and rejected. A wide card
-  spends its width on fields (`flex: 1 1 7.5rem`: two to a line at 360px, all six at 1000px), and
+  spends its width on fields: `flex: 0 1 auto`, each field its own one-line width, packed with a
+  22px gap (equal 7.5rem shares wrapped a long region to four lines beside a Bottles holding
+  "1"; letting fields GROW left holes before the next label — both rejected 2026-10-24), and
   an empty full-width `tr::before` breaks the line after the name and pill so fields start in the
   same place on every card. Each `<td>` carries `data-label` (the card shows it via `::before`,
   so exports never see it) — a new column needs one, and a test checks every cell. The name

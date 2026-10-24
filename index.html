@@ -1001,12 +1001,17 @@
       border-radius: var(--radius-pill); padding: 4px 10px; min-height: 0; }
     table.cards.cardview thead th[aria-sort] button { border-color: var(--btn-bg); color: var(--text-primary); }
     /* COMPACT: the wine and its status pill share the top line, then the
-       fields — two to a line on a phone, as many as fit at 7.5rem on a wide
-       card — each label INLINE before its value. The first cut put
+       fields, each label INLINE before its value, sized by what they SAY: a
+       field starts at its own one-line width and the line fills greedily, so a
+       long region takes the room it needs instead of wrapping to four lines
+       beside a Bottles field holding "1" (Charles, 2026-10-24 — equal 7.5rem
+       shares left both at once). No field grows: stretched, a short region
+       left a hole before the next label, so fields sit at their own width with
+       one even gap, like a line of facts, and a line's spare room is at its end. The first cut put
        one field per line and a wine came out eight lines tall; labels above
        values still made it seven. Flex-wrap rather than a grid, so a long
        name takes the room it needs and the pill keeps to the right. */
-    table.cards.cardview tbody tr { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 14px;
+    table.cards.cardview tbody tr { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 22px;
       border: 1px solid var(--border); border-radius: var(--radius-sm);
       background: var(--surface-alt); padding: 12px 14px; margin-bottom: 10px; }
     table.cards.cardview tbody tr:hover, table.cards.cardview tr.rowlink:hover th, table.cards.cardview tr.rowlink:hover td { background: none; }
@@ -1019,7 +1024,7 @@
        narrow phone the value can drop under its label WHOLE — a window or a
        price range keeps its nowrap and never splits at the dash. */
     table.cards.cardview tbody td { display: flex; flex-wrap: wrap; align-items: baseline; column-gap: 6px;
-      flex: 1 1 7.5rem; min-width: 0; padding: 0; border: 0; text-align: left;
+      flex: 0 1 auto; min-width: 0; padding: 0; border: 0; text-align: left;
       overflow-wrap: break-word; }
     table.cards.cardview tbody td::before { content: attr(data-label);
       font-size: var(--fs-xs); color: var(--text-muted); text-transform: uppercase;
