@@ -86,8 +86,9 @@ the family doesn't.
   beside it — `navigator.clipboard.read()` came back EMPTY with file-url + TIFF (measured; a
   clipboard-picture fallback was built and removed). So from the Photos library, Chrome needs a
   JPEG exported to a real folder (File → Export → Export 1 Photo); both help texts say so. Only
-  pure image data (no file URL) pastes as a PNG. A real decoder (libheif WASM) would need
-  `'wasm-unsafe-eval'` in the CSP — an open question for Charles. Synthetic ⌘V in the Browser pane
+  pure image data (no file URL) pastes as a PNG. **No HEIC decoder** (Charles, 2026-10-24:
+  "exporting a JPEG or using the iPhone is fine") — libheif WASM would need `'wasm-unsafe-eval'`
+  in the CSP on the shared origin; don't re-offer it. Synthetic ⌘V in the Browser pane
   fires no paste event; test pastes in headful Playwright with a pasteboard built in JXA.
 
 ## Decisions — Don't Undo
