@@ -138,9 +138,12 @@ the pages it used.
 
 ### Label Photos
 
-**Add Label Photo** in the wine window takes a photo (the camera on a phone, a file on a Mac).
-An iPhone's HEIC photos can't be opened in Chrome, which has no decoder for them: add those
-from the iPhone or Safari, or export them from Photos as JPEG first — the window says so.
+**Add Label Photo** in the wine window takes a photo (the camera and library on a phone, a file
+on a Mac). **On a Mac, paste or drag instead of picking from Photos:** select the photo in Photos,
+press ⌘C, click in the wine window and press ⌘V — or drag it onto the window. Chrome can't read a
+photo chosen from the picker's Photos pane (Photos copies it out again each time it is opened,
+and Chrome refuses a file that changed), and can't open an iPhone HEIC file at all; a pasted
+photo has neither problem. The window says which of these happened.
 
 - **Look Up reads it.** The photo goes to Claude with the question, so it matches the exact
   producer, wine and vintage printed on the label instead of what was typed. A photo alone is

@@ -2735,10 +2735,10 @@ function backupPhotoEntries(raw, st) {
    one (an iPhone always does); when a HEIC still arrives, the note says
    exactly what to do instead of "could not be read". Known by its bytes —
    the `ftyp` box names a HEIF brand — or else its type or name. */
-const HEIC_HELP = 'That is an iPhone HEIC photo, which Chrome can’t open. Add it from your iPhone or from '
-  + 'Safari on the Mac, which can — or export it as a JPEG from Photos first (File → Export).';
-const PHOTO_REPICK_HELP = 'The photo was still being copied out of Photos when it was picked. Press '
-  + 'Add Label Photo again and pick it from the folder that opens — it is ready there now.';
+const HEIC_HELP = 'That is an iPhone HEIC photo, which Chrome can’t open as a file. Select it in Photos, '
+  + 'press ⌘C, then click here and press ⌘V — or add it from your iPhone.';
+const PHOTO_REPICK_HELP = 'Chrome can’t read a photo picked from the Photos library. Instead, select it '
+  + 'in Photos, press ⌘C, then click here and press ⌘V — or drag it onto this window.';
 /* A picked file to { got } or { problem: what to tell the reader }. It is
    READ before it is decoded, because the two fail for different reasons: a
    photo picked from Photos on the Mac is exported into a temporary folder as
@@ -5387,10 +5387,12 @@ function showPhoto(data) {
   $('photoRemove').hidden = !data;
   $('photoBtn').textContent = data ? 'Replace Photo' : 'Add Label Photo';
 }
+const PHOTO_HINT = 'Or paste one here (⌘V), or drag it in.';
 function photoReset(it) {
   const seq = ++photoSeq;
   photoDraft = null; photoRemoved = false; photoShown = null;
-  $('photoNote').textContent = '';
+  /* The hint is for a keyboard; a phone's button opens its camera and library. */
+  $('photoNote').textContent = it && it.photoAt || matchMedia('(pointer: coarse)').matches ? '' : PHOTO_HINT;
   showPhoto(null);
   if (!it || !it.photoAt) return;
   $('photoNote').textContent = 'Loading the photo…';
@@ -5407,11 +5409,19 @@ function photoReset(it) {
 /* The photo Look Up sends: the sharp one just picked, else the kept copy. */
 const photoForLookup = () => (photoDraft ? photoDraft.send : photoRemoved ? null : photoShown && photoShown.data);
 $('photoBtn').addEventListener('click', () => $('photoFile').click());
-$('photoFile').addEventListener('change', async () => {
+$('photoFile').addEventListener('change', () => {
   const input = $('photoFile');
   const file = input.files && input.files[0];
   input.value = '';                   /* so the same photo can be picked twice */
-  if (!file) return;
+  if (file) takePhotoFile(file);
+});
+/* Three ways in, one way through: the picker, a paste (⌘C in Photos, ⌘V
+   here) and a drop. Paste and drop exist because the Mac picker's Photos
+   pane cannot feed Chrome at all: it copies the photo out again every time
+   the file is opened, and Chrome refuses a file that changed after the pick
+   (Charles, 2026-10-24, twice). A pasted photo arrives as image data that
+   Chrome has already decoded — so it works for an iPhone HEIC too. */
+async function takePhotoFile(file) {
   const seq = ++photoSeq;
   $('photoNote').textContent = 'Reading the photo…';
   const { got, problem } = await readPicked(file, shrinkPhoto);
@@ -5420,6 +5430,33 @@ $('photoFile').addEventListener('change', async () => {
   photoDraft = got; photoRemoved = false;
   showPhoto(got.keep);
   $('photoNote').textContent = 'Look Up will read the label. The photo is kept when you Save.';
+}
+/* The image a paste or drop carries, or null. A paste into a TEXT box that
+   also carries text is that text's paste, and left alone. Pure and pinned. */
+function imageFromTransfer(dt, intoText) {
+  if (!dt) return null;
+  const files = [...(dt.files || [])];
+  const img = files.find((f) => /^image\//.test(f.type) || /\.(jpe?g|png|webp|hei[cf])$/i.test(f.name || ''));
+  if (!img) return null;
+  if (intoText && [...(dt.types || [])].indexOf('text/plain') !== -1) return null;
+  return img;
+}
+const isTextBox = (el) => !!el && (el.tagName === 'TEXTAREA'
+  || (el.tagName === 'INPUT' && ['text', 'search', 'number', 'date', 'url', 'email'].indexOf(el.type) !== -1));
+$('wineDialog').addEventListener('paste', (e) => {
+  const img = imageFromTransfer(e.clipboardData, isTextBox(e.target));
+  if (!img) return;
+  e.preventDefault();
+  takePhotoFile(img);
+});
+$('wineDialog').addEventListener('dragover', (e) => {
+  if (e.dataTransfer && [...(e.dataTransfer.types || [])].indexOf('Files') !== -1) e.preventDefault();
+});
+$('wineDialog').addEventListener('drop', (e) => {
+  const img = imageFromTransfer(e.dataTransfer, false);
+  if (!img) return;
+  e.preventDefault();
+  takePhotoFile(img);
 });
 $('photoRemove').addEventListener('click', () => {
   ++photoSeq;
@@ -7659,7 +7696,7 @@ window.__wineTestHooks = {
   __photoStore: function (next) { const was = photoStore; photoStore = next; return was; },
   __photoDraft: function (d) { photoDraft = d; photoRemoved = false; },
   cleanPhoto: cleanPhoto, photoIdsGone: photoIdsGone, backupPhotoEntries: backupPhotoEntries,
-  photoContent: photoContent, heicBrand: heicBrand, isHeic: isHeic, readPicked: readPicked, PHOTO_MAX: PHOTO_MAX, PHOTO_SEND_MAX: PHOTO_SEND_MAX,
+  photoContent: photoContent, imageFromTransfer: imageFromTransfer, heicBrand: heicBrand, isHeic: isHeic, readPicked: readPicked, PHOTO_MAX: PHOTO_MAX, PHOTO_SEND_MAX: PHOTO_SEND_MAX,
   SCHEMA: SCHEMA, ID_RE: ID_RE, STORAGE_KEY: STORAGE_KEY, THEME_KEY: THEME_KEY,
   TAB_KEY: TAB_KEY, TABS: TABS, SHARE_FORMAT: SHARE_FORMAT, SHARE_PAYLOAD_V: SHARE_PAYLOAD_V,
   blankState: blankState, normalizeState: normalizeState, defaultSettings: defaultSettings,

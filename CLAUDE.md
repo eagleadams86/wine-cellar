@@ -77,9 +77,15 @@ the family doesn't.
   HEIC at all and Claude's API takes none, so the picker is asked for a compatible copy, and a
   HEIC that still arrives (Charles's first try, from Photos in Chrome on the Mac) gets
   `HEIC_HELP` — `isHeic()` reads the `ftyp` brand, then the type and name. `readPicked()` READS
-  before it decodes: macOS exports a Photos pick into a temp `uuid=` folder as it is picked, and
-  Chrome refuses a file that changed after the pick, so that gets `PHOTO_REPICK_HELP` (pick it
-  again from that folder) and any other failure names the file's type and size.
+  before it decodes: the Mac picker's Photos pane exports into a temp `uuid=` folder and RE-EXPORTS
+  on every open, and Chrome refuses a file that changed after the pick — so a Photos pick can
+  NEVER be read in Chrome, picked once or twice (Charles, 2026-10-24). That gets
+  `PHOTO_REPICK_HELP`, which sends you to **paste (⌘C in Photos, ⌘V in the wine window) or drop**,
+  both wired on `#wineDialog` through `imageFromTransfer()` → `takePhotoFile()`. A paste arrives
+  as image data Chrome already decoded, so it carries an iPhone HEIC too — confirmed with a real
+  ⌘V in headful Playwright Chromium (a HEIC put on the clipboard came through as image/png). A
+  paste into a text box that also carries text is left as a text paste. Synthetic ⌘V in the
+  Browser pane fires no paste event at all — test it in headful Playwright.
 
 ## Decisions — Don't Undo
 
@@ -270,6 +276,6 @@ was a one-line version of the cellar rule.
 
 ## Tests
 
-`tests.html`, `EXPECTED = 270`. Run it headless (Playwright) rather than in the Browser pane:
+`tests.html`, `EXPECTED = 272`. Run it headless (Playwright) rather than in the Browser pane:
 the pane throttles hidden timers and its focus heuristics turn the 705px keyboard-focus check
 red on untouched code.
