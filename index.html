@@ -2590,6 +2590,14 @@ function cleanChecked(v) {
    without it. Only a part that is not the date, a window basis, the "could
    not find" words or the list of websites — so an older line is never
    mistaken for one. */
+/* "wine.com, vivino.com" — the websites a Looked up line ends with. Split
+   first and tested part by part, so no pattern can backtrack; the last may
+   have been cut short by the line's length cap ("beveragewar"). */
+function isHostList(p) {
+  const hosts = p.split(', ');
+  return hosts.every((h, i) => /^[a-z0-9-]+(\.[a-z0-9-]+)+$/i.test(h)
+    || (i === hosts.length - 1 && i > 0 && /^[a-z0-9.-]+$/i.test(h)));
+}
 function subregionFromNotes(notes) {
   const lines = String(notes || '').split('\n');
   const at = lines.findIndex((l) => l.indexOf('Looked up ') === 0);
@@ -2597,7 +2605,7 @@ function subregionFromNotes(notes) {
   const parts = lines[at].split(' · ');
   const p = parts[1];
   if (!p || /^window: /.test(p) || /^Claude could not find/.test(p)
-      || /^[a-z0-9.-]+\.[a-z]{2,}(, [a-z0-9.-]+\.?[a-z]*)*$/i.test(p)) return null;
+      || isHostList(p)) return null;
   parts.splice(1, 1);
   lines[at] = parts.join(' · ');
   return { subregion: cleanLine(p, 60), notes: lines.join('\n') };
