@@ -908,6 +908,9 @@
   .likes { display: grid; gap: var(--sp-5); grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
            align-items: start; }
   .likes table { width: 100%; }
+  .likeview { display: inline-flex; gap: 6px; }
+  .likeview button[aria-pressed="true"] { background: var(--btn-bg); border-color: var(--btn-bg);
+                                          color: var(--btn-text); font-weight: var(--fw-semibold); }
   #wineDialog, #pasteDialog, #checkDialog { max-width: 700px; }
   textarea { resize: vertical; }
   #pasteBox { font-family: var(--font-mono); font-size: var(--fs-xs); }
@@ -1801,6 +1804,13 @@ html[data-booting] footer { visibility: hidden; }
       <h2>What You Like
         <button class="tile-help" type="button" data-help="likes"
                 aria-label="How these tables are worked out">i</button>
+        <span class="spacer"></span>
+        <!-- Grouped folds names written different ways; As written counts each
+             spelling apart. aria-pressed, the timing tiles' pattern. -->
+        <span class="likeview no-print" role="group" aria-label="How names are counted">
+          <button type="button" class="btn-small" data-like-view="grouped">Grouped</button>
+          <button type="button" class="btn-small" data-like-view="written">As written</button>
+        </span>
       </h2>
       <p class="chart-title">Your opened bottles by grape and by region, best-rated first.</p>
       <div class="likes">
@@ -3003,18 +3013,52 @@ function timingOf(o) {
 function ageAtOpening(o) {
   return o.vintage == null ? null : Math.max(0, openedYear(o) - o.vintage);
 }
+/* ── What You Like, grouped ─────────────────────────────────────────────────
+   Names arrive written many ways — Look Up's older answers, a paste, a bottle
+   typed at dinner — so the Grouped view (the default) folds them before
+   counting. A guess, not a fact: the As written view is one press away, and a
+   grouped row's hover text lists every spelling it took in.
+   REGION: brackets and classifications (IGT, DOC, AVA…) dropped, "/" read as a
+   comma, a US state spelled out and a trailing USA dropped, then the LAST TWO
+   parts — "Stags Leap District, Napa Valley, CA" is "Napa Valley, California". */
+const US_STATES = { ca: 'California', or: 'Oregon', wa: 'Washington', ny: 'New York', tx: 'Texas',
+                    va: 'Virginia', id: 'Idaho', az: 'Arizona', nm: 'New Mexico', mi: 'Michigan' };
+const CLASSIFICATION = /\b(AOC|AOP|AVA|DOCG|DOC|DOCa|DO|IGT|IGP|VDP|VdP|GI|PDO|PGI)\b/g;
+function groupedRegion(name) {
+  let parts = String(name || '').replace(/\([^)]*\)/g, ' ').replace(CLASSIFICATION, ' ')
+    .split(/[,/]/).map((p) => p.replace(/\s+/g, ' ').trim()).filter(Boolean)
+    .map((p) => US_STATES[p.toLowerCase()] || p);
+  if (parts.length > 1 && /^(usa|us|u\.s\.a?\.?|united states)$/i.test(parts[parts.length - 1])) parts.pop();
+  return parts.slice(-2).join(', ');
+}
+/* GRAPE: brackets and percentages dropped, then the FIRST grape named, without
+   a trailing "blend" — "75% Cabernet Sauvignon, 18.2% Cabernet Franc" and
+   "Cabernet Sauvignon blend (87% CS…)" are both Cabernet Sauvignon. A style
+   ("Bordeaux-style red blend") stays whole: it names no grape to take. The
+   first grape named is not always the most of it, which is why it is a view. */
+function groupedGrape(name) {
+  const plain = String(name || '').replace(/\([^)]*\)/g, ' ').replace(/\d+(\.\d+)?\s*%/g, ' ')
+    .replace(/\s+/g, ' ').trim();
+  if (/-style\b/i.test(plain)) return plain;
+  const first = plain.split(/,|\/|&|\+|\band\b/i).map((p) => p.trim()).filter(Boolean)[0] || '';
+  return first.replace(/\s+blend$/i, '').trim();
+}
+
 /* One What You Like table: the lines grouped by grape or region, trimmed and
    case-blind, under the spelling used most. Unrated bottles count as bottles
    and stay out of the average. Blanks are counted, never quietly dropped. */
-function likeGroups(lines, field) {
+function likeGroups(lines, field, grouped) {
   const groups = new Map();
   let blank = 0;
+  const fold = grouped ? (field === 'region' ? groupedRegion : groupedGrape) : (x) => x;
   lines.forEach((o) => {
-    const name = String(o[field] || '').trim();
+    const written = String(o[field] || '').trim().replace(/\s+/g, ' ');
+    const name = written ? fold(written) || written : '';
     if (!name) { blank += 1; return; }
     const k = name.toLowerCase();
-    if (!groups.has(k)) groups.set(k, { spellings: new Map(), bottles: 0, rated: 0, sum: 0 });
+    if (!groups.has(k)) groups.set(k, { spellings: new Map(), from: new Set(), bottles: 0, rated: 0, sum: 0 });
     const g = groups.get(k);
+    g.from.add(written);
     g.spellings.set(name, (g.spellings.get(name) || 0) + 1);
     g.bottles += 1;
     if (o.rating != null) { g.rated += 1; g.sum += o.rating; }
@@ -3022,13 +3066,14 @@ function likeGroups(lines, field) {
   const rows = [...groups.values()].map((g) => ({
     name: [...g.spellings].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))[0][0],
     bottles: g.bottles, rated: g.rated, avg: g.rated ? g.sum / g.rated : null,
+    from: [...g.from].sort(),
   }));
   return { rows: rows, blank: blank };
 }
 /* computeOpened() is the ONLY place the Opened tab's figures are worked out —
    computeAll's rule. Pure, and over the WHOLE log: the list's Find and the
    timing filter narrow the list, never these. */
-function computeOpened(st) {
+function computeOpened(st, grouped) {
   const timing = { early: 0, inwin: 0, late: 0, none: 0 };
   let ageSum = 0, aged = 0;
   st.opened.forEach((o) => {
@@ -3039,7 +3084,7 @@ function computeOpened(st) {
   return {
     all: st.opened.length, timing: timing,
     age: { avg: aged ? ageSum / aged : null, unaged: st.opened.length - aged },
-    grapes: likeGroups(st.opened, 'grape'), regions: likeGroups(st.opened, 'region'),
+    grapes: likeGroups(st.opened, 'grape', grouped), regions: likeGroups(st.opened, 'region', grouped),
   };
 }
 
@@ -3106,7 +3151,7 @@ function render() {
      button, and brings the window back down if what was filling it has gone. */
   syncMaxiButton();
   renderList();
-  renderOpenedDash(computeOpened(state));
+  renderOpenedDash(computeOpened(state, likeGrouped));
   renderOpened();
   renderLocations();
 }
@@ -3387,6 +3432,12 @@ const likeColumns = (label) => [
 let sortKey = null, sortDir = 'desc';
 let openedSortKey = null, openedSortDir = 'desc';
 let likeSort = { grape: { key: null, dir: 'desc' }, region: { key: null, dir: 'desc' } };
+/* What You Like's view: Grouped (the default) or As written. A per-device
+   convenience, like the folds — never part of the cellar. */
+const LIKE_VIEW_KEY = 'wine-like-view';
+let likeGrouped = (() => {
+  try { return localStorage.getItem(LIKE_VIEW_KEY) !== 'written'; } catch (e) { return true; }
+})();
 /* Which timings the Opened list is narrowed to, pressed from the tiles; empty
    is every one. Page-life only, like the Cellar's statusPick. */
 const timingPick = new Set();
@@ -3556,6 +3607,8 @@ function renderOpenedDash(c) {
     + (c.age.unaged === 1 ? 'is' : 'are') + ' left out of the average age.');
   document.getElementById('timingWarn').textContent = notes.join(' ');
 
+  document.querySelectorAll('[data-like-view]').forEach((b) =>
+    b.setAttribute('aria-pressed', String((b.dataset.likeView === 'grouped') === likeGrouped)));
   renderLike('grape', c.grapes, 'Grape');
   renderLike('region', c.regions, 'Region');
   const blanks = [];
@@ -3582,7 +3635,8 @@ function renderLike(field, g, label) {
   }
   host.innerHTML = '<table data-like="' + field + '"><thead><tr>' + sortHead(cols, srt.key, srt.dir)
     + '</tr></thead><tbody>'
-    + rows.map((r) => '<tr><th scope="row">' + esc(r.name) + '</th>'
+    + rows.map((r) => '<tr' + (likeGrouped && (r.from.length > 1 || r.from[0] !== r.name)
+        ? rowTip('', 'Grouped from:\n' + r.from.join('\n')) : '') + '><th scope="row">' + esc(r.name) + '</th>'
       + '<td class="num">' + r.bottles + '</td>'
       + '<td class="num">' + r.rated + '</td>'
       /* One decimal, out of 5 — the heading's star says what it is, and a
@@ -4577,8 +4631,15 @@ const LOOKUP_TOOL = {
       confidence: { type: 'string', enum: ['high', 'medium', 'low'],
         description: 'high: sources name this exact wine and vintage. medium: right wine, nearby vintages or thin sources. low: could not find it.' },
       color: { type: 'string', enum: ['red', 'white', 'rose', 'sparkling', 'dessert'] },
-      region: { type: 'string', description: 'Appellation and region, short, e.g. "Navarra, Spain". Empty if unknown.' },
-      grape: { type: 'string', description: 'Grape or blend, short. Empty if unknown.' },
+      region: { type: 'string', description: 'Exactly two parts, "Area, State or Country": the wine area a drinker '
+        + 'would group by, then the US state or the country, spelled out. E.g. "Napa Valley, California", '
+        + '"Willamette Valley, Oregon", "Douro, Portugal", "Burgundy, France", "Tuscany, Italy". No sub-district, '
+        + 'brackets, abbreviations or classification (IGT, DOC, AVA). Empty if unknown.' },
+      appellation: { type: 'string', description: 'The narrower appellation or sub-district, if finer than the area, '
+        + 'e.g. "Stags Leap District" or "Dundee Hills". Empty if none.' },
+      grape: { type: 'string', description: 'The lead grape alone, e.g. "Pinot Noir"; for a blend, the lead grape '
+        + 'and the word blend, e.g. "Cabernet Sauvignon blend" or "Touriga Nacional blend". No percentages or '
+        + 'lists. Empty if unknown.' },
       value_low: NUM_OR_NULL,
       value_high: NUM_OR_NULL,
       value_is_estimate: { type: 'boolean', description: 'true unless the range comes from current retail listings for this vintage.' },
@@ -4595,7 +4656,7 @@ const LOOKUP_TOOL = {
         },
       },
     },
-    required: ['matched_wine', 'confidence', 'color', 'region', 'grape', 'value_low', 'value_high',
+    required: ['matched_wine', 'confidence', 'color', 'region', 'appellation', 'grape', 'value_low', 'value_high',
                'value_is_estimate', 'value_basis', 'drink_from', 'drink_to', 'window_basis', 'sources'],
   },
 };
@@ -4615,19 +4676,49 @@ const LOOKUP_SYSTEM = [
   'one has published one, estimate from the wine\'s style, structure and vintage, and say in',
   'window_basis that it is your estimate. Years only.',
   '',
+  'Names: region and grape follow the formats in record_wine exactly, whatever the sources or the',
+  'owner wrote, so one place or grape is always spelled one way and the owner can group by it. If one',
+  'of the owner\'s names listed with the bottle already fits the format and means the same place or',
+  'grape, use it letter for letter.',
+  '',
   'List the pages you actually used in sources. If you cannot find the wine, say so with',
   'confidence "low" and null values - a wrong number is worse than none.',
 ].join('\n');
 
+/* The region and grape names already in the cellar and the log, sent with every
+   lookup so Claude reuses a spelling the owner has rather than inventing a
+   sixth way to write Napa (Charles, 2026-10-24). Only names already in the
+   house shape go — a percentage, a bracket or a third comma part is the mess
+   this is here to stop, and offering it back would teach it. Capped, so a
+   big cellar cannot grow the request without limit. */
+function knownNames(st) {
+  const pick = (vals, ok) => {
+    const seen = new Map();
+    vals.forEach((v) => {
+      const x = String(v || '').trim();
+      if (x && ok(x) && !seen.has(x.toLowerCase())) seen.set(x.toLowerCase(), x);
+    });
+    return [...seen.values()].sort().slice(0, 60);
+  };
+  const all = st.wines.concat(st.opened);
+  return {
+    regions: pick(all.map((x) => x.region), (x) => !/[()%\d]/.test(x) && x.split(',').length === 2),
+    grapes: pick(all.map((x) => x.grape), (x) => !/[()%\d,\/]/.test(x)),
+  };
+}
+
 /* The whole request for one wine — PURE, so tests.html pins its shape, and the
    terminal test runs exactly this body. `today` is passed in so the prompt's
    "today" is the reader's date, not the model's guess. */
-function buildLookupRequest(w, today, tune) {
+function buildLookupRequest(w, today, tune, names) {
   const t = tune || {};
   const label = (w.vintage ? w.vintage : 'NV') + ' ' + cleanLine(w.name, 80);
+  const n = names || { regions: [], grapes: [] };
   const known = [
-    w.region ? 'Region: ' + cleanLine(w.region, 60) : '',
-    w.grape ? 'Grape: ' + cleanLine(w.grape, 60) : '',
+    w.region ? 'Region, as the owner wrote it: ' + cleanLine(w.region, 60) : '',
+    w.grape ? 'Grape, as the owner wrote it: ' + cleanLine(w.grape, 60) : '',
+    n.regions.length ? '\nRegions already in this cellar: ' + n.regions.join('; ') : '',
+    n.grapes.length ? 'Grapes already in this cellar: ' + n.grapes.join('; ') : '',
   ].filter(Boolean).join('\n');
   return {
     model: t.model || LOOKUP_MODEL,
@@ -4673,7 +4764,7 @@ function lookupErrorMessage(status, data) {
    (unchecked — readLookup() is the boundary), plus what it cost. */
 async function lookupWine(w, key, opts) {
   const o = opts || {};
-  const body = buildLookupRequest(w, todayISO(), o.tune);
+  const body = buildLookupRequest(w, todayISO(), o.tune, o.names || knownNames(state));
   const usage = { input: 0, output: 0, searches: 0, rounds: 0 };
   let nudged = false;
   for (let round = 0; round < LOOKUP_MAX_ROUNDS; round++) {
@@ -4763,6 +4854,7 @@ function readLookup(found, asked) {
     confidence: ['high', 'medium', 'low'].indexOf(f.confidence) === -1 ? 'low' : f.confidence,
     color: COLORS.indexOf(f.color) === -1 ? null : f.color,
     region: cleanLine(f.region, 60),
+    appellation: cleanLine(f.appellation, 60),
     grape: cleanLine(f.grape, 60),
     valueLow: low,
     valueHigh: high == null || high === low ? null : high,
@@ -4785,7 +4877,9 @@ function lookupNoteLine(r, today) {
      that it was looked for — but no sources: those were about some other wine. */
   if (r.confidence === 'low') return 'Looked up ' + today + ' · Claude could not find this exact wine';
   const hosts = [...new Set(r.sources.map((s) => new URL(s.url).hostname.replace(/^www\./, '')))].slice(0, 3);
-  return ('Looked up ' + today + (r.windowBasis ? ' · window: ' + r.windowBasis : '')
+  /* The sub-district the two-part region leaves out, kept here so it is not lost. */
+  const narrow = r.appellation && !sameText(r.appellation, r.region) ? ' · ' + r.appellation : '';
+  return ('Looked up ' + today + narrow + (r.windowBasis ? ' · window: ' + r.windowBasis : '')
     + (hosts.length ? ' · ' + hosts.join(', ') : '')).slice(0, 160);
 }
 /* The ONE rule for putting that line into notes, for the editor, Check All and
@@ -6037,12 +6131,20 @@ $('openedStats').addEventListener('click', (e) => {
 });
 /* What You Like sorts by its headings, one order per table. */
 $('likeCard').addEventListener('click', (e) => {
+  const view = e.target.closest('[data-like-view]');
+  if (view) {
+    likeGrouped = view.dataset.likeView === 'grouped';
+    try { localStorage.setItem(LIKE_VIEW_KEY, likeGrouped ? 'grouped' : 'written'); } catch (err) { /* page-life only */ }
+    renderOpenedDash(computeOpened(state, likeGrouped));
+    view.focus();
+    return;
+  }
   const sort = e.target.closest('[data-sort]');
   const table = sort && sort.closest('[data-like]');
   if (!table) return;
   const field = table.dataset.like, cur = likeSort[field];
   likeSort[field] = nextSort(cur.key, cur.dir, sort.dataset.sort, !!sort.dataset.desc);
-  renderOpenedDash(computeOpened(state));
+  renderOpenedDash(computeOpened(state, likeGrouped));
   const again = $('likeCard').querySelector('[data-like="' + field + '"] [data-sort="' + sort.dataset.sort + '"]');
   if (again) again.focus();
 });
@@ -6136,7 +6238,7 @@ const HELP = {
   timing: ['How a Bottle’s Timing Is Decided', `<p>Each opened bottle is set against the <strong>drinking window its wine had on the day you opened it</strong> — the year on the date, against the window’s years. Editing the wine later does not change it.</p>
     <p><strong>Early</strong> — opened before the window started. <strong>In Window</strong> — opened inside it. <strong>Late</strong> — opened after it closed. A bottle whose wine had no window is in no timing count, and the line under the tiles says how many.</p>
     <p>Press <strong>Early</strong>, <strong>In Window</strong> or <strong>Late</strong> to show just those bottles in the list below; press it again to take it off. The <strong>Timing</strong> box beside Find ticks the same ones, and has <strong>No Window</strong> too. <strong>Average Age</strong> is the years from vintage to the year it was opened, over every bottle with a vintage. Every figure counts the whole log — Find never changes them.</p>`],
-  likes: ['How These Tables Are Worked Out', `<p>Every opened bottle, grouped by its <strong>grape</strong> and, separately, by its <strong>region</strong>, as they were recorded when it was opened. Names are matched ignoring capitals and extra spaces, so “pinot noir” and “Pinot Noir” are one row; a blend such as “Pinot Noir, Chardonnay” is a row of its own.</p>
+  likes: ['How These Tables Are Worked Out', `<p>Every opened bottle, grouped by its <strong>grape</strong> and, separately, by its <strong>region</strong>, as they were recorded when it was opened. <strong>Grouped</strong> (the usual view) folds names written different ways: a region becomes its area and state or country — “Stags Leap District, Napa Valley, CA” counts as Napa Valley, California — and a grape becomes the first grape named, so “75% Cabernet Sauvignon, 18.2% Cabernet Franc” counts as Cabernet Sauvignon. Point at a row to see what it took in. The first grape named isn’t always the most of the blend, so <strong>As written</strong> counts every spelling apart, ignoring only capitals and extra spaces.</p>
     <p><strong>Bottles</strong> counts them all. <strong>Rated</strong> is how many you gave stars to, and <strong>Avg ★</strong> is the average of those stars, out of 5 — a bottle you didn’t rate never pulls it down. Best-rated comes first, with the most bottles breaking a tie; press a heading to sort by it instead.</p>`],
 };
 const helpDialog = $('helpDialog');
@@ -7089,6 +7191,7 @@ window.__wineTestHooks = {
   shareWines: shareWines, statusOf: statusOf, STATUS: STATUS, parseWineList: parseWineList,
   sameWine: sameWine, syncDecision: syncDecision, makePushGate: makePushGate,
   UPDATED_KEY: UPDATED_KEY, OPENED_COLUMNS: OPENED_COLUMNS,
+  knownNames: knownNames, groupedRegion: groupedRegion, groupedGrape: groupedGrape,
   openedFacts: openedFacts, timingOf: timingOf, ageAtOpening: ageAtOpening, likeGroups: likeGroups, computeOpened: computeOpened, TIMING: TIMING,
   encodeShare: encodeShare, decodeShare: decodeShare, csvWines: csvWines, csvOpened: csvOpened, csvCell: csvCell,
   raisesKeyboard: raisesKeyboard, opensOnFocus: opensOnFocus, esc: esc, todayISO: todayISO, fmtMoney: fmtMoney,

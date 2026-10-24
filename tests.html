@@ -51,7 +51,7 @@
    go MISSING look exactly like tests that pass — a suite that quietly shrank to
    three checks still says "all 3 tests pass". RAISE THIS when you add tests, and
    lower it only when you retire one deliberately. */
-const EXPECTED = 251;
+const EXPECTED = 255;
 
 /* ── It refuses to run anywhere but localhost, and that is load-bearing ──────
    GitHub Pages publishes this page BESIDE the app, where the iframe below would
@@ -3571,6 +3571,72 @@ function define() {
          ['Window: none recorded', 'Paid: $12', 'Where: Home', 'Its Cellar wine has since been deleted'],
          'a hidden Paid and Where come into the tip');
     } finally { H.__plant(FIXTURE); W.setTab('cellar'); }
+  });
+  t('Grouped folds the region spellings Look Up wrote into one area', () => {
+    const g = H.groupedRegion;
+    ['Napa Valley, California', 'Stags Leap District, Napa Valley, California', 'Stags Leap District, Napa Valley, CA',
+     'Napa Valley (mostly Stags Leap District), California', 'Napa Valley, CA']
+      .forEach((x) => eq(g(x), 'Napa Valley, California', x));
+    eq(g('Dundee Hills, Willamette Valley, Oregon'), 'Willamette Valley, Oregon');
+    eq(g('Porto/Douro, Portugal'), g('Porto, Douro, Portugal'), 'a slash is a comma');
+    eq(g('Veneto IGT, Italy'), 'Veneto, Italy', 'a classification is dropped');
+    eq(g('Beaune, Côte de Beaune, Burgundy, France'), 'Burgundy, France');
+    eq(g('California (Central Coast), USA'), 'California', 'a trailing USA goes');
+    eq(g('Navarra, Spain'), 'Navarra, Spain', 'a tidy name is left alone');
+  });
+  t('Grouped takes the first grape named, without percentages or "blend"', () => {
+    const g = H.groupedGrape;
+    eq(g('75% Cabernet Sauvignon, 18.2% Cabernet Franc, 6.8% Petit Verdot'), 'Cabernet Sauvignon');
+    eq(g('Cabernet Sauvignon blend (87% CS, Merlot, Petit Verdot, Cab Franc)'), 'Cabernet Sauvignon');
+    eq(g('80% Merlot, 20% Cabernet Franc'), 'Merlot');
+    eq(g('Touriga Nacional blend'), 'Touriga Nacional');
+    eq(g('Bordeaux-style red blend'), 'Bordeaux-style red blend', 'a style names no grape to take');
+    eq(g('Pinot Noir'), 'Pinot Noir');
+  });
+  t('What You Like counts grouped by default, says what it merged, and switches to As written', () => {
+    const D = W.document;
+    const fx = JSON.parse(JSON.stringify(FIXTURE));
+    fx.opened = [
+      { id: 'a', wineId: null, date: '2026-03-01', label: '2009 A', region: 'Napa Valley, California', grape: 'Cabernet Sauvignon', rating: 4 },
+      { id: 'b', wineId: null, date: '2026-03-02', label: '2007 B', region: 'Stags Leap District, Napa Valley, CA',
+        grape: '75% Cabernet Sauvignon, 25% Merlot', rating: 2 }];
+    const realGet = W.Storage.prototype.getItem, realSet = W.Storage.prototype.setItem;
+    W.Storage.prototype.setItem = function () {};
+    try {
+      H.__plant(fx); W.setTab('opened');
+      D.querySelector('[data-like-view="grouped"]').click();
+      const rows = (id) => [...D.querySelectorAll('#' + id + ' tbody tr')];
+      eq(rows('likeRegions').map((r) => r.querySelector('th').textContent), ['Napa Valley, California'], 'one Napa row');
+      eq(rows('likeRegions')[0].querySelector('td').textContent, '2');
+      ok(/Grouped from:[\s\S]*Stags Leap District, Napa Valley, CA/.test(rows('likeRegions')[0].dataset.tip), 'its tip lists the spellings');
+      eq(rows('likeGrapes').length, 1, 'one Cabernet row');
+      eq(D.querySelector('[data-like-view="grouped"]').getAttribute('aria-pressed'), 'true');
+      D.querySelector('[data-like-view="written"]').click();
+      eq(rows('likeRegions').length, 2, 'As written counts each spelling apart');
+      ok(!rows('likeRegions')[0].dataset.tip, 'with nothing grouped to explain');
+    } finally {
+      W.Storage.prototype.setItem = realSet; W.Storage.prototype.getItem = realGet;
+      D.querySelector('[data-like-view="grouped"]').click();
+      H.__plant(FIXTURE); W.setTab('cellar');
+    }
+  });
+  t('Look Up is told the house format and sent the names already in the cellar', () => {
+    const names = H.knownNames(H.normalizeState({ wines: [
+      { id: 'a', name: 'A', region: 'Napa Valley, California', grape: 'Cabernet Sauvignon' },
+      { id: 'b', name: 'B', region: 'Stags Leap District, Napa Valley, CA', grape: '75% Cabernet Sauvignon, 25% Merlot' },
+      { id: 'c', name: 'C', region: 'napa valley, california', grape: 'Merlot, Corvina' }] }));
+    eq(names, { regions: ['Napa Valley, California'], grapes: ['Cabernet Sauvignon'] },
+       'only names already in the house shape, once each — the mess is never offered back');
+    const b = H.buildLookupRequest({ vintage: 2019, name: 'X', region: 'Napa, CA' }, '2026-10-24', null, names);
+    ok(/Regions already in this cellar: Napa Valley, California/.test(b.messages[0].content), 'the names ride with the bottle');
+    ok(/as the owner wrote it: Napa, CA/.test(b.messages[0].content), 'the owner’s own text is marked as theirs');
+    const p = b.tools.find((t) => t.name === 'record_wine').input_schema.properties;
+    ok(/Area, State or Country/.test(p.region.description) && /No percentages/.test(p.grape.description), 'the formats are in the schema');
+    ok(b.tools.find((t) => t.name === 'record_wine').input_schema.required.indexOf('appellation') !== -1, 'strict: every property required');
+    ok(/letter for letter/.test(b.system), 'and the system prompt says to reuse a fitting name');
+    const r = H.readLookup({ confidence: 'high', region: 'Napa Valley, California', appellation: 'Stags Leap District',
+                             window_basis: 'critic', sources: [] }, { name: 'X' });
+    ok(/· Stags Leap District ·/.test(H.lookupNoteLine(r, '2026-10-24')), 'the sub-district is kept in the note');
   });
   t('removing a log line puts the bottle back', () => {
     ok(/if \(w\) w\.qty = Math\.min\(999, w\.qty \+ 1\)/.test(stripComments(APP_SRC)),

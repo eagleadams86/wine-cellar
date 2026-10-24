@@ -59,6 +59,14 @@ cellar on your other devices.
 - **What You Like** — your opened bottles grouped by grape and by region, with how many you
   opened, how many you rated and the average stars of those, best-rated first. Press a heading to
   sort. Both cards count the whole log (Find never changes them) and hide until a bottle is opened.
+  **Grouped** (the usual view) counts names written different ways together — "Stags Leap
+  District, Napa Valley, CA" as Napa Valley, California, and "75% Cabernet Sauvignon, …" as
+  Cabernet Sauvignon; point at a row to see what it took in. **As written** counts every spelling
+  apart.
+- **Consistent names from Look Up** — Claude writes a region as "Area, State or Country" and a
+  grape as the lead grape (or "… blend"), and is sent the names already in your cellar so it
+  reuses your spelling. A finer sub-district goes in the wine's Look Up note. Run **Check All
+  Wines** to bring older wines into line — it only changes what you tick.
 - **Folding cards** — At a Glance, Cellar, Drinking Windows Ahead, Opened at the Right Time,
   What You Like and Bottles Opened fold up to their heading
   (press the heading band, as in Money Map). Which ones you folded is remembered on this device.

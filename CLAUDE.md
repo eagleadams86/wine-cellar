@@ -41,6 +41,13 @@ the family doesn't.
   `wineId: null`, no count). Edit and Log rebuild `label` from the name + vintage boxes. **A line
   edit never touches a Cellar wine** (Charles, 2026-10-24). Its Look Up (`obLookupBtn`) reuses
   `lookupWine`/`readLookup`, fills only empty region/grape/window boxes and offers Claude's for the rest.
+- **Lookup naming** (2026-10-24): `record_wine` pins region to "Area, State or Country" and grape to
+  the lead grape / "X blend"; `appellation` (strict ⇒ in `required`) carries the sub-district into
+  the note line. `lookupWine` sends `knownNames(state)` — only names ALREADY in the house shape, so
+  the old mess is never offered back. privacy.html says these names are sent; keep them in step.
+- What You Like defaults to **Grouped** (`groupedRegion`: brackets/classification dropped, "/" as a
+  comma, US state spelled out, last two parts; `groupedGrape`: first grape named, no %/blend, a
+  "-style" kept whole). It is a VIEW, never written back; `wine-like-view` remembers it per device.
 
 ## Decisions — Don't Undo
 
@@ -230,6 +237,6 @@ commented copy in the repo.
 
 ## Tests
 
-`tests.html`, `EXPECTED = 251`. Run it headless (Playwright) rather than in the Browser pane:
+`tests.html`, `EXPECTED = 255`. Run it headless (Playwright) rather than in the Browser pane:
 the pane throttles hidden timers and its focus heuristics turn the 705px keyboard-focus check
 red on untouched code.
