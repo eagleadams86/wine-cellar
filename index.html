@@ -913,6 +913,9 @@
   .keyrow input { flex: 1 1 auto; min-width: 0; }
   .lookupbar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-4);
                margin: 0 0 var(--sp-5); }
+  /* When Claude last checked this wine, at the far end of the button's line —
+     there is room beside it on a wide window, and it wraps under on a phone. */
+  .lookupbar #lookupWhen { margin-left: auto; }
   /* What Claude found, under the bar: a quiet panel of the same family as the
      form panels, with its sources as ordinary links. */
   .lookup-panel { border: 1px solid var(--border); border-radius: var(--radius-sm);
@@ -931,6 +934,14 @@
   #checkList .lookup-panel { padding: 8px 12px; margin: 0 0 var(--sp-4); }
   #checkList .lookup-panel > :last-child { margin-bottom: 0; }
   #checkList .checkline { margin-bottom: 4px; font-size: var(--fs-sm); color: var(--text-secondary); }
+  /* The bar that picks which wines to look up, and each wine's own pick box,
+     which carries the wine's name as its label. */
+  .checkpick { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-4);
+               margin: 0 0 var(--sp-5); }
+  .checkpick select { width: auto; }
+  .checkpick .hint { margin-left: auto; }
+  #checkList .pickname { display: inline-flex; align-items: baseline; gap: var(--sp-3); cursor: pointer; }
+  #checkList .pickname input { width: auto; min-height: 0; margin: 0; align-self: center; }
 
   /* ── On a phone, every list is a stack of CARDS (2026-10-23) ──────────────
      Charles, from his iPhone: "let's make these lists more mobile friendly".
@@ -1800,6 +1811,7 @@ html[data-booting] footer { visibility: hidden; }
   <div class="lookupbar no-print">
     <button type="button" id="lookupBtn"><span aria-hidden="true">✦</span> Look Up with Claude</button>
     <span class="hint" id="lookupNote" role="status"></span>
+    <span class="hint" id="lookupWhen"></span>
   </div>
   <div class="lookup-panel" id="lookupPanel" hidden></div>
   <div class="grid2">
@@ -1962,6 +1974,20 @@ html[data-booting] footer { visibility: hidden; }
 <dialog id="checkDialog" aria-labelledby="checkTitle">
   <h2 id="checkTitle">Check All Wines</h2>
   <p id="checkIntro"></p>
+  <!-- Which wines Start Checking looks up. "Select" here, never "Tick": the
+       ticks below a wine are the CHANGES to save, and Tick All is theirs. -->
+  <div class="checkpick" id="checkPickBar">
+    <button type="button" id="checkPickAll">Select All</button>
+    <button type="button" id="checkPickNone">Select None</button>
+    <button type="button" id="checkPickStale">Select Not Checked In</button>
+    <select id="checkSince" aria-label="Not checked in">
+      <option value="30">30 days</option>
+      <option value="90" selected>90 days</option>
+      <option value="182">6 months</option>
+      <option value="365">a year</option>
+    </select>
+    <span class="hint" id="checkPickCount"></span>
+  </div>
   <div id="checkList"></div>
   <p class="hint" id="checkNote" role="status"></p>
   <div class="row-actions">
@@ -2235,8 +2261,9 @@ const TABS        = ['cellar', 'opened'];
    BUMP THIS AND THE ALLOWLIST TOGETHER whenever you add a stored field — or
    widen what one may hold. 2 (2026-10-23): `added` may be '' or a bare year
    for a wine already in the cellar; version-1 code turned both into today.
-   3 (2026-10-23): `paid`, what one bottle actually cost. */
-const SCHEMA = 3;
+   3 (2026-10-23): `paid`, what one bottle actually cost. 4 (2026-10-24):
+   `checkedAt`, when Claude last answered for the wine. */
+const SCHEMA = 4;
 
 /* ── Ids from outside are not trusted ──────────────────────────────────────
    Ids reach `data-id` attributes and <option value>s in a dozen places, so an
@@ -2347,6 +2374,15 @@ function cleanNote(v, cap) {
     .replace(/[\u0000-\u0009\u000b-\u001f\u007f]+/g, ' ').trim().slice(0, cap);
 }
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+/* When Claude last answered for a wine: an exact UTC moment (it is shown as
+   "today, 2:14 pm", so it needs the time) or null. A time more than a day
+   ahead of this clock is unreadable, not "checked in the future". */
+const CHECKED_RE = /^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(\.\d{3})?Z$/;
+function cleanChecked(v) {
+  if (typeof v !== 'string' || !CHECKED_RE.test(v)) return null;
+  const t = Date.parse(v);
+  return Number.isFinite(t) && t <= Date.now() + 864e5 ? v : null;
+}
 
 /* ── The allowlist ─────────────────────────────────────────────────────────
    normalizeState REBUILDS rather than merges, so a field not named here does
@@ -2404,6 +2440,7 @@ function normalizeState(raw) {
         source: SOURCES.indexOf(it.source) === -1 ? 'other' : it.source,
         added: cleanAdded(it.added),
         notes: cleanNote(it.notes, 300),
+        checkedAt: cleanChecked(it.checkedAt),
       };
     });
   out.opened = (Array.isArray(raw.opened) ? raw.opened : [])
@@ -2584,9 +2621,12 @@ const UNDO_CAP = 20;
 let undoRing = [];
 let undoSnapshot = JSON.stringify(state);   // the state as of the last save or load
 /* What decides whether a save is worth banking. `version` is left out, so the
-   stamp save() writes is never "a change". Pure and pinned. */
+   stamp save() writes is never "a change" — and so is each wine's `checkedAt`,
+   so the save that records a check (stampChecked) mints no Undo step: the
+   check is a fact about Claude, not an edit to take back. Pure and pinned. */
 function coreOf(st) {
-  return JSON.stringify(Object.assign({}, st, { version: null }));
+  return JSON.stringify(Object.assign({}, st, { version: null,
+    wines: (st.wines || []).map((w) => Object.assign({}, w, { checkedAt: null })) }));
 }
 let undoCore = coreOf(state);
 let undoing = false;
@@ -2622,7 +2662,14 @@ function undoLast() {
      every outside shape passes. */
   let raw = null;
   try { raw = JSON.parse(snap); } catch (e) { raw = null; }
+  /* An Undo puts back what was ENTERED, never forgets that Claude looked: each
+     wine keeps the later of its two check times. */
+  const checked = new Map(state.wines.map((w) => [w.id, w.checkedAt]));
   state = normalizeState(raw);
+  state.wines.forEach((w) => {
+    const now = checked.get(w.id);
+    if (now && (!w.checkedAt || now > w.checkedAt)) w.checkedAt = now;
+  });
   undoing = true;
   save();
   undoing = false;
@@ -4332,10 +4379,61 @@ function readLookup(found, asked) {
 /* The one line a looked-up wine keeps in its notes: when, and on whose word.
    Notes are the reader's own, so this is appended only while there is room. */
 function lookupNoteLine(r, today) {
+  /* A wine Claude could not find still gets its line — the note is the record
+     that it was looked for — but no sources: those were about some other wine. */
+  if (r.confidence === 'low') return 'Looked up ' + today + ' · Claude could not find this exact wine';
   const hosts = [...new Set(r.sources.map((s) => new URL(s.url).hostname.replace(/^www\./, '')))].slice(0, 3);
   return ('Looked up ' + today + (r.windowBasis ? ' · window: ' + r.windowBasis : '')
     + (hosts.length ? ' · ' + hosts.join(', ') : '')).slice(0, 160);
 }
+/* The ONE rule for putting that line into notes, for the editor, Check All and
+   paste alike: a newer line REPLACES the older one rather than stacking a
+   second, and nothing is written unless the notes still fit in 300. Returns
+   the notes as they should now read (unchanged when there was no room). */
+function putLookupNote(notes, line) {
+  const was = String(notes || '');
+  const lines = was ? was.split('\n') : [];
+  const at = lines.findIndex((l) => l.indexOf('Looked up ') === 0);
+  if (at !== -1) lines[at] = line; else lines.push(line);
+  const out = lines.join('\n');
+  return out.length <= 300 ? out : was;
+}
+
+/* ── When Claude last checked a wine ──────────────────────────────────────
+   Written the moment an answer comes back (Charles, 2026-10-24), changed or
+   not and saved or not: the check happened and was paid for, and a window
+   closed by accident must not make the wine look unchecked and get billed
+   again. coreOf() ignores it, so it is never an Undo step, and undoLast()
+   keeps the later time. A failed lookup is not a check. */
+/* The exact moment, in UTC, built from UTC parts. A MOMENT, not a day — the
+   one place a UTC string is right, because it is shown back in local time. */
+function nowStamp() {
+  const d = new Date(), p = (n, w) => String(n).padStart(w || 2, '0');
+  return d.getUTCFullYear() + '-' + p(d.getUTCMonth() + 1) + '-' + p(d.getUTCDate()) + 'T' + p(d.getUTCHours())
+    + ':' + p(d.getUTCMinutes()) + ':' + p(d.getUTCSeconds()) + '.' + p(d.getUTCMilliseconds(), 3) + 'Z';
+}
+function stampChecked(id) {
+  const w = state.wines.find((x) => x.id === id);
+  if (!w || viewOnly) return null;
+  w.checkedAt = nowStamp();
+  save();
+  return w.checkedAt;
+}
+function fmtChecked(iso) {
+  const t = iso ? Date.parse(iso) : NaN;
+  if (!Number.isFinite(t)) return 'Not checked yet';
+  const d = new Date(t), now = new Date();
+  const p = (n) => String(n).padStart(2, '0');
+  const dayOf = (x) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+  /* Rounded, so a daylight-saving day of 23 or 25 hours is still one day. */
+  const days = Math.round((dayOf(now) - dayOf(d)) / 864e5);
+  if (days <= 0) return 'Checked today, ' + d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+  if (days === 1) return 'Checked yesterday';
+  if (days <= 60) return 'Checked ' + days + ' days ago';
+  return 'Checked ' + fmtDate(d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()));
+}
+/* Whether a wine is due a check under "not checked in N days". */
+const checkedWithin = (w, days) => !!w.checkedAt && Date.now() - Date.parse(w.checkedAt) < days * 864e5;
 
 /* ═══════════════════════════════ Sample data ═══════════════════════════════
    THE SAMPLE DATA IS THE DEMO, and a feature is not finished until it reaches
@@ -4439,6 +4537,8 @@ function openWine(id) {
   $('f_notes').value = it ? it.notes : '';
   $('wineWarn').textContent = '';
   lookupStop();
+  lookupStamp = null;
+  showLookupWhen(it ? it.checkedAt : null);
   $('lookupNote').textContent = '';
   $('lookupPanel').hidden = true;
   $('lookupPanel').textContent = '';
@@ -4535,9 +4635,15 @@ $('wineSave').addEventListener('click', () => {
       $('f_qty').focus();
       return;
     }
+    /* A renamed wine was not checked under its new name — unless it was, in
+       this window. The same name keeps the stamp it has (Look Up already
+       saved it, and it may be newer than this window). */
+    const renamed = wineKey(fields) !== wineKey(it);
     Object.assign(it, fields);
+    if (renamed) it.checkedAt = lookupStamp && lookupStamp.key === wineKey(fields) ? lookupStamp.at : null;
   } else {
-    state.wines.push(Object.assign({ id: uid() }, fields));
+    state.wines.push(Object.assign({ id: uid(),
+      checkedAt: lookupStamp && lookupStamp.key === wineKey(fields) ? lookupStamp.at : null }, fields));
   }
   state = normalizeState(state);
   save();
@@ -4555,6 +4661,13 @@ $('wineCancel').addEventListener('click', () => { lookupStop(); $('wineDialog').
    answer for those too. Nothing is saved until Save, as with any edit. */
 let lookupCtl = null;
 let lookupLast = null;   /* the last answer, for "Use Claude's for these too" */
+/* An answer for a name the saved wine does not (yet) have — a new wine, or a
+   renamed one — is stamped by Save, and only if Save keeps that name. */
+let lookupStamp = null;  /* { at, key } */
+function showLookupWhen(iso) {
+  $('lookupWhen').hidden = !editingId && !iso;
+  $('lookupWhen').textContent = fmtChecked(iso);
+}
 function lookupStop() {
   if (lookupCtl) lookupCtl.abort();
   lookupCtl = null;
@@ -4598,10 +4711,7 @@ function applyLookup(r, all, only) {
   });
   /* When, and on whose word, goes in the notes — once, and only while there
      is room, because the notes are the reader's. */
-  const line = lookupNoteLine(r, todayISO());
-  const notes = $('f_notes').value;
-  if (filled.length && notes.indexOf('Looked up ') === -1 && (notes + '\n' + line).length <= 300)
-    $('f_notes').value = notes ? notes + '\n' + line : line;
+  if (filled.length) $('f_notes').value = putLookupNote($('f_notes').value, lookupNoteLine(r, todayISO()));
   return { filled: filled, kept: kept };
 }
 /* The panel: what Claude found, ONE LINE PER BOX, each with its own
@@ -4676,9 +4786,15 @@ $('lookupBtn').addEventListener('click', async () => {
     if (lookupCtl !== ctl || !$('wineDialog').open) return;   /* stopped, or the window closed */
     const r = readLookup(got.found, w);
     lookupLast = r;
+    /* Checked: saved now when the wine is saved under this name, else by Save. */
+    const saved = editingId && state.wines.find((x) => x.id === editingId);
+    const at = saved && wineKey(saved) === wineKey(w) ? stampChecked(editingId) : nowStamp();
+    lookupStamp = { at: at, key: wineKey(w) };
+    showLookupWhen(at);
     const done = r.confidence === 'low' ? { filled: [], kept: [] } : applyLookup(r, false);
+    if (r.confidence === 'low') $('f_notes').value = putLookupNote($('f_notes').value, lookupNoteLine(r, todayISO()));
     $('lookupNote').textContent = r.confidence === 'low'
-      ? 'Claude could not find this exact wine, so nothing was filled in.'
+      ? 'Claude could not find this exact wine, so only a note was added.'
       : done.filled.length ? 'Filled ' + done.filled.join(', ').toLowerCase() + '. Check it, then Save.'
         : done.kept.length ? 'Your boxes were all filled in, so nothing changed — pick what to use below.'
         : 'Claude’s answer matches what you have.';
@@ -4773,7 +4889,10 @@ const wineKey = (w) => (w.vintage || 'NV') + '|' + String(w.name).toLowerCase().
    EMPTY and never overrides what the list says (a colour the list did not give
    was only a guess, so Claude's wins there). */
 function withLookup(row, r) {
-  if (!r || r.confidence === 'low') return row;
+  if (!r) return row;
+  /* Not found: the row is the list's own, plus the note saying it was looked for. */
+  if (r.confidence === 'low')
+    return Object.assign({}, row, { notes: putLookupNote(row.notes, lookupNoteLine(r, todayISO())) });
   const out = Object.assign({}, row);
   if (out.valueLow == null && r.valueLow != null) {
     out.valueLow = r.valueLow; out.valueHigh = r.valueHigh; out.valueEst = r.valueEst;
@@ -4782,8 +4901,7 @@ function withLookup(row, r) {
   if (!out.region) out.region = r.region;
   if (!out.grape) out.grape = r.grape;
   if (!out.colorKnown && r.color) out.color = r.color;
-  const line = lookupNoteLine(r, todayISO());
-  out.notes = out.notes ? (out.notes + '\n' + line).slice(0, 300) : line;
+  out.notes = putLookupNote(out.notes, lookupNoteLine(r, todayISO()));
   out.looked = r.confidence;
   return out;
 }
@@ -4954,7 +5072,15 @@ const LOOKUP_FIELDS = [
 /* What Claude says differently about a SAVED wine, one entry per field — and
    nothing at all when Claude could not find this exact wine. */
 function lookupDiffs(w, r) {
-  if (!r || r.confidence === 'low') return [];
+  if (!r) return [];
+  /* Could not find it: nothing to change, but the note saying it was looked
+     for is offered, ticked (Charles, 2026-10-24) — unless it is already there. */
+  if (r.confidence === 'low') {
+    const line = lookupNoteLine(r, todayISO());
+    const notes = putLookupNote(w.notes, line);
+    return notes === String(w.notes || '') ? []
+      : [{ key: 'note', label: 'Note', yours: '', claude: line, tick: true }];
+  }
   return LOOKUP_FIELDS.filter(([, , , has, same]) => has(r) && !same(w, r))
     .map(([key, label, empty, , , shown]) => ({ key: key, label: label, yours: shown(w),
       claude: shown(Object.assign({}, w, r, { color: r.color })), tick: empty(w) }));
@@ -4963,17 +5089,20 @@ function lookupDiffs(w, r) {
    line is written once: a newer check REPLACES the older line rather than
    stacking a second, and is added only while the notes have room. */
 function applyLookupTo(w, r, keys) {
+  /* A wine Claude could not find changes nothing but its note — and only when
+     that line was ticked. */
+  if (r.confidence === 'low') {
+    if (keys.indexOf('note') === -1) return 0;
+    const notes = putLookupNote(w.notes, lookupNoteLine(r, todayISO()));
+    if (notes === String(w.notes || '')) return 0;
+    w.notes = notes;
+    return 1;
+  }
   let changed = 0;
   LOOKUP_FIELDS.forEach(([key, , , has, same, , put]) => {
     if (keys.indexOf(key) !== -1 && has(r) && !same(w, r)) { put(w, r); changed++; }
   });
-  if (!changed) return 0;
-  const line = lookupNoteLine(r, todayISO());
-  const notes = String(w.notes || '');
-  const lines = notes.split('\n');
-  const at = lines.findIndex((l) => l.indexOf('Looked up ') === 0);
-  if (at !== -1) { lines[at] = line; if (lines.join('\n').length <= 300) w.notes = lines.join('\n'); }
-  else if ((notes ? notes + '\n' + line : line).length <= 300) w.notes = notes ? notes + '\n' + line : line;
+  if (changed) w.notes = putLookupNote(w.notes, lookupNoteLine(r, todayISO()));
   return changed;
 }
 /* Which wines a check covers: every one with bottles left, by name. */
@@ -4984,7 +5113,27 @@ function checkWines(st) {
 const checkFound = new Map();    /* wine id → { key, r } */
 const checkFailed = new Map();   /* wine id → why it could not be checked */
 const checkTicks = new Map();    /* 'id|field' → ticked, so a re-render keeps your choices */
+/* Which wines Start Checking looks up. Filled when the window opens with every
+   wine not checked within the chosen time (and any that failed this sitting);
+   a wine leaves it the moment its answer arrives, so Start never re-bills it. */
+const checkPicks = new Set();
 let checkCtl = null;
+const checkPicked = () => checkWines(state).filter((w) => checkPicks.has(w.id));
+function checkPickStale() {
+  const days = Number($('checkSince').value) || 90;
+  checkPicks.clear();
+  checkWines(state).forEach((w) => {
+    if (!checkedWithin(w, days) || checkFailed.has(w.id)) checkPicks.add(w.id);
+  });
+}
+/* Start says how many it will look up, and cannot be pressed for none. */
+function checkStartLabel() {
+  const b = $('checkStart');
+  if (checkCtl) { b.textContent = 'Stop Checking'; b.disabled = false; return; }
+  const n = checkPicked().length;
+  b.innerHTML = '<span aria-hidden="true">✦</span> ' + (n ? 'Check ' + esc(plural(n, 'Wine')) : 'Start Checking');
+  b.disabled = !n;
+}
 const checkAnswer = (w) => {
   const got = checkFound.get(w.id);
   return got && got.key === wineKey(w) ? got.r : null;
@@ -4993,7 +5142,7 @@ const checkTicked = (id, d) => (checkTicks.has(id + '|' + d.key) ? checkTicks.ge
 function checkStop() {
   if (checkCtl) checkCtl.abort();
   checkCtl = null;
-  $('checkStart').innerHTML = '<span aria-hidden="true">✦</span> Start Checking';
+  checkStartLabel();
   checkButtons();
 }
 /* Every line on offer, as [wine id, diff]. */
@@ -5014,45 +5163,60 @@ function checkButtons() {
   /* Tick All flips to Untick All once everything on offer is ticked. */
   $('checkAll').hidden = !!checkCtl || !offered.length;
   $('checkAll').textContent = offered.length && ticked === offered.length ? 'Untick All' : 'Tick All';
+  const all = checkWines(state).length, picked = checkPicked().length;
+  $('checkPickBar').hidden = !!checkCtl || !all;
+  $('checkPickCount').textContent = picked + ' of ' + all + ' selected';
+  checkStartLabel();
 }
 /* One wine's panel. Everything Claude sent is text and escaped; a source is
    a link only because readLookup() proved it an http(s) address. */
 function checkBlock(w) {
-  const r = checkAnswer(w), why = checkFailed.get(w.id);
-  const head = '<p><strong>' + esc(wineLabel(w)) + '</strong> ';
+  const r = checkAnswer(w), why = checkFailed.get(w.id), picked = checkPicks.has(w.id);
+  /* The pick box is labelled by the wine's name, and says when it was last
+     checked — the time saved on the wine, so it reads the same after a reload. */
+  const head = '<p><label class="pickname"><input type="checkbox" data-pick="' + esc(w.id) + '"'
+    + (picked ? ' checked' : '') + (checkCtl ? ' disabled' : '') + '><strong>' + esc(wineLabel(w))
+    + '</strong></label> ';
+  const when = ' <span class="lookdone">' + esc(fmtChecked(w.checkedAt)) + '</span>';
   if (!r) return head + '<span class="lookdone">' + esc(why ? 'Could not check: ' + why
-    : checkCtl ? 'Waiting…' : 'Not checked yet') + '</span></p>';
+    : checkCtl && picked ? 'Waiting…' : fmtChecked(w.checkedAt)) + '</span></p>';
   const conf = LOOKUP_CONF[r.confidence];
   const diffs = lookupDiffs(w, r);
   const hosts = r.sources.map((x) => '<a href="' + esc(x.url) + '" target="_blank" rel="noopener noreferrer">'
     + esc(new URL(x.url).hostname.replace(/^www\./, '')) + '</a>');
   return head + '<span class="pill ' + conf[0] + '">' + esc(conf[1]) + '</span>'
-    + (r.matched && r.confidence !== 'low' ? ' <span class="lookdone">' + esc(r.matched) + '</span>' : '') + '</p>'
-    + (r.confidence === 'low' ? '<p>Nothing to change — Claude did not guess.</p>'
-      : !diffs.length ? '<p>✓ Claude’s answer matches what you have.</p>'
-      : diffs.map((d) => {
-        const basis = d.key === 'value' ? r.valueBasis : d.key === 'window' ? r.windowBasis : '';
-        return '<label class="checkline"><input type="checkbox" data-tick="' + esc(w.id + '|' + d.key) + '"'
-          + (checkTicked(w.id, d) ? ' checked' : '') + '><span>' + esc(d.label) + ' <strong>' + esc(d.claude)
-          + '</strong> ' + (d.yours && d.yours !== '—' ? '(yours: ' + esc(d.yours) + ')' : '(empty now)')
-          + (basis ? ' — ' + esc(basis) : '') + '</span></label>';
-      }).join(''))
+    + (r.matched && r.confidence !== 'low' ? ' <span class="lookdone">' + esc(r.matched) + '</span>' : '') + when + '</p>'
+    + (r.confidence === 'low' ? '<p>Nothing else to change — Claude did not guess.</p>'
+      : !diffs.length ? '<p>✓ Claude’s answer matches what you have.</p>' : '')
+    + diffs.map((d) => {
+      const basis = d.key === 'value' ? r.valueBasis : d.key === 'window' ? r.windowBasis : '';
+      const what = d.key === 'note' ? 'Add to the notes: <strong>' + esc(d.claude) + '</strong>'
+        : esc(d.label) + ' <strong>' + esc(d.claude) + '</strong> '
+          + (d.yours && d.yours !== '—' ? '(yours: ' + esc(d.yours) + ')' : '(empty now)')
+          + (basis ? ' — ' + esc(basis) : '');
+      return '<label class="checkline"><input type="checkbox" data-tick="' + esc(w.id + '|' + d.key) + '"'
+        + (checkTicked(w.id, d) ? ' checked' : '') + '><span>' + what + '</span></label>';
+    }).join('')
     + (hosts.length ? '<p>Sources: ' + hosts.join(', ') + '</p>' : '') + droppedLine(r);
 }
-function renderCheck() {
+function renderCheckIntro() {
   const wines = checkWines(state);
-  const todo = wines.filter((w) => !checkAnswer(w)).length;
+  const todo = checkPicked().length;
   const mins = Math.max(1, Math.ceil(todo * 36 / LOOKUP_PARALLEL / 60));
+  const since = $('checkSince').selectedOptions[0].textContent;
   $('checkIntro').textContent = !wines.length ? 'There are no wines with bottles left to check.'
-    : todo ? 'Claude looks up ' + plural(todo, 'wine') + ' with bottles left — about $'
+    : todo ? 'Claude looks up the ' + plural(todo, 'wine') + ' selected below — about $'
       + (todo * 0.14).toFixed(2) + ' from your API account and ' + plural(mins, 'minute')
       + ', three at a time. Then tick what to change: empty boxes start ticked, anything you entered '
       + 'starts unticked. Nothing changes until you save.'
-    : 'Every wine with bottles left has been checked. Tick what to change, then save.';
+    : wines.some((w) => checkAnswer(w)) ? 'Tick what to change, then save — or select more wines to check.'
+    : 'No wine is selected — every one was checked in the last ' + since + '. Select any to check again.';
+}
+function renderCheck() {
+  const wines = checkWines(state);
+  renderCheckIntro();
   $('checkList').innerHTML = wines.map((w) => '<div class="lookup-panel" data-check="' + esc(w.id) + '">'
     + checkBlock(w) + '</div>').join('');
-  /* Nothing left to look up: no Start to press, same as Save with nothing ticked. */
-  if (!checkCtl) $('checkStart').hidden = !todo;
   checkButtons();
 }
 /* A wine coming back redraws only its OWN panel, so a box you are ticking
@@ -5063,6 +5227,15 @@ function renderCheckOne(w) {
   checkButtons();
 }
 $('checkList').addEventListener('change', (e) => {
+  const pick = e.target.closest('[data-pick]');
+  if (pick) {
+    if (pick.checked) checkPicks.add(pick.dataset.pick); else checkPicks.delete(pick.dataset.pick);
+    /* The intro's count and cost follow; the list itself is left alone, so
+       the box under the pointer stays where it is. */
+    renderCheckIntro();
+    checkButtons();
+    return;
+  }
   const box = e.target.closest('[data-tick]');
   if (!box) return;
   checkTicks.set(box.dataset.tick, box.checked);
@@ -5070,6 +5243,7 @@ $('checkList').addEventListener('change', (e) => {
 });
 function openCheck() {
   $('checkNote').textContent = lookupKey() ? '' : 'Add your Claude API key in Settings first.';
+  checkPickStale();
   renderCheck();
   openModal($('checkDialog'));
 }
@@ -5077,12 +5251,13 @@ $('checkStart').addEventListener('click', async () => {
   if (checkCtl) { checkStop(); renderCheck(); $('checkNote').textContent = 'Stopped — what came back is kept.'; return; }
   const key = lookupKey();
   if (!key) { $('checkNote').textContent = 'Add your Claude API key in Settings first.'; return; }
-  const todo = checkWines(state).filter((w) => !checkAnswer(w));
+  /* Exactly the wines selected — one answered earlier this sitting too, since
+     selecting it again is asking for it again. */
+  const todo = checkPicked();
   if (!todo.length) return;
   const ctl = new AbortController();
   checkCtl = ctl;
   todo.forEach((w) => checkFailed.delete(w.id));
-  $('checkStart').textContent = 'Stop Checking';
   renderCheck();
   let done = 0, failed = 0, next = 0, lastError = '';
   const say = () => { $('checkNote').textContent = 'Checking ' + Math.min(done + 1, todo.length) + ' of '
@@ -5096,6 +5271,10 @@ $('checkStart').addEventListener('click', async () => {
         const got = await lookupWine(w, key, { signal: ctl.signal });
         if (checkCtl !== ctl) return;
         checkFound.set(w.id, { key: wineKey(w), r: readLookup(got.found, w) });
+        /* A fresh answer is offered afresh: the old one's ticks do not carry over. */
+        [...checkTicks.keys()].forEach((k) => { if (k.indexOf(w.id + '|') === 0) checkTicks.delete(k); });
+        checkPicks.delete(w.id);
+        stampChecked(w.id);
       } catch (e) {
         if (e && e.name === 'AbortError') return;
         failed++; lastError = e.message;
@@ -5117,7 +5296,7 @@ $('checkStart').addEventListener('click', async () => {
     checkStop();
     renderCheck();
     $('checkNote').textContent = plural(done - failed, 'wine') + ' checked'
-      + (failed ? ', ' + failed + ' failed (' + lastError + ') — Start Checking tries those again' : '')
+      + (failed ? ', ' + failed + ' failed (' + lastError + ') — they stay selected, to try again' : '')
       + '. Tick what to change, then save.';
   }
 });
@@ -5146,6 +5325,14 @@ $('checkAll').addEventListener('click', () => {
   checkButtons();
 });
 $('checkCancel').addEventListener('click', () => $('checkDialog').close());
+$('checkPickAll').addEventListener('click', () => {
+  checkWines(state).forEach((w) => checkPicks.add(w.id));
+  renderCheck();
+});
+$('checkPickNone').addEventListener('click', () => { checkPicks.clear(); renderCheck(); });
+$('checkPickStale').addEventListener('click', () => { checkPickStale(); renderCheck(); });
+/* Choosing a time IS asking for that selection — no second press needed. */
+$('checkSince').addEventListener('change', () => { checkPickStale(); renderCheck(); });
 $('checkBtn').addEventListener('click', openCheck);
 
 /* ONE delegated listener per table, so the row, its actions and its headings
@@ -6137,7 +6324,7 @@ boot();
 window.__wineTestHooks = {
   __plant: function (next) {
     state = normalizeState(next); undoStartOver();
-    checkFound.clear(); checkFailed.clear(); checkTicks.clear();   /* a planted cellar is a new one */
+    checkFound.clear(); checkFailed.clear(); checkTicks.clear(); checkPicks.clear();   /* a planted cellar is a new one */
     render();
   },
   __state: function () { return state; },
@@ -6159,7 +6346,7 @@ window.__wineTestHooks = {
   buildLookupRequest: buildLookupRequest, lookupWine: lookupWine, readLookup: readLookup,
   sourceNamesOtherWine: sourceNamesOtherWine, wineWords: wineWords,
   lookupErrorMessage: lookupErrorMessage, lookupNoteLine: lookupNoteLine,
-  wineFacts: wineFacts, dealOf: dealOf, fmtPaid: fmtPaid, fmtDate: fmtDate, cleanAdded: cleanAdded, lookupDiffs: lookupDiffs, applyLookupTo: applyLookupTo, checkWines: checkWines, LOOKUP_TOOL: LOOKUP_TOOL,
+  wineFacts: wineFacts, dealOf: dealOf, fmtPaid: fmtPaid, fmtDate: fmtDate, cleanAdded: cleanAdded, lookupDiffs: lookupDiffs, applyLookupTo: applyLookupTo, checkWines: checkWines, coreOf: coreOf, cleanChecked: cleanChecked, fmtChecked: fmtChecked, putLookupNote: putLookupNote, stampChecked: stampChecked, LOOKUP_TOOL: LOOKUP_TOOL,
   LOOKUP_KEY_STORE: LOOKUP_KEY_STORE, SHARE_MAX_BYTES: SHARE_MAX_BYTES, b64urlEncode: b64urlEncode,
 };
 </script>

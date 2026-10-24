@@ -51,7 +51,7 @@
    go MISSING look exactly like tests that pass — a suite that quietly shrank to
    three checks still says "all 3 tests pass". RAISE THIS when you add tests, and
    lower it only when you retire one deliberately. */
-const EXPECTED = 218;
+const EXPECTED = 225;
 
 /* ── It refuses to run anywhere but localhost, and that is load-bearing ──────
    GitHub Pages publishes this page BESIDE the app, where the iframe below would
@@ -894,7 +894,7 @@ function define() {
   });
   t('the allowlist strips a field nobody declared', () => {
     eq(Object.keys(one({ secret: 'kept?' })).sort(),
-       ['added', 'color', 'drinkFrom', 'drinkTo', 'grape', 'id', 'location', 'name', 'notes', 'paid', 'qty',
+       ['added', 'checkedAt', 'color', 'drinkFrom', 'drinkTo', 'grape', 'id', 'location', 'name', 'notes', 'paid', 'qty',
         'region', 'source', 'valueEst', 'valueHigh', 'valueLow', 'vintage'],
        'a new stored field must be added to normalizeState AND bump SCHEMA');
     const o = H.normalizeState({ opened: [{ id: 'o', secret: 1 }] }).opened[0];
@@ -2577,7 +2577,8 @@ function define() {
     const src = stripComments(APP_SRC);
     ok(/if \(out\.valueLow == null && r\.valueLow != null\)/.test(src), 'a pasted value is never replaced');
     ok(/if \(!out\.colorKnown && r\.color\) out\.color = r\.color;/.test(src), 'a guessed colour gives way to Claude’s, a given one does not');
-    ok(/r\.confidence === 'low'\) return row/.test(src), 'and a wine Claude could not find changes nothing');
+    ok(/r\.confidence === 'low'\)\s*return Object\.assign\(\{\}, row, \{ notes: putLookupNote\(/.test(src),
+       'and a wine Claude could not find changes nothing but the note saying so');
   });
   t('each line of a lookup can be taken on its own, and nothing else moves', async () => {
     /* Charles, 2026-10-23: take Claude's value for Snowden without its region
@@ -2759,7 +2760,8 @@ function define() {
     const hold = FIXTURE.wines[0];
     const d2 = H.lookupDiffs(hold, H.readLookup(Object.assign({ matched_wine: 'x' }, CHECK_ANSWERS['Charlie Cabernet'])));
     eq(d2.map((x) => [x.key, x.tick]), [['value', false], ['region', false]], 'a replacement starts unticked');
-    eq(H.lookupDiffs(hold, H.readLookup({ confidence: 'low', value_low: 1 })), [], 'a wine Claude could not find offers nothing');
+    eq(H.lookupDiffs(hold, H.readLookup({ confidence: 'low', value_low: 1 })).map((x) => [x.key, x.tick]), [['note', true]],
+       'a wine Claude could not find offers only its note, ticked');
     eq(H.checkWines(H.normalizeState(CHECK_FX)).map((x) => x.id).indexOf('fx-done'), -1, 'a finished wine is not checked');
   });
   t('a newer check replaces the Looked up line rather than stacking a second', () => {
@@ -2785,10 +2787,12 @@ function define() {
         const box = (k) => D.querySelector('#checkList [data-tick="' + k + '"]');
         eq([box('fx-empty|value').checked, box('fx-empty|window').checked, box('fx-empty|color').checked,
             box('fx-hold|value').checked], [true, true, false, false], 'ticks start where the rule says');
-        ok(!D.querySelector('#checkList [data-tick^="fx-ready|"]'), 'nothing offered for a wine Claude could not find');
+        eq([...D.querySelectorAll('#checkList [data-tick^="fx-ready|"]')].map((b) => [b.dataset.tick, b.checked]),
+           [['fx-ready|note', true]], 'a wine Claude could not find offers only the note saying so, ticked');
         ok(/matches what you have/.test(D.querySelector('#checkList [data-check="fx-past"]').textContent), 'a matching wine says so');
         ok(!D.getElementById('checkSave').hidden, 'Save appears once something is ticked');
-        ok(D.getElementById('checkStart').hidden, 'and Start goes, with nothing left to look up');
+        ok(D.getElementById('checkStart').disabled, 'and Start cannot be pressed, with nothing left selected');
+        ok(H.__state().wines.filter((w) => w.qty > 0).every((w) => w.checkedAt), 'every answer stamped its wine');
         const all = D.getElementById('checkAll'), boxes = () => [...D.querySelectorAll('#checkList [data-tick]')];
         eq(all.textContent, 'Tick All');
         all.click();
@@ -2796,7 +2800,7 @@ function define() {
         all.click();
         ok(boxes().every((b) => !b.checked) && D.getElementById('checkSave').hidden, 'Untick All clears them, and Save goes');
         all.click(); all.click();   /* back to none, then put the defaults back by hand */
-        ['fx-empty|value', 'fx-empty|window', 'fx-empty|region', 'fx-empty|grape'].forEach((k) => box(k).click());
+        ['fx-empty|value', 'fx-empty|window', 'fx-empty|region', 'fx-empty|grape', 'fx-ready|note'].forEach((k) => box(k).click());
         box('fx-hold|value').click();
         box('fx-empty|grape').click();   /* untick one */
         D.getElementById('checkSave').click();
@@ -2807,6 +2811,8 @@ function define() {
         eq([get('fx-empty').valueLow, get('fx-empty').drinkFrom, get('fx-empty').region, get('fx-empty').grape,
             get('fx-empty').color], [20, 2024, 'Loire', '', 'red'], 'the empty boxes filled, the unticked grape and colour kept');
         ok(/^Mine\.\nLooked up /.test(get('fx-empty').notes), 'and the note line says when');
+        ok(/could not find this exact wine$/.test(get('fx-ready').notes), 'and the wine Claude could not find got its note',
+           get('fx-ready').notes);
         W.undoLast();
         eq([get('fx-hold').valueLow, get('fx-empty').valueLow, get('fx-empty').notes], [60, null, 'Mine.'],
            'one Undo takes the whole check back');
@@ -2825,7 +2831,8 @@ function define() {
       await tick();
       ok(signals.every((s) => s.aborted), 'all of them aborted by the close');
       D.getElementById('checkBtn').click();
-      ok(/Start Checking/.test(D.getElementById('checkStart').textContent), 'and it reopens ready, not stuck on Stop');
+      ok(/Check 4 Wines/.test(D.getElementById('checkStart').textContent), 'and it reopens ready, not stuck on Stop',
+         D.getElementById('checkStart').textContent);
       D.getElementById('checkDialog').close();
     });
     H.__plant(FIXTURE);
@@ -2841,6 +2848,127 @@ function define() {
          D.getElementById('checkNote').textContent);
       D.getElementById('checkDialog').close();
     });
+  });
+  group('when Claude last checked a wine');
+  const agoISO = (days) => new Date(Date.now() - days * 864e5).toISOString();
+  t('checkedAt is an exact UTC moment or null, never junk or the future', () => {
+    const at = '2026-10-24T14:03:00.000Z';
+    eq(H.normalizeState({ wines: [{ name: 'A', checkedAt: at }] }).wines[0].checkedAt, at, 'a real time is kept');
+    for (const v of ['2026-10-24', 'junk', 12345, '<b>', new Date(Date.now() + 9e9).toISOString(), undefined, ''])
+      eq(H.normalizeState({ wines: [{ name: 'A', checkedAt: v }] }).wines[0].checkedAt, null, 'unreadable: ' + v);
+    ok(H.buildSharePayload(H.normalizeState({ wines: [{ name: 'A', checkedAt: at }] }), { keep: 'all' })
+      .wines.every((w) => !('checkedAt' in w)), 'and a share link leaves it behind');
+  });
+  t('it reads as a time a person would say', () => {
+    eq(H.fmtChecked(null), 'Not checked yet');
+    ok(/^Checked today, /.test(H.fmtChecked(new Date().toISOString())), H.fmtChecked(new Date().toISOString()));
+    eq(H.fmtChecked(agoISO(12)), 'Checked 12 days ago');
+    ok(/^Checked \d{1,2} \w+ \d{4}$|^Checked \w+ \d{1,2}, \d{4}$/.test(H.fmtChecked(agoISO(200))), 'past 60 days, the date');
+  });
+  t('a stamp is not an Undo step, and an Undo keeps the newer stamp', () => {
+    const a = H.normalizeState(FIXTURE), b = H.normalizeState(FIXTURE);
+    b.wines[0].checkedAt = new Date().toISOString();
+    eq(H.coreOf(a), H.coreOf(b), 'only the check time differs, so nothing to bank');
+    const D = W.document, proto = W.Storage.prototype, realStore = proto.setItem;
+    proto.setItem = function () {};
+    try {
+      H.__plant(FIXTURE);
+      W.openDrink('fx-hold'); D.getElementById('openSave').click();
+      const at = H.stampChecked('fx-hold');
+      W.undoLast();
+      const w = H.__state().wines.find((x) => x.id === 'fx-hold');
+      eq([w.qty, w.checkedAt], [6, at], 'the bottle came back; the check stayed');
+      ok(D.getElementById('undoBtn').hidden, 'and that was the only step — the stamp minted none');
+    } finally { proto.setItem = realStore; H.__plant(FIXTURE); }
+  });
+  t('the note line has one rule: replace an older one, and only while there is room', () => {
+    eq(H.lookupNoteLine(H.readLookup({ confidence: 'low', sources: [{ title: 'x', url: 'https://other.example/a' }] }), '2026-10-24'),
+       'Looked up 2026-10-24 · Claude could not find this exact wine', 'not found says so, and names no source');
+    eq(H.putLookupNote('Mine.\nLooked up 2020-01-01', 'Looked up 2026'), 'Mine.\nLooked up 2026');
+    eq(H.putLookupNote('', 'Looked up 2026'), 'Looked up 2026');
+    eq(H.putLookupNote('x'.repeat(295), 'Looked up 2026'), 'x'.repeat(295), 'no room, no line');
+  });
+  t('the Check window selects the wines not checked lately, and checks only those', async () => {
+    const D = W.document, asked = [], proto = W.Storage.prototype, realStore = proto.setItem;
+    proto.setItem = function () {};
+    const fx = JSON.parse(JSON.stringify(CHECK_FX));
+    fx.wines.find((w) => w.id === 'fx-hold').checkedAt = agoISO(10);
+    fx.wines.find((w) => w.id === 'fx-past').checkedAt = agoISO(200);
+    try {
+      await withKey(checkFetch(asked), async () => {
+        H.__plant(fx);
+        D.getElementById('checkSince').value = '90';
+        D.getElementById('checkBtn').click();
+        const pick = (id) => D.querySelector('#checkList [data-pick="' + id + '"]');
+        eq(['fx-hold', 'fx-past', 'fx-ready', 'fx-empty'].map((id) => pick(id).checked), [false, true, true, true],
+           'checked 10 days ago is left out under 90 days');
+        eq(D.getElementById('checkPickCount').textContent, '3 of 4 selected');
+        ok(/Check 3 Wines/.test(D.getElementById('checkStart').textContent) && /\$0\.42/.test(D.getElementById('checkIntro').textContent),
+           'Start and the cost count the selection', D.getElementById('checkIntro').textContent);
+        ok(/Checked 10 days ago/.test(D.querySelector('#checkList [data-check="fx-hold"]').textContent), 'each wine says when');
+        const since = D.getElementById('checkSince');
+        since.value = '365'; since.dispatchEvent(new W.Event('change'));
+        ok(!pick('fx-past').checked, 'a longer time drops the wine checked 200 days ago');
+        D.getElementById('checkPickNone').click();
+        ok(D.getElementById('checkStart').disabled, 'nothing selected, nothing to start');
+        D.getElementById('checkPickAll').click();
+        eq(D.getElementById('checkPickCount').textContent, '4 of 4 selected');
+        D.getElementById('checkPickNone').click();
+        pick('fx-ready').click(); pick('fx-empty').click();
+        eq(D.getElementById('checkPickCount').textContent, '2 of 4 selected', 'a box pressed counts');
+        D.getElementById('checkStart').click();
+        for (let i = 0; i < 50 && !/checked/.test(D.getElementById('checkNote').textContent); i++) await tick();
+        eq(asked.slice().sort(), ['Alpha Pinot', 'Delta Blanc'], 'exactly the two selected, nothing else billed');
+        const get = (id) => H.__state().wines.find((w) => w.id === id);
+        ok(Date.now() - Date.parse(get('fx-ready').checkedAt) < 60000 && Date.now() - Date.parse(get('fx-empty').checkedAt) < 60000,
+           'both stamped when the answer came, before any Save');
+        eq(get('fx-hold').checkedAt, fx.wines.find((w) => w.id === 'fx-hold').checkedAt, 'an unselected wine is untouched');
+        ok(!pick('fx-ready').checked && !pick('fx-empty').checked, 'an answered wine leaves the selection');
+        ok(/Checked today/.test(D.querySelector('#checkList [data-check="fx-empty"]').textContent), 'and says so');
+      });
+    } finally { proto.setItem = realStore; D.getElementById('checkDialog').close(); H.__plant(FIXTURE); }
+  });
+  t('a lookup that fails is not a check', async () => {
+    const D = W.document, proto = W.Storage.prototype, realStore = proto.setItem;
+    proto.setItem = function () {};
+    const fake = async () => ({ ok: false, status: 500, json: async () => ({ error: { message: 'Overloaded' } }) });
+    try {
+      await withKey(fake, async () => {
+        H.__plant(FIXTURE);
+        D.getElementById('checkBtn').click();
+        D.getElementById('checkStart').click();
+        for (let i = 0; i < 50 && !/checked/.test(D.getElementById('checkNote').textContent); i++) await tick();
+        ok(H.__state().wines.every((w) => w.checkedAt == null), 'no wine stamped');
+        ok(D.querySelector('#checkList [data-pick="fx-hold"]').checked, 'and the failed wine stays selected to try again');
+      });
+    } finally { proto.setItem = realStore; D.getElementById('checkDialog').close(); H.__plant(FIXTURE); }
+  });
+  t('Look Up in the editor stamps the wine, shows it beside the button, and Save keeps it', async () => {
+    const D = W.document, asked = [], proto = W.Storage.prototype, realStore = proto.setItem;
+    proto.setItem = function () {};
+    try {
+      await withKey(checkFetch(asked), async () => {
+        H.__plant(FIXTURE);
+        W.openWine('fx-hold');
+        eq(D.getElementById('lookupWhen').textContent, 'Not checked yet');
+        ok(!D.getElementById('lookupWhen').hidden, 'shown for a saved wine');
+        D.getElementById('lookupBtn').click();
+        for (let i = 0; i < 50 && !/Look Up/.test(D.getElementById('lookupBtn').textContent); i++) await tick();
+        const at = H.__state().wines.find((w) => w.id === 'fx-hold').checkedAt;
+        ok(at && Date.now() - Date.parse(at) < 60000, 'stamped when the answer came', at);
+        ok(/^Checked today/.test(D.getElementById('lookupWhen').textContent), D.getElementById('lookupWhen').textContent);
+        D.getElementById('wineSave').click();
+        eq(H.__state().wines.find((w) => w.id === 'fx-hold').checkedAt, at, 'Save keeps the stamp');
+        W.openWine(null);
+        ok(D.getElementById('lookupWhen').hidden, 'and a new wine shows no line until it is looked up');
+        D.getElementById('wineDialog').close();
+        W.openWine('fx-ready');   /* Alpha Pinot: Claude cannot find it */
+        D.getElementById('lookupBtn').click();
+        for (let i = 0; i < 50 && !/Look Up/.test(D.getElementById('lookupBtn').textContent); i++) await tick();
+        ok(/could not find this exact wine$/.test(D.getElementById('f_notes').value), 'a wine not found gets its note line',
+           D.getElementById('f_notes').value);
+      });
+    } finally { proto.setItem = realStore; D.getElementById('wineDialog').close(); H.__plant(FIXTURE); }
   });
   t('a share link that inflates past the cap is refused, not swallowed', async () => {
     const huge = new W.TextEncoder().encode(' '.repeat(H.SHARE_MAX_BYTES + 1024));

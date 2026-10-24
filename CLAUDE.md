@@ -110,6 +110,24 @@ the family doesn't.
   `checkTicks` so a re-render keeps them, and an arriving answer redraws only its own panel.
   Save is one `save()` = one Undo step; it re-reads each wine by id at save time. `__plant`
   clears all three maps.
+- **`checkedAt`** (SCHEMA 4, 2026-10-24): when Claude last ANSWERED for a wine — an exact UTC
+  moment (`nowStamp()`, built from UTC parts because `toISOString` is banned by a test) or null;
+  `cleanChecked()` is the boundary (strict shape, not over a day in the future). Charles chose to
+  stamp **on the answer, not on Save** (`stampChecked(id)`, its own `save()`): the check was paid
+  for, and a stray close must not make the wine look unchecked and re-bill it. So `coreOf()`
+  ignores it (a stamp mints no Undo step) and `undoLast()` keeps the later of the two times. A
+  failed lookup is not a check; a low-confidence answer is. Not in share links
+  (`buildSharePayload` is a whitelist — SHARE_PAYLOAD_V stays 3). The editor's Look Up stamps at
+  once only when the form's name matches the saved wine (`wineKey`); otherwise `lookupStamp`
+  waits for Save, and Save clears the stamp on a renamed wine. `fmtChecked()` is the one printer.
+- **Check All picks vs ticks:** `checkPicks` (wine ids, "Select …" buttons, `data-pick`) say what
+  Start looks up; `checkTicks` (`data-tick`, Tick All) say what Save changes. Never share the
+  words. Picks fill on open from `#checkSince` (not checked in N days, plus this sitting's
+  failures — page-life only, not `state`); a wine leaves the picks when its answer arrives.
+- **Not found still leaves a note** (2026-10-24): `lookupNoteLine` says "Claude could not find
+  this exact wine" for `low`, with no sources; `putLookupNote()` is the ONE rule (replace an older
+  "Looked up" line, else append, only within 300) for the editor, Check All (a pre-ticked `note`
+  pseudo-line from `lookupDiffs`) and paste.
 - **An installed iPhone draws under the status bar** (black-translucent), so the header pads by
   `env(safe-area-inset-top)`, a fixed `body::before` band in `--surface` keeps scrolled content
   out from under the clock (the header is not sticky on a phone), and a dialog's max-height takes

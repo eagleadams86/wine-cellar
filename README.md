@@ -67,7 +67,12 @@ the pages it used.
   **Use all of Claude's answer** takes everything. Nothing is saved until you press Save
   or Add, and a one-line "Looked up…" note records when and on whose word.
 - **It says how sure it is** — sure of the match, probably the right wine, or could not find it
-  (then it fills nothing rather than guess).
+  (then it fills nothing rather than guess, and only adds a "Looked up… · Claude could not find
+  this exact wine" note, so you can see it was tried).
+- **It remembers when.** Each wine keeps the time Claude last answered for it — from this window
+  or Check All Wines — saved the moment the answer arrives, even if you change nothing. The wine
+  window shows it beside the button ("Checked 12 days ago"). It syncs and backs up with the wine,
+  is never in a share link, and Undo leaves it alone. Renaming a wine clears it.
 - **A source that names a different wine is left out.** If a page's address names a specific
   bottle (it has a vintage year in it) and shares no word with the wine looked up, it is dropped
   from the sources and the panel says so — Claude may have taken a figure from it, so check the
@@ -92,12 +97,18 @@ the pages it used.
 **✦ Check All Wines** under the Cellar table runs the same lookup on every wine with bottles
 left (finished wines are skipped), three at a time.
 
-- **It says the cost first** — how many wines, about how many dollars and minutes — and looks
-  nothing up until you press **Start Checking**. **Stop Checking** keeps what has come back.
+- **You choose which wines.** Every wine has a box and says when it was last checked. The window
+  opens with the wines **not checked in the last 90 days** selected; **Select Not Checked In**
+  with its menu (30 days, 90 days, 6 months, a year) picks again, and **Select All** /
+  **Select None** do what they say. A wine leaves the selection as soon as its answer arrives;
+  one that fails stays selected to try again.
+- **It says the cost first** — how many selected wines, about how many dollars and minutes — and
+  looks nothing up until you press **Check N Wines** (it can't be pressed with none selected).
+  **Stop Checking** keeps what has come back.
 - **Then you choose, line by line.** Each wine gets a panel with one ticked line per thing Claude
   says differently. A box that is **empty** starts ticked; anything **you entered** starts
   unticked, so nothing of yours is replaced unless you tick it. Colour is never pre-ticked. **Tick All** ticks every line on offer and then becomes **Untick All**. A wine
-  Claude could not find offers nothing, and one that already matches says so.
+  Claude could not find offers only its "could not find" note line, ticked, and one that already matches says so.
 - **Save Ticked Changes** appears once something is ticked, and saves it all at once, so one **Undo** takes the whole check back. Each
   changed wine's "Looked up…" note line is replaced with today's, not stacked.
 - **Closing the window stops the lookups but keeps the answers** for as long as the page is open,
