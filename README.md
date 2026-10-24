@@ -150,7 +150,8 @@ left (finished wines are skipped), three at a time.
   **Stop Checking** keeps what has come back.
 - **Then you choose, line by line.** Each wine gets a panel with one ticked line per thing Claude
   says differently, each saying **why** it starts ticked or not. The rule is better evidence wins:
-  - **Ticked:** an empty box; a value from current prices (over an estimate or older prices); a
+  - **Ticked:** an empty box; a value from current prices (over an estimate or older prices — even
+    the same numbers, which clears your "estimate" box); a
     critic's published window over an estimate; your region or grape rewritten the usual way
     when it is the same place or grape ("Stags Leap District, Napa Valley, CA" → "Napa Valley,
     California").

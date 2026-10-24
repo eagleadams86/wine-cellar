@@ -5297,7 +5297,8 @@ const LOOKUP_BOXES = [
    (r) => { $('f_low').value = r.valueLow == null ? '' : r.valueLow;
             $('f_high').value = r.valueHigh == null ? '' : r.valueHigh; $('f_est').checked = r.valueEst; },
    (r) => r.valueLow != null,
-   (r) => boxNum('f_low') === r.valueLow && (boxNum('f_high') == null ? r.valueHigh == null : boxNum('f_high') === r.valueHigh)],
+   (r) => boxNum('f_low') === r.valueLow && (boxNum('f_high') == null ? r.valueHigh == null : boxNum('f_high') === r.valueHigh)
+     && !($('f_est').checked && !r.valueEst)],
   ['window', 'Window', () => $('f_from').value === '' && $('f_to').value === '',
    (r) => { $('f_from').value = r.drinkFrom == null ? '' : r.drinkFrom;
             $('f_to').value = r.drinkTo == null ? '' : r.drinkTo; },
@@ -5807,8 +5808,12 @@ $('pasteBtn').addEventListener('click', openPaste);
    outside) has not thrown away lookups already paid for — and a wine renamed
    since is looked up again rather than shown someone else's answer. */
 const LOOKUP_FIELDS = [
+  /* The same numbers are NOT the same answer when yours is an estimate and
+     Claude's comes from real prices — that is the estimate box to clear
+     (Charles, 2026-10-24: Les Allies kept "est." after a check found listings). */
   ['value', 'Value', (w) => w.valueLow == null, (r) => r.valueLow != null,
-   (w, r) => w.valueLow === r.valueLow && (w.valueHigh == null ? r.valueHigh == null : w.valueHigh === r.valueHigh),
+   (w, r) => w.valueLow === r.valueLow && (w.valueHigh == null ? r.valueHigh == null : w.valueHigh === r.valueHigh)
+     && !(w.valueEst && !r.valueEst),
    (w) => fmtValue(w),
    (w, r) => { w.valueLow = r.valueLow; w.valueHigh = r.valueHigh; w.valueEst = r.valueEst; }],
   ['window', 'Window', (w) => w.drinkFrom == null && w.drinkTo == null, (r) => r.drinkFrom != null || r.drinkTo != null,

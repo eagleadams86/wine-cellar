@@ -2875,6 +2875,14 @@ function define() {
     const d = row(real, { value_low: 85, value_high: 125, value_is_estimate: true }, 'value');
     eq([d.tick, d.why], [false, 'an estimate would replace real prices'], 'an estimate never replaces prices (Domaine Serene)');
     eq(row(est, { value_low: 10, value_high: 25, value_is_estimate: true }, 'value').why, 'both are estimates');
+    const same = row({ valueLow: 32, valueHigh: 45, valueEst: true }, { value_low: 32, value_high: 45, value_is_estimate: false }, 'value');
+    eq([same && same.tick, same && same.why], [true, 'current prices beat your estimate'],
+       'the same numbers from real prices clear the estimate box (Les Allies)');
+    eq(row({ valueLow: 32, valueHigh: 45, valueEst: false }, { value_low: 32, value_high: 45, value_is_estimate: true }, 'value'),
+       undefined, 'and the same numbers as a guess are no change at all');
+    const w = { valueLow: 32, valueHigh: 45, valueEst: true, notes: '' };
+    H.applyLookupTo(w, r({ value_low: 32, value_high: 45, value_is_estimate: false }), ['value']);
+    eq(w.valueEst, false, 'saving it unticks the box');
     const advocate = { drinkFrom: 2012, drinkTo: 2019,
       notes: 'Looked up 2026-10-24 · window: Wine Advocate anticipated maturity 2012-2019 (now past window) · klwines.com, winebid.com' };
     eq(H.windowBasisOf(advocate), 'Wine Advocate anticipated maturity 2012-2019 (now past window)', 'yours is read off the Looked up line');
