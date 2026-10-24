@@ -1025,6 +1025,10 @@
       background: var(--surface-alt); padding: 12px 14px; margin-bottom: 10px; }
     table.cards.cardview tbody tr:hover, table.cards.cardview tr.rowlink:hover th, table.cards.cardview tr.rowlink:hover td { background: none; }
     table.cards.cardview tbody tr:hover { background: var(--surface-alt); }
+    /* A card that opens something answers the pointer the way a tile does: its
+       edge comes up to --text-muted (the base button hover). The fill could not
+       say it — a card already rests on --surface-alt (Charles, 2026-10-24). */
+    table.cards.cardview tbody tr.rowlink:hover { border-color: var(--text-muted); }
     /* The wine leads the card, wherever its cell sits in the row (the Opened
        list has the date first). */
     table.cards.cardview tbody th { order: -2; flex: 1 1 55%; min-width: 0; padding: 0 0 2px; border: 0;
