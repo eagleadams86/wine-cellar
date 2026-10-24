@@ -64,9 +64,9 @@ the family doesn't.
   chars; the sharp copy SENT to Claude has its own `PHOTO_SEND_MAX`) in IndexedDB `wine-photos`
   (never localStorage — the origin's 5 MB is shared by every app) and in
   `winecellar/{uid}/photos/{wineId}` = `{ data, at }`, its own Firestore doc because the cellar doc
-  is capped at 1 MB. `firestore.rules` has the sub-match — the parent match does NOT cover it, and
-  the console rules must be updated to match or cloud photos are refused (the photo stays
-  local and on `wine-photo-unsent`). Deletes are DEFERRED: `save()` → `photoBookkeeping` puts a
+  is capped at 1 MB. `firestore.rules` has the sub-match — the parent match does NOT cover it
+  (published to the console 2026-10-24; a refused write leaves the photo local and on
+  `wine-photo-unsent`). Deletes are DEFERRED: `save()` → `photoBookkeeping` puts a
   wine that lost its photo on `wine-photo-gone`, and only the list as it stood at boot
   (`photoGoneAtBoot`) is deleted — Undo can bring a wine back until a reload. `sweepPhotos()` runs
   after the reveal, never in a shared view or the harness (`inTests()`). Not in share links
@@ -258,8 +258,9 @@ the family doesn't.
 Project `winecellar-fa733` (Spark). Google sign-in on; `eagleadams86.github.io` authorized;
 Firestore `(default)` in `nam5` with per-uid rules on `winecellar/{uid}` (see
 `firestore.rules`); the auto-created web OAuth client allows `https://eagleadams86.github.io`
-and `http://localhost:8025`. The console rules were typed as one line — same meaning as the
-commented copy in the repo.
+and `http://localhost:8025`. Since 2026-10-24 the console holds `firestore.rules` exactly,
+comments and all (put in through the editor's CodeMirror view, then Publish) — before that it
+was a one-line version of the cellar rule.
 
 ## Tests
 
