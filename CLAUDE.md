@@ -153,6 +153,10 @@ the family doesn't.
   positioned against the card) and `maxiReady()` takes it away while the card is folded.
 - **An opened line is edited in the Opened One window** (`openBottleEdit`, `editingBottleId`):
   date, rating and note only, never the count and never the label (the name as it was).
+- **A wine name wraps and carries no underline** (2026-10-24): `.rowbtn` overrides the base
+  button rule's `nowrap` — before that the Wine column alone never wrapped, squeezed every other
+  column and pushed the × off the edge. No underline because the whole ROW is the target (it
+  hovers and opens as one); keyboard focus keeps the ring. A test pins both.
 - **The table's own order is drinking order** — past the window, drink soon, ready, hold,
   none; then the window that closes soonest. The Wine column sorts by name, then vintage.
 

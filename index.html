@@ -385,8 +385,17 @@
   button.icon-btn.danger:hover { color: var(--err); border-color: var(--err); background: none; }
   .icon-btn:disabled { opacity: .45; cursor: not-allowed; }
   .icon-btn:disabled:hover { color: var(--text-muted); border-color: var(--border-control); }
+  /* A name in a table is a button, and the base button rule says nowrap — so
+     the Wine column alone never wrapped and squeezed every other column
+     (Charles, 2026-10-24). It wraps like the text it is, in every table and on
+     the phone cards alike; the note dot stays glued by `.nameend`.
+     No underline (Charles, 2026-10-24): the WHOLE ROW is the target — it
+     hovers and opens as one — so the name needs no mark of its own. WCAG
+     1.4.1's "a link in running text needs more than colour" has no running
+     text here, and keyboard focus still draws the family's ring. */
   .rowbtn { background: none; border: none; padding: 0; min-height: 0; color: inherit;
-            text-decoration: underline; text-underline-offset: 2px; cursor: pointer; font: inherit; }
+            text-decoration: none; text-underline-offset: 2px; cursor: pointer; font: inherit;
+            white-space: normal; text-align: left; }
 
   /* The header row alone is pinned to --fs-xs, and it stays there: chrome is
      13px in every app and did NOT scale with the body when the pack's base moved
@@ -994,9 +1003,6 @@
     table.cards tbody td { display: flex; flex-wrap: wrap; align-items: baseline; column-gap: 6px;
       flex: 1 1 40%; min-width: 0; padding: 0; border: 0; text-align: left;
       overflow-wrap: break-word; }
-    /* The name is a button, and the base button rule says nowrap: a long name
-       ran on under the pill. On a card it wraps like the text it is. */
-    table.cards tbody th .rowbtn { white-space: normal; text-align: left; }
     table.cards tbody td::before { content: attr(data-label);
       font-size: var(--fs-xs); color: var(--text-muted); text-transform: uppercase;
       letter-spacing: var(--ls-label); }
