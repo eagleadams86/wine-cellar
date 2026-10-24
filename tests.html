@@ -51,7 +51,7 @@
    go MISSING look exactly like tests that pass — a suite that quietly shrank to
    three checks still says "all 3 tests pass". RAISE THIS when you add tests, and
    lower it only when you retire one deliberately. */
-const EXPECTED = 258;
+const EXPECTED = 259;
 
 /* ── It refuses to run anywhere but localhost, and that is load-bearing ──────
    GitHub Pages publishes this page BESIDE the app, where the iframe below would
@@ -2898,6 +2898,18 @@ function define() {
     eq([place.tick, place.why], [true, 'the same region, written the usual way']);
     eq(row({ region: 'Sonoma Coast, California' }, { region: 'Napa Valley, California' }, 'region').tick, false, 'another place stays yours');
     eq(row({ region: 'Sonoma Coast' }, { region: 'Sonoma Coast, California' }, 'region').tick, true, 'the state added is the same place');
+  });
+  t('the Looked up line keeps whole words: websites go first, then the basis is cut with …', () => {
+    const src = (h) => ({ title: h, url: 'https://www.' + h + '/x' });
+    const r = (basis, hosts) => H.readLookup({ confidence: 'high', window_basis: basis, sources: hosts.map(src) }, { name: 'x' });
+    const fits = H.lookupNoteLine(r('My estimate; Wine Access merchant note says now–2040, which I shortened for a modest Saint-Émilion',
+      ['wineaccess.com']), '2026-10-24');
+    ok(/ · wineaccess\.com$/.test(fits), 'the whole website, not "wineaccess.c": ' + fits);
+    const long = 'x'.repeat(10) + ' ' + 'word '.repeat(19);
+    const many = ['aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.com', 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.com', 'ccccccccccccccccccccccccccccccccc.com'];
+    const line = H.lookupNoteLine(r(long, many), '2026-10-24');
+    ok(line.length <= 200, line.length);
+    ok(!/c{5,}\.com/.test(line) && /\.com$/.test(line), 'a website that does not fit is dropped whole: ' + line);
   });
   t('a newer check replaces the Looked up line rather than stacking a second', () => {
     const w = { valueLow: null, valueHigh: null, notes: 'Mine.\nLooked up 2020-01-01' };

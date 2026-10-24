@@ -4940,9 +4940,17 @@ function lookupNoteLine(r, today) {
      that it was looked for — but no sources: those were about some other wine. */
   if (r.confidence === 'low') return 'Looked up ' + today + ' · Claude could not find this exact wine';
   const hosts = [...new Set(r.sources.map((s) => new URL(s.url).hostname.replace(/^www\./, '')))].slice(0, 3);
-  return ('Looked up ' + today + (r.windowBasis ? ' · window: ' + r.windowBasis : '')
-    + (hosts.length ? ' · ' + hosts.join(', ') : '')).slice(0, 160);
+  /* 200 holds the date, a whole window basis (capped at 100 when read) and
+     three websites. Past it, websites go first, then the basis is cut at a
+     WORD with "…" — never mid-word ("wineaccess.c", Charles, 2026-10-24). */
+  const head = 'Looked up ' + today;
+  let basis = r.windowBasis ? ' · window: ' + r.windowBasis : '';
+  const build = (n) => head + basis + (n ? ' · ' + hosts.slice(0, n).join(', ') : '');
+  for (let n = hosts.length; n >= 0; n--) if (build(n).length <= LOOKUP_LINE_MAX) return build(n);
+  basis = basis.slice(0, LOOKUP_LINE_MAX - head.length - 1).replace(/\s+\S*$/, '') + '…';
+  return head + basis;
 }
+const LOOKUP_LINE_MAX = 200;
 /* The ONE rule for putting that line into notes, for the editor, Check All and
    paste alike: a newer line REPLACES the older one rather than stacking a
    second, and nothing is written unless the notes still fit in 300. Returns
