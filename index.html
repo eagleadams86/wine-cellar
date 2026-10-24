@@ -952,78 +952,102 @@
   #checkList .pickname { display: inline-flex; align-items: baseline; gap: var(--sp-3); cursor: pointer; }
   #checkList .pickname input { width: auto; min-height: 0; margin: 0; align-self: center; }
 
-  /* ── On a phone, every list is a stack of CARDS (2026-10-23) ──────────────
-     Charles, from his iPhone: "let's make these lists more mobile friendly".
-     Seven columns side by side left a 390px screen showing the wine and half
-     of one more, with the rest a sideways scroll away. Under 640px each row of
-     a `table.cards` becomes a card: the wine's name across the top, then one
-     line per field — its column's name on the left (`data-label`, written on
-     every cell by the render, since the headings are off screen), the value on
-     the right — and the row's buttons along the bottom.
+  /* ── A table that does not fit is a stack of CARDS ─────────────────────────
+     Charles, from his iPhone (2026-10-23): "let's make these lists more mobile
+     friendly". Seven columns side by side left a 390px screen showing the wine
+     and half of one more, with the rest a sideways scroll away. Each row of a
+     `table.cards` becomes a card: the wine's name across the top, then the
+     fields two to a line — its column's name before the value (`data-label`,
+     written on every cell by the render, since the headings are off screen) —
+     and the row's buttons along the bottom.
+
+     WHEN is decided by the table, not the screen (Charles, 2026-10-24): at
+     640px a half-screen window still got a table squeezed into tall wrapped
+     rows with the × cut off the edge. `fitCards()` gives a table `.cardview`
+     exactly when it would not fit its box — no sideways scroll at any width —
+     so the switch follows the columns actually shown (Paid hides, names are
+     long or short) instead of a guessed number. On a wide window the cards sit
+     in a grid, as many to a line as fit.
 
      PURE CSS over the same table, on purpose. The markup, the semantics, Copy
      and ⬇ CSV (which read the rendered cells, and never see ::before) and every
      click handler stay exactly as they are; only the layout changes. SCREEN
-     only, so a phone's print still gets the table.
+     only, so print still gets the table.
 
      The headings are not hidden: a sortable heading row becomes a wrapping
-     row of SORT BUTTONS under a "Sort by" label, so a phone keeps the sort.
+     row of SORT BUTTONS under a "Sort by" label, so the cards keep the sort.
      A heading row with nothing to press (Drink Next, the paste preview) goes. */
-  @media screen and (max-width: 640px) {
-    table.cards, table.cards tbody { display: block; }
-    table.cards thead { display: block; margin-bottom: var(--sp-4); }
-    table.cards thead:not(:has(.sortable)) { display: none; }
-    table.cards thead tr { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
-    table.cards thead tr::before { content: 'Sort by'; font-size: var(--fs-xs); color: var(--text-muted);
+  /* The test fitCards() lays a table out under for a moment: every TEXT column
+     (not a number, not a nowrap window or price, not the pill or the buttons)
+     at least 10rem — two or three words a line. A table that cannot give its
+     text that much is too cramped to read as a table, even if it squeezes in. */
+  table.cards.fitprobe tbody :is(th, td):not(.num):not(.nowrap):not(.rowacts):not([data-label="Status"]) {
+    min-width: 10rem; }
+  @media screen {
+    /* ONE card to a line at every width, so the list still reads top to
+       bottom in its sort order (Charles, 2026-10-24) — a wide card spends its
+       width on more fields to a line instead (see the td rule). */
+    table.cards.cardview, table.cards.cardview tbody { display: block; }
+    table.cards.cardview thead { display: block; margin-bottom: var(--sp-4); }
+    table.cards.cardview thead:not(:has(.sortable)) { display: none; }
+    table.cards.cardview thead tr { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+    table.cards.cardview thead tr::before { content: 'Sort by'; font-size: var(--fs-xs); color: var(--text-muted);
       text-transform: uppercase; letter-spacing: var(--ls-label); margin-right: 2px; }
-    table.cards thead th { display: block; padding: 0; border: 0; }
+    table.cards.cardview thead th { display: block; padding: 0; border: 0; }
     /* The actions heading is only there for a screen reader; on a card the
        buttons label themselves. */
-    table.cards thead th:not(.sortable) { display: none; }
-    table.cards thead th.sortable button { border: 1px solid var(--border-control);
+    table.cards.cardview thead th:not(.sortable) { display: none; }
+    table.cards.cardview thead th.sortable button { border: 1px solid var(--border-control);
       border-radius: var(--radius-pill); padding: 4px 10px; min-height: 0; }
-    table.cards thead th[aria-sort] button { border-color: var(--btn-bg); color: var(--text-primary); }
-    /* COMPACT: the wine and its status pill share the top line, then two
-       fields to a line, each label INLINE before its value. The first cut put
+    table.cards.cardview thead th[aria-sort] button { border-color: var(--btn-bg); color: var(--text-primary); }
+    /* COMPACT: the wine and its status pill share the top line, then the
+       fields — two to a line on a phone, as many as fit at 7.5rem on a wide
+       card — each label INLINE before its value. The first cut put
        one field per line and a wine came out eight lines tall; labels above
        values still made it seven. Flex-wrap rather than a grid, so a long
        name takes the room it needs and the pill keeps to the right. */
-    table.cards tbody tr { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 14px;
+    table.cards.cardview tbody tr { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 14px;
       border: 1px solid var(--border); border-radius: var(--radius-sm);
       background: var(--surface-alt); padding: 12px 14px; margin-bottom: 10px; }
-    table.cards tbody tr:hover, tr.rowlink:hover th, tr.rowlink:hover td { background: none; }
-    table.cards tbody tr:hover { background: var(--surface-alt); }
+    table.cards.cardview tbody tr:hover, table.cards.cardview tr.rowlink:hover th, table.cards.cardview tr.rowlink:hover td { background: none; }
+    table.cards.cardview tbody tr:hover { background: var(--surface-alt); }
     /* The wine leads the card, wherever its cell sits in the row (the Opened
        list has the date first). */
-    table.cards tbody th { order: -2; flex: 1 1 55%; min-width: 0; padding: 0 0 2px; border: 0;
+    table.cards.cardview tbody th { order: -2; flex: 1 1 55%; min-width: 0; padding: 0 0 2px; border: 0;
       font-size: var(--fs-base); font-weight: var(--fw-semibold); }
     /* Each cell is a little flex row of its label and its value, so on a very
        narrow phone the value can drop under its label WHOLE — a window or a
        price range keeps its nowrap and never splits at the dash. */
-    table.cards tbody td { display: flex; flex-wrap: wrap; align-items: baseline; column-gap: 6px;
-      flex: 1 1 40%; min-width: 0; padding: 0; border: 0; text-align: left;
+    table.cards.cardview tbody td { display: flex; flex-wrap: wrap; align-items: baseline; column-gap: 6px;
+      flex: 1 1 7.5rem; min-width: 0; padding: 0; border: 0; text-align: left;
       overflow-wrap: break-word; }
-    table.cards tbody td::before { content: attr(data-label);
+    table.cards.cardview tbody td::before { content: attr(data-label);
       font-size: var(--fs-xs); color: var(--text-muted); text-transform: uppercase;
       letter-spacing: var(--ls-label); }
     /* The status needs no label beside a pill that already says it, and sits
        up on the name's line, at the right. */
-    table.cards tbody td[data-label="Status"] { order: -1; flex: 0 0 auto; margin-left: auto; }
-    table.cards tbody td[data-label="Status"]::before { content: none; }
+    table.cards.cardview tbody td[data-label="Status"] { order: -1; flex: 0 0 auto; margin-left: auto; }
+    table.cards.cardview tbody td[data-label="Status"]::before { content: none; }
+    /* The name's line holds the name and the pill and nothing else: a wide card
+       had room left on it, and the first field crept up beside the pill, so
+       no two cards started their fields in the same place. An empty full-width
+       item after the pill (order 0, first in the row) breaks the line. The
+       Opened list sets its own first line below. */
+    table.cards.cardview:not(#openedTable) tbody tr::before { content: ''; order: 0; flex: 0 0 100%; height: 0; }
     /* A field with nothing in it says nothing, rather than a label beside a blank. */
-    table.cards tbody td:empty { display: none; }
+    table.cards.cardview tbody td:empty { display: none; }
     /* A note is a sentence, so it gets the whole line. */
-    table.cards tbody td[data-label="Note"] { flex-basis: 100%; }
-    table.cards tbody td.rowacts { flex-basis: 100%; display: flex; gap: var(--sp-4);
+    table.cards.cardview tbody td[data-label="Note"] { flex-basis: 100%; }
+    table.cards.cardview tbody td.rowacts { flex-basis: 100%; display: flex; gap: var(--sp-4);
       align-items: center; margin-top: 4px; }
-    table.cards tbody td.rowacts::before { content: none; }
+    table.cards.cardview tbody td.rowacts::before { content: none; }
     /* The Opened list: the date (which needs no label) and the × share the
        name's line, so a bottle is the name, its rating and its note. */
-    #openedTable tbody td[data-label="Opened"] { order: -1; flex: 0 0 auto; margin-left: auto;
+    #openedTable.cardview tbody td[data-label="Opened"] { order: -1; flex: 0 0 auto; margin-left: auto;
       white-space: nowrap; color: var(--text-secondary); }
-    #openedTable tbody td[data-label="Opened"]::before { content: none; }
-    #openedTable tbody td.rowacts { order: 1; flex: 0 0 auto; margin: 0 0 0 auto; }
-    #openedTable tbody td[data-label="Note"] { order: 2; }
+    #openedTable.cardview tbody td[data-label="Opened"]::before { content: none; }
+    #openedTable.cardview tbody td.rowacts { order: 1; flex: 0 0 auto; margin: 0 0 0 auto; }
+    #openedTable.cardview tbody td[data-label="Note"] { order: 2; }
   }
 
   /* Live regions stay IN the tree and are emptied rather than hidden — an
@@ -6268,6 +6292,62 @@ window.wcAdopt = (incoming, updatedAt) => {
   render();
 };
 /* ═══════════════════════════════ Boot ═════════════════════════════════════ */
+
+/* ── Table or cards: decided by whether the table FITS ──────────────────────
+   A `table.cards` gets `.cardview` (the card CSS) when, laid out as a table
+   with every text column at least 10rem wide (`.fitprobe`), it would be wider
+   than its box — so no list ever scrolls sideways OR squeezes into tall rows
+   of one word a line, and the switch follows the columns this cellar actually
+   shows rather than a guessed screen width (Charles, 2026-10-24: "this feels
+   like a good breakpoint", of a 1000px table that fitted only that way).
+   Measured by swapping the classes and reading the table's own width: a table
+   at width:100% that is wider than its box cannot squeeze any further.
+
+   Kept true without any render calling it: a MutationObserver on each host
+   sees a table replaced (it runs before paint, so a new table never flashes
+   as the wrong one), and a ResizeObserver sees the box change width — the
+   window, the zoom, a tab or a window opening. The resize answer waits a
+   frame, because switching changes the host's HEIGHT and a change made inside
+   the observer would be reported straight back to it; height alone is ignored.
+   A box with no width (a hidden tab, a closed window) is left to be decided
+   when it shows. */
+const CARD_HOSTS = ['nextList', 'listWrap', 'openedWrap', 'pastePreview'];
+function fitCards() {
+  CARD_HOSTS.forEach((id) => {
+    const host = document.getElementById(id);
+    if (!host) return;
+    host.querySelectorAll('table.cards').forEach((t) => {
+      const box = t.parentElement;
+      if (!box.clientWidth) return;
+      t.classList.remove('cardview');
+      t.classList.add('fitprobe');
+      const over = t.offsetWidth > box.clientWidth + 1;
+      t.classList.remove('fitprobe');
+      t.classList.toggle('cardview', over);
+    });
+  });
+}
+(function wireCards() {
+  const widths = new WeakMap();
+  let queued = false;
+  const later = () => {
+    if (queued) return;
+    queued = true;
+    requestAnimationFrame(() => { queued = false; fitCards(); });
+  };
+  const ro = typeof ResizeObserver === 'function' ? new ResizeObserver((entries) => {
+    if (entries.some((e) => widths.get(e.target) !== e.contentRect.width
+      && (widths.set(e.target, e.contentRect.width), true))) later();
+  }) : null;
+  const mo = new MutationObserver(fitCards);
+  CARD_HOSTS.forEach((id) => {
+    const host = document.getElementById(id);
+    if (!host) return;
+    mo.observe(host, { childList: true });
+    if (ro) ro.observe(host);
+  });
+  if (!ro) window.addEventListener('resize', later);
+})();
 
 async function boot() {
   if (shareToken) {

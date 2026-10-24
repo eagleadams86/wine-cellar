@@ -54,11 +54,21 @@ the family doesn't.
   the editor's first box took the focus, and the cancel ate the Bottles arrow's release. It is
   now `pressedOn` (the element pressed, cleared on pointerup), and the cancel fires only on a
   release over the box it was armed for.
-- **Under 640px every `table.cards` is a stack of cards, in CSS only.** Each `<td>` carries
-  `data-label` (the card shows it via `::before`, so exports never see it) — a new column needs
-  one, and a test checks every cell. The name `<th>` leads (`order: -2`), the Status pill rides
-  its line (`order: -1`), sortable headings become Sort-by chips. The family had no phone table
-  pattern before this one.
+- **A `table.cards` that doesn't fit is a stack of cards** — CSS keyed on `.cardview`, which
+  `fitCards()` sets (2026-10-24; it was a fixed 640px media query before, and a half-screen
+  window got a table squeezed into tall rows with the × cut off). "Fits" = laid out with every
+  TEXT column at least 10rem (`.fitprobe`; numbers, nowrap cells, the pill and the buttons
+  excluded), no wider than its box. A MutationObserver on each host (`CARD_HOSTS`) refits a
+  replaced table before paint; a ResizeObserver refits on a WIDTH change, a frame later (the
+  switch changes the host's height, which would loop). A hidden box (zero width) is decided when
+  it shows. A new card table must sit in a host listed in `CARD_HOSTS`. **One card to a line at
+  every width** — Charles, for the sort order; a 2-up grid was tried and rejected. A wide card
+  spends its width on fields (`flex: 1 1 7.5rem`: two to a line at 360px, all six at 1000px), and
+  an empty full-width `tr::before` breaks the line after the name and pill so fields start in the
+  same place on every card. Each `<td>` carries `data-label` (the card shows it via `::before`,
+  so exports never see it) — a new column needs one, and a test checks every cell. The name
+  `<th>` leads (`order: -2`), the Status pill rides its line (`order: -1`), sortable headings
+  become Sort-by chips.
 - **Undo is Money Map's in-memory ring** (`undoRing`/`undoSnapshot`, cap 20; `pushSnapshot`
   and `undoBankable` pure and pinned). save() banks the state it REPLACES unless the save is
   itself an undo (the `undoing` latch) or nothing changed (`coreOf`, which ignores `version`).

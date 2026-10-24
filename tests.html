@@ -51,7 +51,7 @@
    go MISSING look exactly like tests that pass — a suite that quietly shrank to
    three checks still says "all 3 tests pass". RAISE THIS when you add tests, and
    lower it only when you retire one deliberately. */
-const EXPECTED = 226;
+const EXPECTED = 228;
 
 /* ── It refuses to run anywhere but localhost, and that is load-bearing ──────
    GitHub Pages publishes this page BESIDE the app, where the iframe below would
@@ -332,6 +332,7 @@ async function runAsync() {
           /* The phone cards (2026-10-23): how the Cellar list lays out here. */
           listRoom: (() => { const lw = D.getElementById('listWrap'); return lw.scrollWidth - lw.clientWidth; })(),
           rowDisplay: FW.getComputedStyle(D.querySelector('#cellarTable tbody tr')).display,
+          cardview: D.getElementById('cellarTable').classList.contains('cardview'),
           sortShown: FW.getComputedStyle(D.querySelector('#cellarTable thead')).display !== 'none',
         };
         /* The keyboard reveal, in the 705px frame, where the controls overflow
@@ -2174,7 +2175,7 @@ function define() {
     eq([r.vintage, r.name, r.qty], [2007, 'Two Column Cab', 3]);
   });
 
-  group('on a phone, every list is a stack of cards');
+  group('a table that does not fit is a stack of cards');
   t('every value cell says which column it is, for the card that shows it', () => {
     ['cellarTable', 'openedTable'].forEach((id) => {
       if (id === 'openedTable') W.setTab('opened');
@@ -2191,6 +2192,37 @@ function define() {
     ok(r.narrow.listRoom <= 1, 'and nothing in the list scrolls sideways', r.narrow.listRoom);
     ok(r.narrow.sortShown, 'the headings stay, as sort buttons');
     eq(r.wide.rowDisplay, 'table-row', 'and a wide window keeps the table');
+    eq([r.narrow.cardview, r.wide.cardview], [true, false], 'the switch is the .cardview class fitCards() sets');
+    ok(r.mid.listRoom <= 1, 'and at 705px — table or cards — nothing scrolls sideways either', r.mid.listRoom);
+  });
+  t('the switch follows whether the table FITS, not the screen width', () => {
+    const D = W.document;
+    H.__plant(FIXTURE);
+    const t = D.getElementById('cellarTable'), box = t.parentElement;
+    /* Squeeze the box below what the table needs, then let it out again. */
+    box.style.width = '300px'; W.fitCards();
+    ok(t.classList.contains('cardview'), 'a box too narrow for the table turns it into cards');
+    eq(box.scrollWidth - box.clientWidth <= 1, true, 'and the cards fit it');
+    box.style.width = '2400px'; W.fitCards();
+    ok(!t.classList.contains('cardview'), 'a box with room gives the table back');
+    box.style.width = '1400px'; W.fitCards();
+    if (t.classList.contains('cardview')) ok(false, 'a 1400px box still had no room for the fixture table');
+    box.style.width = '';
+    W.fitCards();
+  });
+  t('cards stay one to a line at any width, and a wide card puts more fields on a line', () => {
+    const D = W.document;
+    H.__plant(FIXTURE);
+    const t = D.getElementById('cellarTable'), box = t.parentElement;
+    box.style.width = '1000px';
+    t.classList.add('cardview');   /* as fitCards would for a table too wide for 1000px */
+    const rows = [...t.tBodies[0].rows].map((r) => r.getBoundingClientRect());
+    ok(rows.every((r, i) => !i || r.top >= rows[i - 1].bottom), 'each card under the last — the sort reads straight down');
+    const cells = [...t.tBodies[0].rows[0].querySelectorAll('td:not(.rowacts):not([data-label="Status"])')]
+      .filter((c) => c.offsetParent).map((c) => Math.round(c.getBoundingClientRect().top));
+    ok(cells.filter((y) => y === cells[0]).length >= 3, 'three or more fields share the first line of a wide card', cells.join(','));
+    box.style.width = '';
+    W.fitCards();
   });
   t('the cards are layout only: Copy and CSV still read the full table', () => {
     const rows = H.tableToRows(W.document.getElementById('cellarTable'));

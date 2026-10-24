@@ -36,10 +36,13 @@ cellar on your other devices.
   Press a line to change its date, rating or note; the bottle count is left alone.
 - **Folding cards** — Drink Next, Cellar and Drinking Windows Ahead fold up to their heading
   (press the heading band, as in Money Map). Which ones you folded is remembered on this device.
-- **On a phone** every list — Drink Next, the Cellar, the Opened log and the paste preview —
-  turns into a stack of cards: the wine and its status pill on top, two labelled fields to a
-  line, and the row's buttons at the bottom. The column headings become a row of **Sort by**
-  buttons. It is layout only: Copy and CSV still export the full table.
+- **When a list doesn't fit as a table** — on a phone, or a half-screen window — it turns into
+  a stack of cards, one to a line so it still reads in its sort order: the wine and its status
+  pill on top, the labelled fields below (two to a line on a phone, all in one line on a wide
+  card), and the row's buttons at the bottom. It switches whenever the table could not give each
+  text column about two words a line, so it never scrolls sideways or squeezes into tall rows.
+  This covers Drink Next, the Cellar, the Opened log and the paste preview. The column headings
+  become a row of **Sort by** buttons. It is layout only: Copy and CSV still export the full table.
 - **Opened One** beside each wine takes a bottle off the count and writes a line in that log.
   Removing a line puts the bottle back, so a mistaken press is easy to undo.
 - **Paste a List** reads the table Claude writes when you ask it to look wines up — see below.
