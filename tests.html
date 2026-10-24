@@ -3413,7 +3413,9 @@ function define() {
       ok(!D.getElementById('timingCard').hidden && !D.getElementById('likeCard').hidden, 'a bottle opened: it shows');
       const tile = (k) => D.querySelector('#openedStats [data-timing="' + k + '"]');
       eq(['early', 'inwin', 'late'].map((k) => tile(k).querySelector('.v').firstChild.textContent), ['1', '1', '1']);
+      W.setFold(D.getElementById('openedCard'), true);
       tile('late').click();
+      ok(!D.getElementById('openedCard').classList.contains('boxshut'), 'a tile unfolds a folded list');
       eq(lines(), ['l'], 'Late narrows the list');
       eq(tile('late').getAttribute('aria-pressed'), 'true', 'and says it is pressed');
       ok(/Showing 1 of 3/.test(D.getElementById('openedFindNote').textContent), 'and the line says so');
@@ -3424,7 +3426,7 @@ function define() {
       eq(D.querySelector('#likeGrapes tbody th').textContent, 'Pinot Noir', 'What You Like: best-rated grape first');
       D.querySelector('#likeGrapes [data-sort="name"]').click();
       eq(D.querySelector('#likeGrapes tbody th').textContent, 'Cabernet Sauvignon', 'a heading sorts it');
-    } finally { W.setTimingPick && W.setTimingPick([]); H.__plant(FIXTURE); W.setTab('cellar'); }
+    } finally { W.setTimingPick && W.setTimingPick([]); W.setFold(D.getElementById('openedCard'), false); H.__plant(FIXTURE); W.setTab('cellar'); }
   });
   t('Opened One copies the vintage and window; editing the wine later leaves them alone', () => {
     const D = W.document, proto = W.Storage.prototype, realStore = proto.setItem;

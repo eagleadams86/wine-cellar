@@ -1810,7 +1810,7 @@ html[data-booting] footer { visibility: hidden; }
       <p class="warn-line" id="likeWarn" role="status"></p>
     </div>
 
-    <div class="card">
+    <div class="card" id="openedCard" data-fold="opened">
       <h2>Bottles Opened
         <span class="spacer"></span>
         <span class="pill" id="openedCount"></span>
@@ -5777,6 +5777,8 @@ $('openedStats').addEventListener('click', (e) => {
   if (!tile) return;
   const next = new Set(timingPick), k = tile.dataset.timing;
   next[next.has(k) ? 'delete' : 'add'](k);
+  /* A filter behind a folded card would change nothing you can see. */
+  if ($('openedCard').classList.contains('boxshut')) setFold($('openedCard'), false);
   setTimingPick([...next]);
 });
 /* What You Like sorts by its headings, one order per table. */

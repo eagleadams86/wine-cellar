@@ -50,8 +50,8 @@ cellar on your other devices.
 - **What You Like** — your opened bottles grouped by grape and by region, with how many you
   opened, how many you rated and the average stars of those, best-rated first. Press a heading to
   sort. Both cards count the whole log (Find never changes them) and hide until a bottle is opened.
-- **Folding cards** — At a Glance, Cellar, Drinking Windows Ahead, Opened at the Right Time and
-  What You Like fold up to their heading
+- **Folding cards** — At a Glance, Cellar, Drinking Windows Ahead, Opened at the Right Time,
+  What You Like and Bottles Opened fold up to their heading
   (press the heading band, as in Money Map). Which ones you folded is remembered on this device.
 - **When a list doesn't fit as a table** — on a phone, or a half-screen window — it turns into
   a stack of cards, one to a line so it still reads in its sort order: the wine and its status
