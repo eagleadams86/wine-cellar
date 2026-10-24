@@ -1789,6 +1789,17 @@ html[data-booting] footer { visibility: hidden; }
       <p class="chart-title">Every bottle you have marked as opened, newest first, with your rating
         and a note. Open a wine on the Cellar tab and press <strong>Opened One</strong> to add to it, and
         a line here to change its date, rating or note.</p>
+      <!-- Find, in the list — the Cellar's own. In the markup, never redrawn,
+           or the caret is lost. -->
+      <div class="filterbar no-print">
+        <div class="field" style="flex:1 1 220px">
+          <label for="openedFind">Find</label>
+          <input type="search" id="openedFind" maxlength="60" placeholder="wine, region, grape, note…"
+                 autocomplete="off" data-keep-caret>
+        </div>
+        <button type="button" class="link" id="clearOpenedFind">Clear</button>
+        <p class="hint" id="openedFindNote" role="status"></p>
+      </div>
       <div class="table-scroll" id="openedWrap"></div>
     </div>
   </div>
@@ -2322,8 +2333,9 @@ const TABS        = ['cellar', 'opened'];
    widen what one may hold. 2 (2026-10-23): `added` may be '' or a bare year
    for a wine already in the cellar; version-1 code turned both into today.
    3 (2026-10-23): `paid`, what one bottle actually cost. 4 (2026-10-24):
-   `checkedAt`, when Claude last answered for the wine. */
-const SCHEMA = 4;
+   `checkedAt`, when Claude last answered for the wine. 5 (2026-10-24): an
+   opened line's `region`, `grape` and `paid`, copied from its wine. */
+const SCHEMA = 5;
 
 /* ── Ids from outside are not trusted ──────────────────────────────────────
    Ids reach `data-id` attributes and <option value>s in a dozen places, so an
@@ -2518,8 +2530,25 @@ function normalizeState(raw) {
         /* The wine's name as it was when the bottle was opened, so the log still
            reads after the wine itself is deleted. */
         label: cleanLine(it.label, 100) || 'A deleted wine',
+        /* The same snapshot of its region, grape and price paid (2026-10-24).
+           A line written before these existed LACKS them, and takes them from
+           its wine if the wine is still here; a line that has one — even
+           blank — keeps it. One rule for old saves, backups, the cloud and
+           share links alike. */
+        region: 'region' in it ? cleanLine(it.region, 60) : null,
+        grape: 'grape' in it ? cleanLine(it.grape, 60) : null,
+        paid: 'paid' in it ? cleanMoney(it.paid) : undefined,
       };
     });
+  {
+    const byId = new Map(out.wines.map((w) => [w.id, w]));
+    out.opened.forEach((o) => {
+      const w = o.wineId ? byId.get(o.wineId) : null;
+      if (o.region == null) o.region = w ? w.region : '';
+      if (o.grape == null) o.grape = w ? w.grape : '';
+      if (o.paid === undefined) o.paid = w ? w.paid : null;
+    });
+  }
   const s = (raw && raw.settings) || {};
   /* Number(null) is 0 — "this year" — so an absent setting must not reach it. */
   const soon = s.soonYears == null || s.soonYears === '' ? NaN : Number(s.soonYears);
@@ -3117,6 +3146,9 @@ const COLUMNS = [
 const OPENED_COLUMNS = [
   { key: 'date',   label: 'Opened', desc: true },
   { key: 'wine',   label: 'Wine',   desc: false },
+  { key: 'region', label: 'Region', desc: false },
+  { key: 'grape',  label: 'Grape',  desc: false },
+  { key: 'paid',   label: 'Paid',   desc: true, num: true },
   { key: 'rating', label: 'Rating', desc: true, num: true },
   { key: 'note',   label: 'Note',   desc: false },
 ];
@@ -3228,7 +3260,16 @@ function renderList() {
 function visibleOpened() {
   const key = openedSortKey || 'date';
   const sign = (openedSortKey ? openedSortDir : 'desc') === 'asc' ? 1 : -1;
-  return state.opened.slice().sort((a, b) => {
+  const blankLast = (x, y2, f) => (x == null && y2 == null) ? 0 : x == null ? 1 : y2 == null ? -1 : f(x, y2) * sign;
+  /* Find, in the list: every word you can see on a line, the date as shown. */
+  const q = document.getElementById('openedFind').value.trim().toLowerCase();
+  const rows = !q ? state.opened.slice() : state.opened.filter((o) =>
+    [o.label, o.region, o.grape, o.note, fmtDate(o.date), o.paid == null ? '' : fmtPaid(o.paid)]
+      .some((t) => String(t || '').toLowerCase().indexOf(q) !== -1));
+  return rows.sort((a, b) => {
+    if (key === 'region' || key === 'grape')
+      return blankLast(a[key] || null, b[key] || null, (x, z) => x.localeCompare(z)) || b.date.localeCompare(a.date);
+    if (key === 'paid') return blankLast(a.paid, b.paid, (x, z) => x - z) || b.date.localeCompare(a.date);
     if (key === 'rating') {
       if (a.rating == null || b.rating == null) return (a.rating == null) - (b.rating == null);
       return (a.rating - b.rating) * sign || b.date.localeCompare(a.date);
@@ -3240,16 +3281,24 @@ function visibleOpened() {
 }
 
 function renderOpened() {
-  const rows = visibleOpened();
-  document.getElementById('openedCount').textContent = plural(rows.length, 'bottle');
+  const rows = visibleOpened(), total = state.opened.length;
+  const q = document.getElementById('openedFind').value.trim();
+  document.getElementById('openedCount').textContent = plural(total, 'bottle');
+  document.getElementById('openedFindNote').textContent = q && total
+    ? 'Showing ' + rows.length + ' of ' + total + ' — the filter changes this list only.' : '';
   const wrap = document.getElementById('openedWrap');
-  if (!rows.length) {
+  if (!total) {
     wrap.innerHTML = '<p class="empty">No bottles opened yet. When you open one, press its wine on '
       + 'the Cellar tab, then Opened One.</p>';
     return;
   }
+  if (!rows.length) { wrap.innerHTML = '<p class="empty">No bottle matches that.</p>'; return; }
+  /* Paid shows only once some line has a price — the Cellar's rule. No deal
+     words here: the wine's value may have moved since the bottle was opened. */
+  const hasPaid = state.opened.some((o) => o.paid != null);
+  const cols = hasPaid ? OPENED_COLUMNS : OPENED_COLUMNS.filter((c) => c.key !== 'paid');
   wrap.innerHTML = '<table id="openedTable" class="cards"><thead><tr>'
-    + sortHead(OPENED_COLUMNS, openedSortKey, openedSortDir)
+    + sortHead(cols, openedSortKey, openedSortDir)
     /* No actions column: Remove is in the line's own window (2026-10-24). */
     + '</tr></thead><tbody>'
     + rows.map((o) => '<tr' + (viewOnly ? '' : ' class="rowlink" data-open-bottle="' + esc(o.id) + '"') + '>'
@@ -3259,6 +3308,9 @@ function renderOpened() {
       + '<th scope="row">' + (viewOnly ? esc(o.label)
           : '<button type="button" class="rowbtn" data-edit-bottle="' + esc(o.id) + '">' + esc(o.label) + '</button>')
       + '</th>'
+      + '<td data-label="Region">' + esc(o.region) + '</td>'
+      + '<td data-label="Grape">' + esc(o.grape) + '</td>'
+      + (hasPaid ? '<td class="num nowrap" data-label="Paid">' + esc(fmtPaid(o.paid)) + '</td>' : '')
       /* The stars are decoration over a number: aria-hidden, so a screen reader
          and the CSV both get "4/5" rather than a row of glyphs. */
       + '<td class="num" data-label="Rating">' + (o.rating ? '<span aria-hidden="true" class="stars">'
@@ -4931,8 +4983,11 @@ $('openSave').addEventListener('click', () => {
   }
   w.qty -= 1;
   const r = Number($('o_rating').value);
+  /* The name, region, grape and price are copied, so the log still reads the
+     same after the wine is edited or deleted. */
   state.opened.push({ id: uid(), wineId: w.id, date: date, rating: r >= 1 && r <= 5 ? r : null,
-                      note: cleanLine($('o_note').value, 140), label: cleanLine(wineLabel(w), 100) });
+                      note: cleanLine($('o_note').value, 140), label: cleanLine(wineLabel(w), 100),
+                      region: w.region, grape: w.grape, paid: w.paid });
   save();
   $('openDialog').close();
   toast(w.qty ? 'Enjoy it — ' + plural(w.qty, 'bottle') + ' left' : 'Enjoy it — that was the last one');
@@ -5467,6 +5522,12 @@ $('openRemove').addEventListener('click', () => {
 
 /* Find. Redraws the table only — never the controls, or the caret is lost. */
 $('findBox').addEventListener('input', renderList);
+$('openedFind').addEventListener('input', renderOpened);
+$('clearOpenedFind').addEventListener('click', () => {
+  $('openedFind').value = '';
+  renderOpened();
+  $('openedFind').focus();
+});
 /* The status filter: ONE set, pressed from the dropdown's tick boxes and from
    the status tiles, and drawn back onto both by setStatusPick — so they can
    never disagree. Neither redraws the tiles (that would take the focus off the
@@ -5647,9 +5708,10 @@ function csvWines(st) {
   return toCsv(rows);
 }
 function csvOpened(st) {
-  const rows = [['Opened', 'Wine', 'Rating', 'Note']].concat(st.opened.slice()
+  const rows = [['Opened', 'Wine', 'Region', 'Grape', 'Paid', 'Rating', 'Note']].concat(st.opened.slice()
     .sort((a, b) => a.date.localeCompare(b.date))
-    .map((o) => [o.date, o.label, o.rating == null ? '' : o.rating, o.note]));
+    .map((o) => [o.date, o.label, o.region, o.grape, o.paid == null ? '' : o.paid,
+      o.rating == null ? '' : o.rating, o.note]));
   return toCsv(rows);
 }
 function downloadCsv(text, name) {

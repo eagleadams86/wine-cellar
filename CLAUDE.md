@@ -17,7 +17,13 @@ the family doesn't.
   because `Number(null)` is 0. A missing value or window stays `null` — never `undefined`
   (Firestore refuses a whole document over one).
 - `opened[].label` snapshots the wine's name at the moment it was opened, so the log still
-  reads after the wine is deleted. Removing a log line puts the bottle back on the count.
+  reads after the wine is deleted — and since SCHEMA 5 (2026-10-24) so do `region`, `grape` and
+  `paid`, written by Opened One. A line LACKING them (`!('region' in it)`) is filled from its
+  wine inside normalizeState, which covers old saves, backups, the cloud copy and share links
+  (the share payload's opened map does not carry them; the receiver backfills from the shared
+  wine, and `paid` only travels when What you paid is ticked). A line that has one, even blank,
+  keeps it. The Opened list's Paid column hides while no line has a price, like the Cellar's;
+  its Find (`#openedFind`) is page-life only. Removing a log line puts the bottle back on the count.
 
 ## Decisions — Don't Undo
 

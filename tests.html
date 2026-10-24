@@ -51,7 +51,7 @@
    go MISSING look exactly like tests that pass — a suite that quietly shrank to
    three checks still says "all 3 tests pass". RAISE THIS when you add tests, and
    lower it only when you retire one deliberately. */
-const EXPECTED = 235;
+const EXPECTED = 238;
 
 /* ── It refuses to run anywhere but localhost, and that is load-bearing ──────
    GitHub Pages publishes this page BESIDE the app, where the iframe below would
@@ -899,7 +899,7 @@ function define() {
         'region', 'source', 'valueEst', 'valueHigh', 'valueLow', 'vintage'],
        'a new stored field must be added to normalizeState AND bump SCHEMA');
     const o = H.normalizeState({ opened: [{ id: 'o', secret: 1 }] }).opened[0];
-    eq(Object.keys(o).sort(), ['date', 'id', 'label', 'note', 'rating', 'wineId'], 'an opened bottle too');
+    eq(Object.keys(o).sort(), ['date', 'grape', 'id', 'label', 'note', 'paid', 'rating', 'region', 'wineId'], 'an opened bottle too');
   });
   t('text is capped in code, not only by maxlength', () => {
     eq(one({ name: 'x'.repeat(500) }).name.length, 80, 'a paste ignores the attribute');
@@ -1063,7 +1063,7 @@ function define() {
     ok(csv.indexOf('\r\n') > -1, 'CRLF, so Excel on Windows reads it as one file');
     ok(csv.split('\r\n')[0].indexOf('Wine') > -1, 'a header row');
     eq(csv.split('\r\n').length, 4, 'one row per wine');
-    ok(/Opened,Wine,Rating,Note/.test(H.csvOpened(H.normalizeState(FIXTURE))), 'and the opened log has its own');
+    ok(/Opened,Wine,Region,Grape,Paid,Rating,Note/.test(H.csvOpened(H.normalizeState(FIXTURE))), 'and the opened log has its own');
   });
 
   group('share links carry figures, never identity');
@@ -3297,6 +3297,57 @@ function define() {
       ok(!H.__state().opened.some((o) => o.id === 'fx-o1') && !D.getElementById('openDialog').open, 'Yes removes it and closes');
       eq(qty(), before + 1, 'and the bottle is back on the count');
     } finally { proto.setItem = realStore; W.confirm = realConfirm; D.getElementById('openDialog').close(); H.__plant(FIXTURE); W.setTab('cellar'); }
+  });
+  t('an opened line keeps its wine’s region, grape and price — filled in once for old lines', () => {
+    const st = H.normalizeState({ wines: [{ id: 'w', name: 'A', region: 'Rioja', grape: 'Tempranillo', paid: 18.5 }],
+      opened: [{ id: 'old', wineId: 'w', date: '2026-01-01', label: 'A' },
+               { id: 'blank', wineId: 'w', date: '2026-01-01', label: 'A', region: '', grape: '', paid: null },
+               { id: 'gone', wineId: 'nope', date: '2026-01-01', label: 'B' },
+               { id: 'junk', wineId: 'w', date: '2026-01-01', label: 'A', region: 'x', grape: 'y', paid: 'lots' }] });
+    const o = (id) => st.opened.find((x) => x.id === id);
+    eq([o('old').region, o('old').grape, o('old').paid], ['Rioja', 'Tempranillo', 18.5], 'an old line takes them from its wine');
+    eq([o('blank').region, o('blank').grape, o('blank').paid], ['', '', null], 'a line that has them, even blank, keeps them');
+    eq([o('gone').region, o('gone').grape, o('gone').paid], ['', '', null], 'no wine, nothing to copy');
+    eq(o('junk').paid, null, 'a price that is not a number is none');
+    ok(st.opened.every((x) => x.paid !== undefined), 'never undefined — Firestore refuses a document over one');
+  });
+  t('Opened One copies region, grape and paid; editing the wine later leaves the line alone', () => {
+    const D = W.document, proto = W.Storage.prototype, realStore = proto.setItem;
+    proto.setItem = function () {};
+    try {
+      H.__plant(Object.assign({}, FIXTURE, { wines: FIXTURE.wines.map((w) =>
+        Object.assign({}, w, { paid: w.id === 'fx-hold' ? 42 : null })) }));
+      W.openDrink('fx-hold'); D.getElementById('openSave').click();
+      const line = H.__state().opened[H.__state().opened.length - 1];
+      eq([line.region, line.grape, line.paid], ['Napa Valley', H.__state().wines.find((w) => w.id === 'fx-hold').grape, 42]);
+      H.__state().wines.find((w) => w.id === 'fx-hold').region = 'Somewhere Else';
+      W.openBottleEdit(line.id); D.getElementById('o_note').value = 'Lovely'; D.getElementById('openSave').click();
+      eq(H.__state().opened.find((o) => o.id === line.id).region, 'Napa Valley', 'a snapshot, like the name');
+    } finally { proto.setItem = realStore; D.getElementById('openDialog').close(); H.__plant(FIXTURE); }
+  });
+  t('the Opened list shows Region and Grape, Paid once a line has one, sorts blanks last, and finds', () => {
+    const D = W.document;
+    const heads = () => [...D.querySelectorAll('#openedTable thead th')].map((h) => h.textContent.replace(/[↑↓\s]+$/, ''));
+    const fx = JSON.parse(JSON.stringify(FIXTURE));
+    fx.opened = [{ id: 'a', wineId: null, date: '2026-03-01', label: 'First Wine', region: '', grape: 'Syrah', paid: null },
+                 { id: 'b', wineId: null, date: '2026-04-01', label: 'Second Wine', region: 'Rioja', grape: 'Tempranillo', paid: null }];
+    try {
+      H.__plant(fx);
+      W.setTab('opened');
+      eq(heads(), ['Opened', 'Wine', 'Region', 'Grape', 'Rating', 'Note'], 'no price anywhere: no Paid column');
+      fx.opened[1].paid = 24; H.__plant(fx);
+      eq(heads(), ['Opened', 'Wine', 'Region', 'Grape', 'Paid', 'Rating', 'Note'], 'one price: Paid appears');
+      D.querySelector('#openedTable [data-sort="region"]').click();
+      eq([...D.querySelectorAll('#openedTable tbody tr')].map((r) => r.dataset.openBottle), ['b', 'a'], 'a blank region sorts last');
+      const box = D.getElementById('openedFind');
+      box.value = 'syrah'; box.dispatchEvent(new W.Event('input'));
+      eq([...D.querySelectorAll('#openedTable tbody tr')].map((r) => r.dataset.openBottle), ['a'], 'Find narrows by grape');
+      ok(/Showing 1 of 2/.test(D.getElementById('openedFindNote').textContent), 'and says so');
+      box.value = 'nothing like it'; box.dispatchEvent(new W.Event('input'));
+      ok(/No bottle matches/.test(D.getElementById('openedWrap').textContent), 'no match says so');
+      D.getElementById('clearOpenedFind').click();
+      eq(D.querySelectorAll('#openedTable tbody tr').length, 2, 'Clear brings every line back');
+    } finally { D.getElementById('openedFind').value = ''; H.__plant(FIXTURE); W.setTab('cellar'); }
   });
   t('removing a log line puts the bottle back', () => {
     ok(/if \(w\) w\.qty = Math\.min\(999, w\.qty \+ 1\)/.test(stripComments(APP_SRC)),

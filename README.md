@@ -37,7 +37,10 @@ cellar on your other devices.
   field the table has no column for: colour, where it came from and when it was added. Then the
   wine's notes, if it has any; a small dot after the name still says it has notes. On a phone,
   tap the wine to see it all in its window.
-- **Opened tab** — every bottle you have opened, with the date, your 1–5 rating and a note.
+- **Opened tab** — every bottle you have opened, with the date, the wine's region, grape and what
+  you paid (copied when you press Opened One, so the log reads the same after the wine is edited
+  or deleted; Paid shows once any bottle has one), your 1–5 rating and a note. **Find** narrows
+  the list by any of those words, like the Cellar's.
   Press a line to change its date, rating or note; the bottle count is left alone.
 - **Folding cards** — Cellar and Drinking Windows Ahead fold up to their heading
   (press the heading band, as in Money Map). Which ones you folded is remembered on this device.
