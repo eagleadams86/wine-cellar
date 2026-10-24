@@ -41,8 +41,14 @@ cellar on your other devices.
   you paid (copied when you press Opened One, so the log reads the same after the wine is edited
   or deleted; Paid shows once any bottle has one), your 1–5 rating and a note. **Find** narrows
   the list by any of those words, like the Cellar's.
-  Press a line to change its date, rating or note; the bottle count is left alone.
-  Each line also says its **Timing** and **Age** (see below).
+  Press a line to change **anything** on it — the wine's name, vintage, region, grape, price,
+  drinking window, where, date, rating and note. That changes the line only, never the wine in
+  the Cellar, and the bottle count is left alone.
+  Each line also says its **Timing** and **Age** (see below), and **Where** it was opened once any
+  line has a place.
+- **Log a Bottle** — for a bottle opened at dinner, a winery or a tasting: type the wine, press
+  **Look Up with Claude** to fill its region, grape and drinking window, and save. It goes straight
+  onto the Opened tab and its dashboard without ever being in the Cellar.
 - **Opened at the Right Time** — tiles at the top of the Opened tab count the bottles opened
   **Early** (before the window opened), **In Window** and **Late** (after it closed), set against
   the window the wine had on the day it was opened, plus the **Average Age** from vintage to

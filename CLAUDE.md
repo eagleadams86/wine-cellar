@@ -33,6 +33,14 @@ the family doesn't.
   WHOLE log. Timing tiles toggle `timingPick` (page-life, like `statusPick`; Clear empties it too);
   No Window has no tile, the warn line counts it. What You Like groups grape/region case-blind
   (`likeGroups`), averages rated bottles only, counts blanks aloud, and never reads notes.
+- SCHEMA 7 / SHARE_PAYLOAD_V 4 (2026-10-24): `place` (Where, 40 chars) on an opened line. The share
+  payload's opened map now carries the line's own snapshot (region, grape, vintage, window; place
+  with the notes; paid when ticked), because a logged bottle has no wine to backfill from.
+- **`#openDialog` has three modes** (`dressOpenDialog`): Opened One (`drinkingId`, wine boxes
+  hidden, copies the wine), Edit (`editingBottleId`, every box) and Log a Bottle (`loggingBottle`,
+  `wineId: null`, no count). Edit and Log rebuild `label` from the name + vintage boxes. **A line
+  edit never touches a Cellar wine** (Charles, 2026-10-24). Its Look Up (`obLookupBtn`) reuses
+  `lookupWine`/`readLookup`, fills only empty region/grape/window boxes and offers Claude's for the rest.
 
 ## Decisions — Don't Undo
 
@@ -222,6 +230,6 @@ commented copy in the repo.
 
 ## Tests
 
-`tests.html`, `EXPECTED = 245`. Run it headless (Playwright) rather than in the Browser pane:
+`tests.html`, `EXPECTED = 250`. Run it headless (Playwright) rather than in the Browser pane:
 the pane throttles hidden timers and its focus heuristics turn the 705px keyboard-focus check
 red on untouched code.

@@ -51,7 +51,7 @@
    go MISSING look exactly like tests that pass — a suite that quietly shrank to
    three checks still says "all 3 tests pass". RAISE THIS when you add tests, and
    lower it only when you retire one deliberately. */
-const EXPECTED = 245;
+const EXPECTED = 250;
 
 /* ── It refuses to run anywhere but localhost, and that is load-bearing ──────
    GitHub Pages publishes this page BESIDE the app, where the iframe below would
@@ -901,8 +901,8 @@ function define() {
         'region', 'source', 'valueEst', 'valueHigh', 'valueLow', 'vintage'],
        'a new stored field must be added to normalizeState AND bump SCHEMA');
     const o = H.normalizeState({ opened: [{ id: 'o', secret: 1 }] }).opened[0];
-    eq(Object.keys(o).sort(), ['date', 'drinkFrom', 'drinkTo', 'grape', 'id', 'label', 'note', 'paid', 'rating', 'region',
-       'vintage', 'wineId'], 'an opened bottle too');
+    eq(Object.keys(o).sort(), ['date', 'drinkFrom', 'drinkTo', 'grape', 'id', 'label', 'note', 'paid', 'place', 'rating',
+       'region', 'vintage', 'wineId'], 'an opened bottle too');
   });
   t('text is capped in code, not only by maxlength', () => {
     eq(one({ name: 'x'.repeat(500) }).name.length, 80, 'a paste ignores the attribute');
@@ -3447,6 +3447,106 @@ function define() {
     ok(c.age.unaged >= 1 && c.grapes.blank >= 1 && c.regions.blank >= 1, 'NV and blanks');
     const gone = st.opened.find((o) => o.wineId && !st.wines.some((w) => w.id === o.wineId));
     ok(gone && gone.vintage != null, 'a deleted wine, its vintage off the label');
+  });
+  t('editing a line changes anything on it, and never the Cellar wine', () => {
+    const D = W.document, proto = W.Storage.prototype, realStore = proto.setItem;
+    proto.setItem = function () {};
+    const set = (id, v) => { D.getElementById(id).value = v; };
+    try {
+      H.__plant(FIXTURE);
+      const before = JSON.stringify(H.__state().wines);
+      W.openBottleEdit('fx-o1');
+      eq([D.getElementById('ob_name').value, D.getElementById('ob_vintage').value], ['Alpha Pinot', '2019'],
+         'the name box is the label without its vintage');
+      ok(!D.getElementById('openWineBox').hidden && D.getElementById('openBody').hidden, 'the wine boxes show');
+      set('ob_name', 'Alpha Pinot Reserve'); set('ob_vintage', '2018'); set('ob_region', 'Russian River');
+      set('ob_grape', 'Pinot'); set('ob_paid', '55'); set('ob_from', '2030'); set('ob_to', '2028');
+      set('o_place', 'Home'); set('o_rating', '5');
+      D.getElementById('openSave').click();
+      const o = H.__state().opened.find((x) => x.id === 'fx-o1');
+      eq([o.label, o.vintage, o.region, o.grape, o.paid, o.drinkFrom, o.drinkTo, o.place, o.rating],
+         ['2018 Alpha Pinot Reserve', 2018, 'Russian River', 'Pinot', 55, 2028, 2030, 'Home', 5],
+         'every box, a backwards window turned round');
+      eq(H.timingOf(o), 'early', 'timing follows the edited window');
+      eq(JSON.stringify(H.__state().wines), before, 'the Cellar wine is untouched');
+      W.openBottleEdit('fx-o1'); set('ob_name', '   '); D.getElementById('openSave').click();
+      ok(D.getElementById('openDialog').open && /name/.test(D.getElementById('openWarn').textContent), 'a blank name is refused');
+    } finally { proto.setItem = realStore; D.getElementById('openDialog').close(); H.__plant(FIXTURE); }
+  });
+  t('Log a Bottle writes a line with no wine and changes no count', () => {
+    const D = W.document, proto = W.Storage.prototype, realStore = proto.setItem;
+    proto.setItem = function () {};
+    try {
+      H.__plant(FIXTURE);
+      const counts = JSON.stringify(H.__state().wines.map((w) => w.qty));
+      D.getElementById('logBtn').click();
+      eq(D.getElementById('openTitle').textContent, 'Log a Bottle');
+      ok(D.getElementById('openRemove').hidden, 'nothing to remove yet');
+      D.getElementById('openSave').click();
+      ok(D.getElementById('openDialog').open, 'no name, no line');
+      D.getElementById('ob_name').value = 'Dinner Malbec'; D.getElementById('ob_vintage').value = '';
+      D.getElementById('o_place').value = 'A steakhouse';
+      D.getElementById('openSave').click();
+      const o = H.__state().opened[H.__state().opened.length - 1];
+      eq([o.wineId, o.label, o.vintage, o.place], [null, 'NV Dinner Malbec', null, 'A steakhouse']);
+      eq(JSON.stringify(H.__state().wines.map((w) => w.qty)), counts, 'no count moved');
+      ok(Object.keys(o).every((k) => o[k] !== undefined), 'never undefined');
+    } finally { proto.setItem = realStore; D.getElementById('openDialog').close(); H.__plant(FIXTURE); }
+  });
+  t('Where shows once a line has a place, and Find matches it', () => {
+    const D = W.document;
+    const heads = () => [...D.querySelectorAll('#openedTable thead th')].map((h) => h.textContent);
+    const fx = JSON.parse(JSON.stringify(FIXTURE));
+    try {
+      H.__plant(fx); W.setTab('opened');
+      ok(heads().indexOf('Where') === -1, 'no place anywhere: no column');
+      fx.opened[0].place = 'The tasting room'; H.__plant(fx);
+      ok(heads().indexOf('Where') !== -1, 'one place: the column appears');
+      const box = D.getElementById('openedFind');
+      box.value = 'tasting room'; box.dispatchEvent(new W.Event('input'));
+      eq(D.querySelectorAll('#openedTable tbody tr').length, 1, 'Find matches a place');
+      ok(/Where/.test(H.csvOpened(H.__state()).split('\n')[0]), 'and the CSV carries it');
+    } finally { D.getElementById('openedFind').value = ''; H.__plant(FIXTURE); W.setTab('cellar'); }
+  });
+  t('Look Up in the opened window fills only the empty boxes', async () => {
+    const D = W.document, proto = W.Storage.prototype, realGet = proto.getItem, realFetch = W.fetch;
+    proto.getItem = function (k) { return k === H.LOOKUP_KEY_STORE ? 'sk-ant-test' : realGet.call(this, k); };
+    W.fetch = async () => ({ ok: true, status: 200, json: async () => ({ stop_reason: 'tool_use', usage: {},
+      content: [{ type: 'tool_use', name: 'record_wine', id: 't', input: { matched_wine: 'Dinner Malbec 2019',
+        confidence: 'high', color: 'red', region: 'Mendoza', grape: 'Malbec', value_low: 30, value_high: 40,
+        value_is_estimate: true, value_basis: 'listings', drink_from: 2022, drink_to: 2030, window_basis: 'x',
+        sources: [] } }] }) });
+    try {
+      H.__plant(FIXTURE);
+      W.openLogBottle();
+      D.getElementById('ob_name').value = 'Dinner Malbec'; D.getElementById('ob_vintage').value = '2019';
+      D.getElementById('ob_grape').value = 'Cabernet Franc';
+      D.getElementById('obLookupBtn').click();
+      for (let i = 0; i < 50 && /Searching/.test(D.getElementById('obLookupNote').textContent); i++)
+        await new Promise((r) => setTimeout(r, 20));
+      eq([D.getElementById('ob_region').value, D.getElementById('ob_from').value, D.getElementById('ob_to').value],
+         ['Mendoza', '2022', '2030'], 'empty boxes filled');
+      eq(D.getElementById('ob_grape').value, 'Cabernet Franc', 'a box you filled is kept');
+      ok(!D.getElementById('obLookupUse').hidden && /different grape/.test(D.getElementById('obLookupNote').textContent),
+         'and Claude’s is offered');
+      D.getElementById('obLookupUse').click();
+      eq(D.getElementById('ob_grape').value, 'Malbec', 'Use Claude’s replaces it');
+    } finally {
+      proto.getItem = realGet; W.fetch = realFetch;
+      D.getElementById('openDialog').close();
+      H.__plant(FIXTURE);
+    }
+  });
+  t('a share link keeps a logged bottle’s own details', () => {
+    const st = H.normalizeState({ wines: [], opened: [{ id: 'x', wineId: null, date: '2026-05-01', label: '2019 Dinner Malbec',
+      region: 'Mendoza', grape: 'Malbec', vintage: 2019, drinkFrom: 2022, drinkTo: 2030, place: 'A steakhouse',
+      note: 'Lovely', paid: 85 }] });
+    const p = H.buildSharePayload(st, { opened: true });
+    const back = H.normalizeState({ wines: p.wines, opened: p.opened }).opened[0];
+    eq([back.region, back.grape, back.vintage, back.drinkFrom, back.drinkTo], ['Mendoza', 'Malbec', 2019, 2022, 2030]);
+    eq([back.place, back.note, back.paid], ['', '', null], 'place and note only with the notes, paid only when ticked');
+    const all = H.normalizeState({ wines: [], opened: H.buildSharePayload(st, { opened: true, notes: true, paid: true }).opened }).opened[0];
+    eq([all.place, all.note, all.paid], ['A steakhouse', 'Lovely', 85]);
   });
   t('removing a log line puts the bottle back', () => {
     ok(/if \(w\) w\.qty = Math\.min\(999, w\.qty \+ 1\)/.test(stripComments(APP_SRC)),

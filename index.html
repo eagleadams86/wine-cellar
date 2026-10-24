@@ -1821,9 +1821,10 @@ html[data-booting] footer { visibility: hidden; }
                   data-export-name="opened" data-export-how="csv"><span aria-hidden="true">⬇</span> CSV</button>
         </span>
       </h2>
-      <p class="chart-title">Every bottle you have marked as opened, newest first, with your rating
-        and a note. Open a wine on the Cellar tab and press <strong>Opened One</strong> to add to it, and
-        a line here to change its date, rating or note.</p>
+      <p class="chart-title">Every bottle you have opened, newest first, with your rating and a note.
+        Open a wine on the Cellar tab and press <strong>Opened One</strong> to add to it, press
+        <strong>Log a Bottle</strong> for one opened at dinner, a winery or a tasting, and press a line
+        here to change anything on it.</p>
       <!-- Find, in the list — the Cellar's own. In the markup, never redrawn,
            or the caret is lost. -->
       <div class="filterbar no-print">
@@ -1836,6 +1837,9 @@ html[data-booting] footer { visibility: hidden; }
         <p class="hint" id="openedFindNote" role="status"></p>
       </div>
       <div class="table-scroll" id="openedWrap"></div>
+      <div class="row-actions no-print" style="justify-content:flex-start">
+        <button type="button" class="primary" id="logBtn">＋ Log a Bottle</button>
+      </div>
     </div>
   </div>
 </main>
@@ -2003,6 +2007,60 @@ html[data-booting] footer { visibility: hidden; }
 <dialog id="openDialog" aria-labelledby="openTitle">
   <h2 id="openTitle">Opened a Bottle</h2>
   <p id="openBody"></p>
+  <!-- The wine itself, for a line being edited or a bottle logged away from
+       home. Hidden for Opened One, which copies its Cellar wine. A line's own
+       copy: changing it here never touches a wine in the Cellar. -->
+  <div id="openWineBox">
+    <div class="field">
+      <label for="ob_name">Wine</label>
+      <input type="text" id="ob_name" maxlength="80" autocomplete="off"
+             placeholder="Producer and wine, e.g. Example Ridge Syrah">
+    </div>
+    <div class="grid2">
+      <div class="field">
+        <label for="ob_vintage">Vintage</label>
+        <input type="number" id="ob_vintage" min="1900" max="2100" step="1" inputmode="numeric"
+               placeholder="blank for non-vintage">
+      </div>
+      <div class="field">
+        <label for="ob_paid">Paid for the bottle ($)</label>
+        <input type="number" id="ob_paid" min="0" step="0.01" inputmode="decimal">
+      </div>
+    </div>
+    <!-- Look Up fills the EMPTY boxes below; a box you filled is kept, and
+         the line under it offers Claude's instead. -->
+    <div class="lookupbar no-print">
+      <button type="button" id="obLookupBtn"><span aria-hidden="true">✦</span> Look Up with Claude</button>
+      <span class="hint" id="obLookupNote" role="status"></span>
+      <button type="button" class="link" id="obLookupUse" hidden>Use Claude’s</button>
+    </div>
+    <div class="grid2">
+      <div class="field">
+        <label for="ob_region">Region</label>
+        <input type="text" id="ob_region" maxlength="60" autocomplete="off">
+      </div>
+      <div class="field">
+        <label for="ob_grape">Grape or blend</label>
+        <input type="text" id="ob_grape" maxlength="60" autocomplete="off">
+      </div>
+    </div>
+    <div class="grid2">
+      <div class="field">
+        <label for="ob_from">Drink from (year)</label>
+        <input type="number" id="ob_from" min="1900" max="2150" step="1" inputmode="numeric">
+      </div>
+      <div class="field">
+        <label for="ob_to">Drink by (year)</label>
+        <input type="number" id="ob_to" min="1900" max="2150" step="1" inputmode="numeric">
+      </div>
+    </div>
+  </div>
+  <div class="field">
+    <label for="o_place">Where</label>
+    <input type="text" id="o_place" maxlength="40" autocomplete="off" list="placeList"
+           placeholder="Home, a restaurant, a tasting…">
+    <datalist id="placeList"></datalist>
+  </div>
   <div class="grid2">
     <div class="field">
       <label for="o_date">Opened on</label>
@@ -2370,7 +2428,7 @@ const TABS        = ['cellar', 'opened'];
    3 (2026-10-23): `paid`, what one bottle actually cost. 4 (2026-10-24):
    `checkedAt`, when Claude last answered for the wine. 5 (2026-10-24): an
    opened line's `region`, `grape` and `paid`, copied from its wine. */
-const SCHEMA = 6;
+const SCHEMA = 7;
 
 /* ── Ids from outside are not trusted ──────────────────────────────────────
    Ids reach `data-id` attributes and <option value>s in a dozen places, so an
@@ -2580,6 +2638,8 @@ function normalizeState(raw) {
         vintage: 'vintage' in it ? cleanYear(it.vintage) : undefined,
         drinkFrom: 'drinkFrom' in it ? cleanYear(it.drinkFrom) : undefined,
         drinkTo: 'drinkTo' in it ? cleanYear(it.drinkTo) : undefined,
+        /* Where it was opened — home, a restaurant, a tasting (SCHEMA 7). */
+        place: cleanLine(it.place, 40),
       };
     });
   {
@@ -3272,6 +3332,7 @@ const OPENED_COLUMNS = [
   { key: 'wine',   label: 'Wine',   desc: false },
   { key: 'region', label: 'Region', desc: false },
   { key: 'grape',  label: 'Grape',  desc: false },
+  { key: 'place',  label: 'Where',  desc: false },
   { key: 'paid',   label: 'Paid',   desc: true, num: true },
   { key: 'rating', label: 'Rating', desc: true, num: true },
   { key: 'timing', label: 'Timing', desc: false },
@@ -3401,14 +3462,14 @@ function visibleOpened() {
   /* Find, in the list: every word you can see on a line, the date as shown. */
   const q = document.getElementById('openedFind').value.trim().toLowerCase();
   let rows = !q ? state.opened.slice() : state.opened.filter((o) =>
-    [o.label, o.region, o.grape, o.note, fmtDate(o.date), o.paid == null ? '' : fmtPaid(o.paid),
+    [o.label, o.region, o.grape, o.place, o.note, fmtDate(o.date), o.paid == null ? '' : fmtPaid(o.paid),
      TIMING[timingOf(o)].label].some((t) => String(t || '').toLowerCase().indexOf(q) !== -1));
   if (timingPick.size) rows = rows.filter((o) => timingPick.has(timingOf(o)));
   return rows.sort((a, b) => {
     if (key === 'timing')
       return (TIMING[timingOf(a)].rank - TIMING[timingOf(b)].rank) * sign || b.date.localeCompare(a.date);
     if (key === 'age') return blankLast(ageAtOpening(a), ageAtOpening(b), (x, z) => x - z) || b.date.localeCompare(a.date);
-    if (key === 'region' || key === 'grape')
+    if (key === 'region' || key === 'grape' || key === 'place')
       return blankLast(a[key] || null, b[key] || null, (x, z) => x.localeCompare(z)) || b.date.localeCompare(a.date);
     if (key === 'paid') return blankLast(a.paid, b.paid, (x, z) => x - z) || b.date.localeCompare(a.date);
     if (key === 'rating') {
@@ -3505,14 +3566,16 @@ function renderOpened() {
   const wrap = document.getElementById('openedWrap');
   if (!total) {
     wrap.innerHTML = '<p class="empty">No bottles opened yet. When you open one, press its wine on '
-      + 'the Cellar tab, then Opened One.</p>';
+      + 'the Cellar tab, then Opened One — or press Log a Bottle for one opened away from home.</p>';
     return;
   }
   if (!rows.length) { wrap.innerHTML = '<p class="empty">No bottle matches that.</p>'; return; }
   /* Paid shows only once some line has a price — the Cellar's rule. No deal
      words here: the wine's value may have moved since the bottle was opened. */
   const hasPaid = state.opened.some((o) => o.paid != null);
-  const cols = hasPaid ? OPENED_COLUMNS : OPENED_COLUMNS.filter((c) => c.key !== 'paid');
+  /* Where follows the same rule: no column until some line has a place. */
+  const hasPlace = state.opened.some((o) => o.place);
+  const cols = OPENED_COLUMNS.filter((c) => (c.key !== 'paid' || hasPaid) && (c.key !== 'place' || hasPlace));
   wrap.innerHTML = '<table id="openedTable" class="cards"><thead><tr>'
     + sortHead(cols, openedSortKey, openedSortDir)
     /* No actions column: Remove is in the line's own window (2026-10-24). */
@@ -3526,6 +3589,7 @@ function renderOpened() {
       + '</th>'
       + '<td data-label="Region">' + esc(o.region) + '</td>'
       + '<td data-label="Grape">' + esc(o.grape) + '</td>'
+      + (hasPlace ? '<td data-label="Where">' + esc(o.place) + '</td>' : '')
       + (hasPaid ? '<td class="num nowrap" data-label="Paid">' + esc(fmtPaid(o.paid)) + '</td>' : '')
       /* The stars are decoration over a number: aria-hidden, so a screen reader
          and the CSV both get "4/5" rather than a row of glyphs. */
@@ -3592,10 +3656,10 @@ function searchApp(st, query) {
   /* An opened bottle matches on its wine, its note and its date as stored. It
      opens no editor — the log line is the record — so it carries no id. */
   opened.slice().sort((a, b) => String(b.date).localeCompare(String(a.date))).forEach((o) => {
-    if (![o.label, o.note, o.date].some(has)) return;
+    if (![o.label, o.note, o.date, o.place, o.region, o.grape].some(has)) return;
     push({ view: 'opened', id: null, where: o.label,
-           snippet: 'Opened ' + fmtDate(o.date) + (o.rating ? ' · ' + o.rating + '/5' : '')
-             + (o.note ? ' · ' + o.note : '') });
+           snippet: 'Opened ' + fmtDate(o.date) + (o.place ? ' at ' + o.place : '')
+             + (o.rating ? ' · ' + o.rating + '/5' : '') + (o.note ? ' · ' + o.note : '') });
   });
   return { hits: hits, more: dropped };
 }
@@ -4129,8 +4193,10 @@ wireScrollRow(document.querySelector('.tabs'), document.querySelector('.tabrow >
    browser with no CompressionStream. Reading it is what lets the format change
    later without every old link breaking. */
 const SHARE_FORMAT = 1;
-/* 2: `added` may be blank or a bare year (see SCHEMA). 3: `paid`, when ticked. */
-const SHARE_PAYLOAD_V = 3;
+/* 2: `added` may be blank or a bare year (see SCHEMA). 3: `paid`, when ticked.
+   4: an opened line carries its own snapshot — a bottle logged away from home
+   has no wine to be filled from — and its place, with the notes. */
+const SHARE_PAYLOAD_V = 4;
 const SHARE_WARN_AT = 8000;
 
 const b64urlEncode = (bytes) => {
@@ -4202,9 +4268,13 @@ function buildSharePayload(st, opts) {
       return r;
     }),
   };
-  if (o.opened === true) out.opened = st.opened.map((x) =>
-    ({ id: x.id, wineId: x.wineId, date: x.date, rating: x.rating, note: notes ? x.note : '',
-       label: x.label }));
+  if (o.opened === true) out.opened = st.opened.map((x) => {
+    const r = { id: x.id, wineId: x.wineId, date: x.date, rating: x.rating, note: notes ? x.note : '',
+                label: x.label, region: x.region, grape: x.grape, vintage: x.vintage,
+                drinkFrom: x.drinkFrom, drinkTo: x.drinkTo, place: notes ? x.place : '' };
+    if (o.paid === true) r.paid = x.paid;
+    return r;
+  });
   return out;
 }
 
@@ -4783,7 +4853,7 @@ function sampleData() {
         label: (Y - 3) + ' Example Ridge Pinot Noir' },
       /* The Opened tab's dashboard needs every timing, an NV bottle, blanks and
          a line whose wine is gone (its vintage read back from the label). */
-      { id: 'demo-o4', wineId: 'demo-ready', date: back(5), rating: 5, note: 'Right where it should be.',
+      { id: 'demo-o4', wineId: 'demo-ready', date: back(5), rating: 5, note: 'Right where it should be.', place: 'Home',
         label: (Y - 3) + ' Example Ridge Pinot Noir' },
       { id: 'demo-o5', wineId: 'demo-hold', date: back(60), rating: 3,
         note: 'Opened far too young — tight and closed.', label: (Y - 2) + ' Sample Estate Cabernet Sauvignon' },
@@ -4795,6 +4865,10 @@ function sampleData() {
         label: (Y - 4) + ' Mystery Bottle From a Friend' },
       { id: 'demo-o9', wineId: 'demo-gone', date: back(300), rating: 4, note: '',
         label: (Y - 12) + ' Retired Rioja Reserva', region: 'Rioja', grape: 'Tempranillo', paid: null },
+      /* Logged away from home: no wine behind it, a place, its own snapshot. */
+      { id: 'demo-o10', wineId: null, date: back(18), rating: 4, note: 'Ordered off the list with the steak.',
+        label: (Y - 7) + ' Imaginary Cellars Malbec', place: 'A steakhouse downtown', region: 'Mendoza',
+        grape: 'Malbec', paid: 85, vintage: Y - 7, drinkFrom: Y - 3, drinkTo: Y + 4 },
     ],
   };
 }
@@ -5151,59 +5225,121 @@ $('lookupBtn').addEventListener('click', async () => {
 });
 $('wineToPaste').addEventListener('click', () => { $('wineDialog').close(); openPaste(); });
 $('addBtn').addEventListener('click', () => openWine(null));
+$('logBtn').addEventListener('click', openLogBottle);
 
 /* ── Opened One ─────────────────────────────────────────────────────────────── */
-/* One window, two jobs: Opened One takes a bottle off the count and writes a
-   new line (`drinkingId`); pressing a line on the Opened tab changes that
-   line's date, rating and note (`editingBottleId`) and leaves the count alone.
-   The wine itself is not editable here — the line's label is the name as it
-   was when the bottle was opened, and the line may outlive the wine. */
+/* One window, three jobs:
+   - Opened One (`drinkingId`) takes a bottle off a Cellar wine's count and
+     writes a new line copying that wine. The wine boxes stay hidden.
+   - Edit (`editingBottleId`), from a line on the Opened tab, changes ANYTHING
+     on that line — its wine boxes are the line's own copy, so a Cellar wine is
+     never changed from here, and editing the wine never rewrites the log
+     (Charles, 2026-10-24).
+   - Log a Bottle (`loggingBottle`) writes a line for a bottle opened away from
+     home — dinner, a winery, a tasting — with no wine behind it and no count. */
 let drinkingId = null;
 let editingBottleId = null;
-function dressOpenDialog(editing) {
-  $('openTitle').textContent = editing ? 'Edit an Opened Bottle' : 'Opened a Bottle';
-  $('openSave').textContent = editing ? 'Save' : 'Take One Off the Count';
+let loggingBottle = false;
+function dressOpenDialog(mode) {
+  $('openTitle').textContent = { edit: 'Edit an Opened Bottle', log: 'Log a Bottle' }[mode] || 'Opened a Bottle';
+  $('openSave').textContent = mode === 'drink' ? 'Take One Off the Count' : 'Save';
+  $('openWineBox').hidden = mode === 'drink';
+  $('openBody').hidden = mode !== 'drink';
   /* Only a line that exists can be removed. */
-  $('openRemove').hidden = !editing;
+  $('openRemove').hidden = mode !== 'edit';
+  obLookupStop();
+  obLookupLast = null;
+  $('obLookupNote').textContent = '';
+  $('obLookupUse').hidden = true;
+  $('openWarn').textContent = '';
+  /* The places already used, offered back, as the Cellar does for racks. */
+  const seen = new Map();
+  state.opened.forEach((o) => { if (o.place && !seen.has(o.place.toLowerCase())) seen.set(o.place.toLowerCase(), o.place); });
+  $('placeList').innerHTML = [...seen.values()].sort().map((l) => '<option value="' + esc(l) + '"></option>').join('');
+}
+/* A line's name without the vintage its label starts with — wineLabel's own
+   "2010 …" / "NV …" shape. */
+function nameOfLabel(label) {
+  return String(label || '').replace(/^(\d{4}|NV) /, '');
+}
+const numBox = (v) => v == null ? '' : String(v);
+function fillOpenDialog(o) {
+  $('ob_name').value = o ? nameOfLabel(o.label) : '';
+  $('ob_vintage').value = o ? numBox(o.vintage) : '';
+  $('ob_paid').value = o ? numBox(o.paid) : '';
+  $('ob_region').value = o ? o.region || '' : '';
+  $('ob_grape').value = o ? o.grape || '' : '';
+  $('ob_from').value = o ? numBox(o.drinkFrom) : '';
+  $('ob_to').value = o ? numBox(o.drinkTo) : '';
+  $('o_place').value = o ? o.place || '' : '';
+  $('o_date').value = o ? o.date : todayISO();
+  $('o_rating').value = o && o.rating ? String(o.rating) : '';
+  $('o_note').value = o ? o.note || '' : '';
 }
 function openBottleEdit(id) {
   const o = state.opened.find((x) => x.id === id);
   if (!o) { render(); return; }
   drinkingId = null;
   editingBottleId = id;
-  dressOpenDialog(true);
-  $('openBody').textContent = o.label;
-  $('o_date').value = o.date;
-  $('o_rating').value = o.rating ? String(o.rating) : '';
-  $('o_note').value = o.note || '';
-  $('openWarn').textContent = '';
+  loggingBottle = false;
+  dressOpenDialog('edit');
+  fillOpenDialog(o);
   openModal($('openDialog'));
+}
+function openLogBottle() {
+  drinkingId = null;
+  editingBottleId = null;
+  loggingBottle = true;
+  dressOpenDialog('log');
+  fillOpenDialog(null);
+  openModal($('openDialog'));
+  $('ob_name').focus();
 }
 function openDrink(id) {
   const w = state.wines.find((x) => x.id === id);
   if (!w || !w.qty) { render(); return; }
   drinkingId = id;
   editingBottleId = null;
-  dressOpenDialog(false);
+  loggingBottle = false;
+  dressOpenDialog('drink');
   $('openBody').textContent = wineLabel(w) + ' — ' + plural(w.qty, 'bottle') + ' left. This takes '
     + 'one off the count and adds a line to the Opened tab.';
-  $('o_date').value = todayISO();
-  $('o_rating').value = '';
-  $('o_note').value = '';
-  $('openWarn').textContent = '';
+  fillOpenDialog(null);
   openModal($('openDialog'));
+}
+/* The wine boxes, read once, the way normalizeState would read them. A window
+   typed backwards is turned round, as on a wine. */
+function readOpenWineBoxes() {
+  const vintage = cleanYear($('ob_vintage').value);
+  let from = cleanYear($('ob_from').value), to = cleanYear($('ob_to').value);
+  if (from != null && to != null && to < from) { const t = from; from = to; to = t; }
+  const name = cleanLine($('ob_name').value, 80);
+  return { name: name, label: cleanLine(wineLabel({ vintage: vintage, name: name }), 100),
+           vintage: vintage, paid: cleanMoney($('ob_paid').value),
+           region: cleanLine($('ob_region').value, 60), grape: cleanLine($('ob_grape').value, 60),
+           drinkFrom: from, drinkTo: to };
 }
 $('openSave').addEventListener('click', () => {
   const date = $('o_date').value;
   if (!DATE_RE.test(date)) { $('openWarn').textContent = 'Pick the day you opened it.'; $('o_date').focus(); return; }
-  if (editingBottleId) {
+  const r = Number($('o_rating').value);
+  const told = { date: date, rating: r >= 1 && r <= 5 ? r : null,
+                 note: cleanLine($('o_note').value, 140), place: cleanLine($('o_place').value, 40) };
+  if (editingBottleId || loggingBottle) {
+    const wine = readOpenWineBoxes();
+    if (!wine.name) { $('openWarn').textContent = 'Type the wine’s name.'; $('ob_name').focus(); return; }
+    delete wine.name;
+    if (loggingBottle) {
+      state.opened.push(Object.assign({ id: uid(), wineId: null }, wine, told));
+      $('openDialog').close();
+      save();
+      toast('Logged — it is on the Opened tab');
+      return;
+    }
     const o = state.opened.find((x) => x.id === editingBottleId);
     $('openDialog').close();
     if (!o) { render(); toast('That line has gone since the window opened, so nothing was changed.', 5000); return; }
-    const r = Number($('o_rating').value);
-    o.date = date;
-    o.rating = r >= 1 && r <= 5 ? r : null;
-    o.note = cleanLine($('o_note').value, 140);
+    Object.assign(o, wine, told);
     save();
     toast('Saved');
     return;
@@ -5216,16 +5352,83 @@ $('openSave').addEventListener('click', () => {
     return;
   }
   w.qty -= 1;
-  const r = Number($('o_rating').value);
-  /* The name, region, grape and price are copied, so the log still reads the
-     same after the wine is edited or deleted. */
-  state.opened.push({ id: uid(), wineId: w.id, date: date, rating: r >= 1 && r <= 5 ? r : null,
-                      note: cleanLine($('o_note').value, 140), label: cleanLine(wineLabel(w), 100),
+  /* The name, region, grape, price, vintage and window are copied, so the log
+     still reads the same after the wine is edited or deleted. */
+  state.opened.push(Object.assign({ id: uid(), wineId: w.id, label: cleanLine(wineLabel(w), 100),
                       region: w.region, grape: w.grape, paid: w.paid,
-                      vintage: w.vintage, drinkFrom: w.drinkFrom, drinkTo: w.drinkTo });
+                      vintage: w.vintage, drinkFrom: w.drinkFrom, drinkTo: w.drinkTo }, told));
   save();
   $('openDialog').close();
   toast(w.qty ? 'Enjoy it — ' + plural(w.qty, 'bottle') + ' left' : 'Enjoy it — that was the last one');
+});
+
+/* ── Look Up, in the opened window ────────────────────────────────────────
+   The wine window's lookup (lookupWine + readLookup), filling only what a line
+   keeps: region, grape and window. A box already filled is kept, and the line
+   says Claude differs and offers its answer. Value and colour are not stored on
+   a line; nothing is written into the note (140 characters is no room for it). */
+let obLookupCtl = null;
+let obLookupLast = null;
+function obLookupStop() {
+  if (obLookupCtl) obLookupCtl.abort();
+  obLookupCtl = null;
+  $('obLookupBtn').innerHTML = '<span aria-hidden="true">✦</span> Look Up with Claude';
+}
+/* Fills the empty boxes from an answer; `all` replaces the filled ones too.
+   Returns what it filled and what differed but was kept. */
+function applyObLookup(r, all) {
+  const filled = [], kept = [];
+  [['Region', 'ob_region', r.region], ['Grape', 'ob_grape', r.grape]].forEach(([label, id, v]) => {
+    if (!v) return;
+    const box = $(id), mine = box.value.trim();
+    if (!mine || all) { if (mine !== v) { box.value = v; filled.push(label); } }
+    else if (!sameText(mine, v)) kept.push(label);
+  });
+  if (r.drinkFrom != null || r.drinkTo != null) {
+    const f = $('ob_from'), t = $('ob_to');
+    const mine = f.value.trim() || t.value.trim();
+    const same = cleanYear(f.value) === r.drinkFrom && cleanYear(t.value) === r.drinkTo;
+    if (!mine || all) { if (!same) { f.value = numBox(r.drinkFrom); t.value = numBox(r.drinkTo); filled.push('Window'); } }
+    else if (!same) kept.push('Window');
+  }
+  return { filled: filled, kept: kept };
+}
+$('obLookupBtn').addEventListener('click', async () => {
+  if (obLookupCtl) { obLookupStop(); $('obLookupNote').textContent = 'Stopped.'; return; }
+  const name = cleanLine($('ob_name').value, 80);
+  if (!name) { $('obLookupNote').textContent = 'Type the wine’s name first.'; $('ob_name').focus(); return; }
+  const key = lookupKey();
+  if (!key) { $('obLookupNote').textContent = 'Add your Claude API key in Settings first.'; return; }
+  const w = { vintage: cleanYear($('ob_vintage').value), name: name,
+              region: $('ob_region').value, grape: $('ob_grape').value };
+  const ctl = new AbortController();
+  obLookupCtl = ctl;
+  $('obLookupBtn').textContent = 'Stop Looking';
+  $('obLookupUse').hidden = true;
+  $('obLookupNote').textContent = 'Searching the web — this can take a minute…';
+  try {
+    const got = await lookupWine(w, key, { signal: ctl.signal });
+    if (obLookupCtl !== ctl || !$('openDialog').open) return;   /* stopped, or the window closed */
+    const r = readLookup(got.found, w);
+    obLookupLast = r;
+    if (r.confidence === 'low') { $('obLookupNote').textContent = 'Claude could not find this exact wine.'; return; }
+    const done = applyObLookup(r, false);
+    $('obLookupNote').textContent = (done.filled.length ? 'Filled ' + done.filled.join(', ').toLowerCase() + '.' : '')
+      + (done.kept.length ? (done.filled.length ? ' ' : '') + 'Claude has a different '
+        + done.kept.join(', ').toLowerCase() + ' — yours is kept.' : '')
+      || 'Claude’s answer matches what you have.';
+    $('obLookupUse').hidden = !done.kept.length;
+  } catch (e) {
+    if (obLookupCtl === ctl && !(e && e.name === 'AbortError')) $('obLookupNote').textContent = e.message;
+  } finally {
+    if (obLookupCtl === ctl) obLookupStop();
+  }
+});
+$('obLookupUse').addEventListener('click', () => {
+  if (!obLookupLast) return;
+  const done = applyObLookup(obLookupLast, true);
+  $('obLookupNote').textContent = done.filled.length ? 'Used Claude’s ' + done.filled.join(', ').toLowerCase() + '.' : '';
+  $('obLookupUse').hidden = true;
 });
 $('openCancel').addEventListener('click', () => $('openDialog').close());
 
@@ -5747,7 +5950,9 @@ $('openRemove').addEventListener('click', () => {
   if (!o) { $('openDialog').close(); render(); return; }
   const w = o.wineId ? state.wines.find((x) => x.id === o.wineId) : null;
   if (!confirm('Remove the bottle of “' + o.label + '” opened ' + fmtDate(o.date) + '?\n\n'
-      + (w ? 'It goes back on the count, as unopened.' : 'The wine itself has been deleted, so there is no count to put it back on.'))) return;
+      + (w ? 'It goes back on the count, as unopened.'
+         : o.wineId ? 'The wine itself has been deleted, so there is no count to put it back on.'
+         : 'It was logged without a Cellar wine, so there is no count to put it back on.'))) return;
   $('openDialog').close();
   state.opened = state.opened.filter((x) => x.id !== o.id);
   if (w) w.qty = Math.min(999, w.qty + 1);
@@ -5977,10 +6182,10 @@ function csvWines(st) {
   return toCsv(rows);
 }
 function csvOpened(st) {
-  const rows = [['Opened', 'Wine', 'Region', 'Grape', 'Paid', 'Rating', 'Note']].concat(st.opened.slice()
+  const rows = [['Opened', 'Wine', 'Region', 'Grape', 'Paid', 'Rating', 'Note', 'Where']].concat(st.opened.slice()
     .sort((a, b) => a.date.localeCompare(b.date))
     .map((o) => [o.date, o.label, o.region, o.grape, o.paid == null ? '' : o.paid,
-      o.rating == null ? '' : o.rating, o.note]));
+      o.rating == null ? '' : o.rating, o.note, o.place]));
   return toCsv(rows);
 }
 function downloadCsv(text, name) {
@@ -6217,7 +6422,7 @@ document.addEventListener('keydown', (e) => {
    no window, with Add still disabled when it reopened. Watched through the `open`
    attribute rather than the `close` event, which some engines never deliver
    (the family's rule for a hook whose failure is silent). */
-[['wineDialog', () => lookupStop()], ['pasteDialog', () => pasteLookupStop()],
+[['wineDialog', () => lookupStop()], ['openDialog', () => obLookupStop()], ['pasteDialog', () => pasteLookupStop()],
  ['checkDialog', () => checkEnd()]]
   .forEach(([id, stop]) => {
     new MutationObserver(() => { if (!$(id).open) stop(); })
@@ -6783,7 +6988,7 @@ async function boot() {
   /* Every edit surface goes in a shared view. The table already renders
      read-only above; these are the buttons that would write. */
   if (viewOnly) {
-    ['syncBtn', 'undoBtn', 'settingsBtn', 'dataBtn', 'shareBtn', 'addBtn', 'pasteBtn', 'checkBtn', 'sampleBtn'].forEach((id) => {
+    ['syncBtn', 'undoBtn', 'settingsBtn', 'dataBtn', 'shareBtn', 'addBtn', 'pasteBtn', 'checkBtn', 'sampleBtn', 'logBtn'].forEach((id) => {
       const el = $(id);
       if (el) el.hidden = true;
     });
