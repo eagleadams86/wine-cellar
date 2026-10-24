@@ -169,7 +169,8 @@ the family doesn't.
   940-case width sweep. Glued: 0. Touch shows no tip on a row that
   opens the editor. Since 2026-10-23 EVERY row has a tip: `wineFacts(w, shown)` lists each field
   the table has no column for (`shown` = its column keys), then
-  the notes. A new column must be added to that table's keys, or the tip repeats it. The dot
+  the notes, then "Click to edit" LAST (moved from the top 2026-10-24; pointer-only, the name
+  button is the keyboard path). A new column must be added to that table's keys, or the tip repeats it. The dot
   still means notes only.
 - **No Drink Next; the status tiles ARE the filter** (2026-10-24, Charles): the Cellar's default
   order is already drinking order, so the Drink Next card went (an old `next` in `wine-folded` is

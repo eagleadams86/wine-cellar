@@ -2411,9 +2411,9 @@ function define() {
     H.__plant(Object.assign({}, FIXTURE, { wines: FIXTURE.wines.map((w) =>
       Object.assign({}, w, { notes: w.id === 'fx-hold' ? notes : '' })) }));
     const row = (id) => W.document.querySelector('#cellarTable tr[data-open="' + id + '"]');
-    eq(row('fx-hold').dataset.tip, 'Click to edit\n\nColour: Red\nCame from: Already in the cellar\nAdded: '
-       + H.fmtDate('2026-01-05') + '\n\n' + notes,
-       'the hint, the fields the grid has no column for, then the note as its own block');
+    eq(row('fx-hold').dataset.tip, 'Colour: Red\nCame from: Already in the cellar\nAdded: '
+       + H.fmtDate('2026-01-05') + '\n\n' + notes + '\n\nClick to edit',
+       'the fields the grid has no column for, the note as its own block, then the hint last');
     ok(row('fx-hold').querySelector('.notedot[aria-hidden="true"]'), 'and the dot that says a note is there');
     const end = row('fx-hold').querySelector('.rowbtn .nameend');
     ok(end && end.textContent.replace('\u2060', '') === 'Cabernet' && end.querySelector('.notedot')

@@ -3036,8 +3036,12 @@ function wineFacts(w, shown) {
     fmtAdded(w.added) ? 'Added: ' + fmtAdded(w.added) : '',
   ].filter(Boolean).join('\n');
 }
-const wineTip = (w, shown) => rowTip(viewOnly ? '' : 'Click to edit',
-  [wineFacts(w, shown), (w.notes || '').trim()].filter(Boolean).join('\n\n'));
+/* The facts, then the notes, then the hint LAST (Charles, 2026-10-24): what
+   the wine is comes first; how to open it is the footnote. The hint is a
+   pointer nicety only — the name is a real button, so the keyboard and a
+   screen reader never depend on it. */
+const wineTip = (w, shown) => rowTip('',
+  [wineFacts(w, shown), (w.notes || '').trim(), viewOnly ? '' : 'Click to edit'].filter(Boolean).join('\n\n'));
 
 
 /* The chart is SVG, so it follows a theme change and the print palette with no
