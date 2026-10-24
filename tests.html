@@ -51,7 +51,7 @@
    go MISSING look exactly like tests that pass — a suite that quietly shrank to
    three checks still says "all 3 tests pass". RAISE THIS when you add tests, and
    lower it only when you retire one deliberately. */
-const EXPECTED = 239;
+const EXPECTED = 245;
 
 /* ── It refuses to run anywhere but localhost, and that is load-bearing ──────
    GitHub Pages publishes this page BESIDE the app, where the iframe below would
@@ -901,7 +901,8 @@ function define() {
         'region', 'source', 'valueEst', 'valueHigh', 'valueLow', 'vintage'],
        'a new stored field must be added to normalizeState AND bump SCHEMA');
     const o = H.normalizeState({ opened: [{ id: 'o', secret: 1 }] }).opened[0];
-    eq(Object.keys(o).sort(), ['date', 'grape', 'id', 'label', 'note', 'paid', 'rating', 'region', 'wineId'], 'an opened bottle too');
+    eq(Object.keys(o).sort(), ['date', 'drinkFrom', 'drinkTo', 'grape', 'id', 'label', 'note', 'paid', 'rating', 'region',
+       'vintage', 'wineId'], 'an opened bottle too');
   });
   t('text is capped in code, not only by maxlength', () => {
     eq(one({ name: 'x'.repeat(500) }).name.length, 80, 'a paste ignores the attribute');
@@ -3340,9 +3341,9 @@ function define() {
     try {
       H.__plant(fx);
       W.setTab('opened');
-      eq(heads(), ['Opened', 'Wine', 'Region', 'Grape', 'Rating', 'Note'], 'no price anywhere: no Paid column');
+      eq(heads(), ['Opened', 'Wine', 'Region', 'Grape', 'Rating', 'Timing', 'Age', 'Note'], 'no price anywhere: no Paid column');
       fx.opened[1].paid = 24; H.__plant(fx);
-      eq(heads(), ['Opened', 'Wine', 'Region', 'Grape', 'Paid', 'Rating', 'Note'], 'one price: Paid appears');
+      eq(heads(), ['Opened', 'Wine', 'Region', 'Grape', 'Paid', 'Rating', 'Timing', 'Age', 'Note'], 'one price: Paid appears');
       D.querySelector('#openedTable [data-sort="region"]').click();
       eq([...D.querySelectorAll('#openedTable tbody tr')].map((r) => r.dataset.openBottle), ['b', 'a'], 'a blank region sorts last');
       const box = D.getElementById('openedFind');
@@ -3354,6 +3355,96 @@ function define() {
       D.getElementById('clearOpenedFind').click();
       eq(D.querySelectorAll('#openedTable tbody tr').length, 2, 'Clear brings every line back');
     } finally { D.getElementById('openedFind').value = ''; H.__plant(FIXTURE); W.setTab('cellar'); }
+  });
+  t('an opened line keeps its wine’s vintage and window — and a deleted wine’s vintage comes off the label', () => {
+    const st = H.normalizeState({ wines: [{ id: 'w', name: 'A', vintage: 2015, drinkFrom: 2020, drinkTo: 2030 }],
+      opened: [{ id: 'old', wineId: 'w', date: '2026-01-01', label: '2015 A' },
+               { id: 'kept', wineId: 'w', date: '2026-01-01', label: '2015 A', vintage: null, drinkFrom: null, drinkTo: null },
+               { id: 'gone', wineId: 'nope', date: '2026-01-01', label: '2008 Retired Red' },
+               { id: 'nv', wineId: 'nope', date: '2026-01-01', label: 'NV Some Bubbles' },
+               { id: 'back', wineId: null, date: '2026-01-01', label: 'X', drinkFrom: 2030, drinkTo: 2020 }] });
+    const o = (id) => st.opened.find((x) => x.id === id);
+    eq([o('old').vintage, o('old').drinkFrom, o('old').drinkTo], [2015, 2020, 2030], 'an old line takes them from its wine');
+    eq([o('kept').vintage, o('kept').drinkFrom, o('kept').drinkTo], [null, null, null], 'a line that has them, even null, keeps them');
+    eq([o('gone').vintage, o('gone').drinkFrom, o('gone').drinkTo], [2008, null, null], 'no wine: the vintage off the label, no window');
+    eq(o('nv').vintage, null, 'an NV label has no vintage');
+    eq([o('back').drinkFrom, o('back').drinkTo], [2020, 2030], 'a backwards window is turned round, as on a wine');
+    ok(st.opened.every((x) => x.vintage !== undefined && x.drinkFrom !== undefined && x.drinkTo !== undefined),
+       'never undefined — Firestore refuses a document over one');
+  });
+  t('timing is the year opened against the window the line carries', () => {
+    const l = (date, f, to, v) => ({ date: date, drinkFrom: f, drinkTo: to, vintage: v == null ? null : v });
+    eq(H.timingOf(l('2026-05-01', 2028, 2035)), 'early');
+    eq(H.timingOf(l('2026-05-01', 2026, 2026)), 'inwin', 'both ends of the window count as inside');
+    eq(H.timingOf(l('2026-05-01', 2020, 2025)), 'late');
+    eq(H.timingOf(l('2026-05-01', 2030, null)), 'early', 'an open end only starts');
+    eq(H.timingOf(l('2026-05-01', null, 2030)), 'inwin', 'an open start is never early');
+    eq(H.timingOf(l('2026-05-01', null, 2020)), 'late');
+    eq(H.timingOf(l('2026-05-01', null, null)), 'none');
+    eq(H.ageAtOpening(l('2026-05-01', null, null, 2010)), 16);
+    eq(H.ageAtOpening(l('2026-05-01', null, null, null)), null, 'NV has no age');
+    eq(H.ageAtOpening(l('2026-05-01', null, null, 2027)), 0, 'never less than nothing');
+  });
+  t('What You Like groups case-blind, averages only rated bottles, and counts blanks', () => {
+    const g = H.likeGroups([{ grape: 'Pinot Noir', rating: 5 }, { grape: ' pinot noir ', rating: null },
+                            { grape: 'pinot noir', rating: 3 }, { grape: 'Syrah', rating: null }, { grape: '', rating: 4 }], 'grape');
+    eq(g.blank, 1, 'a blank grape is counted, not dropped');
+    const pinot = g.rows.find((r) => r.name.toLowerCase() === 'pinot noir');
+    eq([g.rows.length, pinot.bottles, pinot.rated, pinot.avg], [2, 3, 2, 4], 'unrated counts as a bottle, not in the average');
+    eq(g.rows.find((r) => r.name === 'Syrah').avg, null, 'nothing rated is no average, not zero');
+    const c = H.computeOpened(H.normalizeState({ opened: [
+      { id: 'a', date: '2026-01-01', label: '2010 A', drinkFrom: 2030, drinkTo: 2040 },
+      { id: 'b', date: '2026-01-01', label: '2020 B', drinkFrom: 2020, drinkTo: 2030 },
+      { id: 'c', date: '2026-01-01', label: 'NV C', vintage: null, drinkFrom: null, drinkTo: null }] }));
+    eq([c.all, c.timing.early, c.timing.inwin, c.timing.late, c.timing.none], [3, 1, 1, 0, 1]);
+    eq([c.age.avg, c.age.unaged], [11, 1], 'the average age is over bottles with a vintage');
+  });
+  t('the Opened dashboard hides while the log is empty, and its tiles narrow the list', () => {
+    const D = W.document;
+    const lines = () => [...D.querySelectorAll('#openedTable tbody tr')].map((r) => r.dataset.openBottle);
+    const fx = JSON.parse(JSON.stringify(FIXTURE));
+    try {
+      fx.opened = []; H.__plant(fx); W.setTab('opened');
+      ok(D.getElementById('timingCard').hidden && D.getElementById('likeCard').hidden, 'nothing opened: no dashboard');
+      fx.opened = [{ id: 'e', wineId: 'fx-hold', date: '2026-03-01', label: '2021 Charlie Cabernet', rating: 3 },
+                   { id: 'i', wineId: 'fx-ready', date: '2026-04-01', label: '2019 Alpha Pinot', rating: 5 },
+                   { id: 'l', wineId: 'fx-past', date: '2026-05-01', label: '2010 Bravo Bianco', rating: null }];
+      H.__plant(fx);
+      ok(!D.getElementById('timingCard').hidden && !D.getElementById('likeCard').hidden, 'a bottle opened: it shows');
+      const tile = (k) => D.querySelector('#openedStats [data-timing="' + k + '"]');
+      eq(['early', 'inwin', 'late'].map((k) => tile(k).querySelector('.v').firstChild.textContent), ['1', '1', '1']);
+      tile('late').click();
+      eq(lines(), ['l'], 'Late narrows the list');
+      eq(tile('late').getAttribute('aria-pressed'), 'true', 'and says it is pressed');
+      ok(/Showing 1 of 3/.test(D.getElementById('openedFindNote').textContent), 'and the line says so');
+      tile('early').click();
+      eq(lines().sort(), ['e', 'l'], 'two tiles: either timing');
+      D.getElementById('clearOpenedFind').click();
+      eq(lines().length, 3, 'Clear takes the tiles off too');
+      eq(D.querySelector('#likeGrapes tbody th').textContent, 'Pinot Noir', 'What You Like: best-rated grape first');
+      D.querySelector('#likeGrapes [data-sort="name"]').click();
+      eq(D.querySelector('#likeGrapes tbody th').textContent, 'Cabernet Sauvignon', 'a heading sorts it');
+    } finally { W.setTimingPick && W.setTimingPick([]); H.__plant(FIXTURE); W.setTab('cellar'); }
+  });
+  t('Opened One copies the vintage and window; editing the wine later leaves them alone', () => {
+    const D = W.document, proto = W.Storage.prototype, realStore = proto.setItem;
+    proto.setItem = function () {};
+    try {
+      H.__plant(FIXTURE);
+      W.openDrink('fx-hold'); D.getElementById('openSave').click();
+      const line = H.__state().opened[H.__state().opened.length - 1];
+      eq([line.vintage, line.drinkFrom, line.drinkTo], [2021, 2099, 2110]);
+      H.__state().wines.find((w) => w.id === 'fx-hold').drinkFrom = 2000;
+      eq(H.timingOf(H.__state().opened.find((o) => o.id === line.id)), 'early', 'judged by the window it had that day');
+    } finally { proto.setItem = realStore; D.getElementById('openDialog').close(); H.__plant(FIXTURE); }
+  });
+  t('the sample data reaches every timing, an NV bottle, blanks and a deleted wine', () => {
+    const st = H.normalizeState(H.sampleData());
+    const c = H.computeOpened(st);
+    ok(c.timing.early && c.timing.inwin && c.timing.late && c.timing.none, JSON.stringify(c.timing));
+    ok(c.age.unaged >= 1 && c.grapes.blank >= 1 && c.regions.blank >= 1, 'NV and blanks');
+    const gone = st.opened.find((o) => o.wineId && !st.wines.some((w) => w.id === o.wineId));
+    ok(gone && gone.vintage != null, 'a deleted wine, its vintage off the label');
   });
   t('removing a log line puts the bottle back', () => {
     ok(/if \(w\) w\.qty = Math\.min\(999, w\.qty \+ 1\)/.test(stripComments(APP_SRC)),

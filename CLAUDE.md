@@ -24,6 +24,15 @@ the family doesn't.
   wine, and `paid` only travels when What you paid is ticked). A line that has one, even blank,
   keeps it. The Opened list's Paid column hides while no line has a price, like the Cellar's;
   its Find (`#openedFind`) is page-life only. Removing a log line puts the bottle back on the count.
+- SCHEMA 6 (2026-10-24) adds `vintage`, `drinkFrom`, `drinkTo` to an opened line by the same
+  snapshot-and-backfill rule; a line whose wine is gone reads its vintage off the label's leading
+  year (`wineLabel`'s "2010 …" / "NV …" shape). The share payload still omits them — the
+  receiver backfills. **Timing (`timingOf`: early / inwin / late / none) and age at opening are
+  derived, never stored**, against the line's OWN window, so editing a wine never rewrites history.
+- The Opened tab's dashboard (`#timingCard`, `#likeCard`) reads only `computeOpened()`, over the
+  WHOLE log. Timing tiles toggle `timingPick` (page-life, like `statusPick`; Clear empties it too);
+  No Window has no tile, the warn line counts it. What You Like groups grape/region case-blind
+  (`likeGroups`), averages rated bottles only, counts blanks aloud, and never reads notes.
 
 ## Decisions — Don't Undo
 
@@ -213,6 +222,6 @@ commented copy in the repo.
 
 ## Tests
 
-`tests.html`, `EXPECTED = 218`. Run it headless (Playwright) rather than in the Browser pane:
+`tests.html`, `EXPECTED = 245`. Run it headless (Playwright) rather than in the Browser pane:
 the pane throttles hidden timers and its focus heuristics turn the 705px keyboard-focus check
 red on untouched code.

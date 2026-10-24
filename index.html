@@ -903,6 +903,11 @@
                   color: var(--text-secondary); margin-top: 2px; }
   td.nowrap { white-space: nowrap; }
   .stars { color: var(--warn); letter-spacing: 1px; }
+  /* What You Like: the two tables side by side, stacking once a pair would
+     leave either one too narrow for its four columns. */
+  .likes { display: grid; gap: var(--sp-5); grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
+           align-items: start; }
+  .likes table { width: 100%; }
   #wineDialog, #pasteDialog, #checkDialog { max-width: 700px; }
   textarea { resize: vertical; }
   #pasteBox { font-family: var(--font-mono); font-size: var(--fs-xs); }
@@ -1779,6 +1784,32 @@ html[data-booting] footer { visibility: hidden; }
 
   <!-- ═══════════════════════════ Opened ═════════════════════════════════ -->
   <div id="openedPanel" role="tabpanel" aria-labelledby="tab-opened" hidden>
+    <!-- The Opened tab's dashboard (Charles, 2026-10-24): when each bottle was
+         opened against its window, and what the ratings say you like. Both
+         count the WHOLE log — the list's Find never reaches them — and both
+         hide until a bottle has been opened. -->
+    <div class="card" id="timingCard" data-fold="timing">
+      <h2>Opened at the Right Time
+        <button class="tile-help" type="button" data-help="timing"
+                aria-label="How a bottle’s timing is decided">i</button>
+      </h2>
+      <div class="stats" id="openedStats"></div>
+      <p class="warn-line" id="timingWarn" role="status"></p>
+    </div>
+
+    <div class="card" id="likeCard" data-fold="likes">
+      <h2>What You Like
+        <button class="tile-help" type="button" data-help="likes"
+                aria-label="How these tables are worked out">i</button>
+      </h2>
+      <p class="chart-title">Your opened bottles by grape and by region, best-rated first.</p>
+      <div class="likes">
+        <div class="table-scroll" id="likeGrapes"></div>
+        <div class="table-scroll" id="likeRegions"></div>
+      </div>
+      <p class="warn-line" id="likeWarn" role="status"></p>
+    </div>
+
     <div class="card">
       <h2>Bottles Opened
         <span class="spacer"></span>
@@ -2339,7 +2370,7 @@ const TABS        = ['cellar', 'opened'];
    3 (2026-10-23): `paid`, what one bottle actually cost. 4 (2026-10-24):
    `checkedAt`, when Claude last answered for the wine. 5 (2026-10-24): an
    opened line's `region`, `grape` and `paid`, copied from its wine. */
-const SCHEMA = 5;
+const SCHEMA = 6;
 
 /* ── Ids from outside are not trusted ──────────────────────────────────────
    Ids reach `data-id` attributes and <option value>s in a dozen places, so an
@@ -2542,6 +2573,13 @@ function normalizeState(raw) {
         region: 'region' in it ? cleanLine(it.region, 60) : null,
         grape: 'grape' in it ? cleanLine(it.grape, 60) : null,
         paid: 'paid' in it ? cleanMoney(it.paid) : undefined,
+        /* And its vintage and drinking window (SCHEMA 6, 2026-10-24), so the
+           Opened tab can say whether it was opened early, in its window or
+           late, and how old it was — against the window it had THEN, not one
+           edited since. Filled below by the same rule. */
+        vintage: 'vintage' in it ? cleanYear(it.vintage) : undefined,
+        drinkFrom: 'drinkFrom' in it ? cleanYear(it.drinkFrom) : undefined,
+        drinkTo: 'drinkTo' in it ? cleanYear(it.drinkTo) : undefined,
       };
     });
   {
@@ -2551,6 +2589,16 @@ function normalizeState(raw) {
       if (o.region == null) o.region = w ? w.region : '';
       if (o.grape == null) o.grape = w ? w.grape : '';
       if (o.paid === undefined) o.paid = w ? w.paid : null;
+      /* A deleted wine still names its vintage: the label starts with it
+         ("2010 …" or "NV …" — wineLabel's own shape). Its window is gone. */
+      const lead = /^(\d{4}) /.exec(o.label);
+      if (o.vintage === undefined) o.vintage = w ? w.vintage : (lead ? cleanYear(lead[1]) : null);
+      if (o.drinkFrom === undefined) o.drinkFrom = w ? w.drinkFrom : null;
+      if (o.drinkTo === undefined) o.drinkTo = w ? w.drinkTo : null;
+      /* A window that arrives backwards is turned round, as on a wine. */
+      if (o.drinkFrom != null && o.drinkTo != null && o.drinkTo < o.drinkFrom) {
+        const t = o.drinkFrom; o.drinkFrom = o.drinkTo; o.drinkTo = t;
+      }
     });
   }
   const s = (raw && raw.settings) || {};
@@ -2852,6 +2900,71 @@ function inWindow(w, y) {
 }
 const CHART_YEARS = 15;   /* this year and the fourteen after it, at most */
 
+/* ── When a bottle was opened, against its window ─────────────────────────
+   DERIVED, never stored, like a wine's status: the year on the line's date
+   against the window the line carries — the wine's window on the day it was
+   opened (SCHEMA 6), so editing the wine later never rewrites history. Open-
+   ended windows follow inWindow's rules. The words carry the verdict; the
+   classes are the Cellar's, so no colour is invented here. */
+const TIMING = {
+  early: { label: 'Early',     cls: 'hold', rank: 0 },
+  inwin: { label: 'In Window', cls: 'ok',   rank: 1 },
+  late:  { label: 'Late',      cls: 'err',  rank: 2 },
+  none:  { label: 'No Window', cls: '',     rank: 3 },
+};
+const openedYear = (o) => Number(String(o.date).slice(0, 4));
+function timingOf(o) {
+  const y = openedYear(o);
+  if (o.drinkFrom == null && o.drinkTo == null) return 'none';
+  if (o.drinkFrom != null && y < o.drinkFrom) return 'early';
+  if (o.drinkTo != null && y > o.drinkTo) return 'late';
+  return 'inwin';
+}
+/* Years from vintage to the day it was opened; null for NV or no vintage. A
+   bottle opened in its own vintage year is 0, never less. */
+function ageAtOpening(o) {
+  return o.vintage == null ? null : Math.max(0, openedYear(o) - o.vintage);
+}
+/* One What You Like table: the lines grouped by grape or region, trimmed and
+   case-blind, under the spelling used most. Unrated bottles count as bottles
+   and stay out of the average. Blanks are counted, never quietly dropped. */
+function likeGroups(lines, field) {
+  const groups = new Map();
+  let blank = 0;
+  lines.forEach((o) => {
+    const name = String(o[field] || '').trim();
+    if (!name) { blank += 1; return; }
+    const k = name.toLowerCase();
+    if (!groups.has(k)) groups.set(k, { spellings: new Map(), bottles: 0, rated: 0, sum: 0 });
+    const g = groups.get(k);
+    g.spellings.set(name, (g.spellings.get(name) || 0) + 1);
+    g.bottles += 1;
+    if (o.rating != null) { g.rated += 1; g.sum += o.rating; }
+  });
+  const rows = [...groups.values()].map((g) => ({
+    name: [...g.spellings].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))[0][0],
+    bottles: g.bottles, rated: g.rated, avg: g.rated ? g.sum / g.rated : null,
+  }));
+  return { rows: rows, blank: blank };
+}
+/* computeOpened() is the ONLY place the Opened tab's figures are worked out —
+   computeAll's rule. Pure, and over the WHOLE log: the list's Find and the
+   timing filter narrow the list, never these. */
+function computeOpened(st) {
+  const timing = { early: 0, inwin: 0, late: 0, none: 0 };
+  let ageSum = 0, aged = 0;
+  st.opened.forEach((o) => {
+    timing[timingOf(o)] += 1;
+    const a = ageAtOpening(o);
+    if (a != null) { ageSum += a; aged += 1; }
+  });
+  return {
+    all: st.opened.length, timing: timing,
+    age: { avg: aged ? ageSum / aged : null, unaged: st.opened.length - aged },
+    grapes: likeGroups(st.opened, 'grape'), regions: likeGroups(st.opened, 'region'),
+  };
+}
+
 /* computeAll() is the ONLY place the figures are worked out. Every tile, the
    chart and the Cellar's status filter read from it, so no two parts of the screen can
    disagree. Pure: the year is an argument, so a test can pin any year. Only
@@ -2915,6 +3028,7 @@ function render() {
      button, and brings the window back down if what was filling it has gone. */
   syncMaxiButton();
   renderList();
+  renderOpenedDash(computeOpened(state));
   renderOpened();
   renderLocations();
 }
@@ -3160,13 +3274,26 @@ const OPENED_COLUMNS = [
   { key: 'grape',  label: 'Grape',  desc: false },
   { key: 'paid',   label: 'Paid',   desc: true, num: true },
   { key: 'rating', label: 'Rating', desc: true, num: true },
+  { key: 'timing', label: 'Timing', desc: false },
+  { key: 'age',    label: 'Age',    desc: true, num: true },
   { key: 'note',   label: 'Note',   desc: false },
+];
+/* What You Like's columns; the first one's key and label are the table's own. */
+const likeColumns = (label) => [
+  { key: 'name',    label: label,        desc: false },
+  { key: 'bottles', label: 'Bottles',    desc: true, num: true },
+  { key: 'rated',   label: 'Rated',      desc: true, num: true },
+  { key: 'avg',     label: 'Avg ★',      desc: true, num: true },
 ];
 
 /* Sort is a VIEW state, not saved data, so it never rides into a backup or a
    share link. `null` means the table's own order. */
 let sortKey = null, sortDir = 'desc';
 let openedSortKey = null, openedSortDir = 'desc';
+let likeSort = { grape: { key: null, dir: 'desc' }, region: { key: null, dir: 'desc' } };
+/* Which timings the Opened list is narrowed to, pressed from the tiles; empty
+   is every one. Page-life only, like the Cellar's statusPick. */
+const timingPick = new Set();
 
 /* Compares two wines on one column. Blanks sort LAST whichever way the column
    runs — a wine with no value is not the cheapest wine. */
@@ -3273,10 +3400,14 @@ function visibleOpened() {
   const blankLast = (x, y2, f) => (x == null && y2 == null) ? 0 : x == null ? 1 : y2 == null ? -1 : f(x, y2) * sign;
   /* Find, in the list: every word you can see on a line, the date as shown. */
   const q = document.getElementById('openedFind').value.trim().toLowerCase();
-  const rows = !q ? state.opened.slice() : state.opened.filter((o) =>
-    [o.label, o.region, o.grape, o.note, fmtDate(o.date), o.paid == null ? '' : fmtPaid(o.paid)]
-      .some((t) => String(t || '').toLowerCase().indexOf(q) !== -1));
+  let rows = !q ? state.opened.slice() : state.opened.filter((o) =>
+    [o.label, o.region, o.grape, o.note, fmtDate(o.date), o.paid == null ? '' : fmtPaid(o.paid),
+     TIMING[timingOf(o)].label].some((t) => String(t || '').toLowerCase().indexOf(q) !== -1));
+  if (timingPick.size) rows = rows.filter((o) => timingPick.has(timingOf(o)));
   return rows.sort((a, b) => {
+    if (key === 'timing')
+      return (TIMING[timingOf(a)].rank - TIMING[timingOf(b)].rank) * sign || b.date.localeCompare(a.date);
+    if (key === 'age') return blankLast(ageAtOpening(a), ageAtOpening(b), (x, z) => x - z) || b.date.localeCompare(a.date);
     if (key === 'region' || key === 'grape')
       return blankLast(a[key] || null, b[key] || null, (x, z) => x.localeCompare(z)) || b.date.localeCompare(a.date);
     if (key === 'paid') return blankLast(a.paid, b.paid, (x, z) => x - z) || b.date.localeCompare(a.date);
@@ -3290,12 +3421,87 @@ function visibleOpened() {
   });
 }
 
+function timingPill(t) {
+  const s = TIMING[t];
+  return '<span class="pill' + (s.cls ? ' ' + s.cls : '') + '">' + esc(s.label) + '</span>';
+}
+const fmtAge = (a) => a == null ? '—' : plural(a, 'yr');
+
+/* ── The Opened tab's dashboard ─────────────────────────────────────────────
+   Both cards hide while the log is empty — the list's own empty line already
+   says what to do. Timing tiles are toggles for the list, the Cellar's status
+   tiles' pattern; No Window has no tile, as on the Cellar, and the line under
+   the row counts it. */
+function renderOpenedDash(c) {
+  const any = c.all > 0;
+  document.getElementById('timingCard').hidden = !any;
+  document.getElementById('likeCard').hidden = !any;
+  if (!any) return;
+  const t = c.timing;
+  const tiles = [
+    ['Opened', String(c.all), 'bottles in the log'],
+    ['Early', String(t.early), 'before the window opened', 'early'],
+    ['In Window', String(t.inwin), 'inside the window', 'inwin'],
+    ['Late', String(t.late), 'after the window closed', 'late'],
+    ['Average Age', c.age.avg == null ? '—' : (Math.round(c.age.avg * 10) / 10) + ' yrs', 'vintage to opening'],
+  ];
+  document.getElementById('openedStats').innerHTML = tiles.map((x) => {
+    const inner = '<div class="label">' + esc(x[0]) + '</div>'
+      + '<div class="v">' + esc(x[1]) + '<span class="sub">' + esc(x[2]) + '</span></div>';
+    return x[3]
+      ? '<button type="button" class="stat ' + TIMING[x[3]].cls + '" data-timing="' + x[3] + '" aria-pressed="'
+        + timingPick.has(x[3]) + '">' + inner + '</button>'
+      : '<div class="stat">' + inner + '</div>';
+  }).join('');
+  const notes = [];
+  if (t.none) notes.push(plural(t.none, 'bottle') + ' with no drinking window '
+    + (t.none === 1 ? 'is' : 'are') + ' in no timing count but Opened.');
+  if (c.age.unaged) notes.push(plural(c.age.unaged, 'bottle') + ' with no vintage '
+    + (c.age.unaged === 1 ? 'is' : 'are') + ' left out of the average age.');
+  document.getElementById('timingWarn').textContent = notes.join(' ');
+
+  renderLike('grape', c.grapes, 'Grape');
+  renderLike('region', c.regions, 'Region');
+  const blanks = [];
+  [[c.grapes.blank, 'grape', 'Grape'], [c.regions.blank, 'region', 'Region']].forEach((b) => {
+    if (b[0]) blanks.push(plural(b[0], 'bottle') + ' with no ' + b[1] + ' recorded '
+      + (b[0] === 1 ? 'is' : 'are') + ' left out of the ' + b[2] + ' table.');
+  });
+  document.getElementById('likeWarn').textContent = blanks.join(' ');
+}
+/* Its own order is best-rated first, unrated last, then the most bottles. */
+function renderLike(field, g, label) {
+  const host = document.getElementById(field === 'grape' ? 'likeGrapes' : 'likeRegions');
+  const cols = likeColumns(label), srt = likeSort[field];
+  const key = srt.key || 'avg', sign = (srt.key ? srt.dir : 'desc') === 'asc' ? 1 : -1;
+  const blankLast = (x, y, f) => (x == null && y == null) ? 0 : x == null ? 1 : y == null ? -1 : f(x, y) * sign;
+  const rows = g.rows.slice().sort((a, b) =>
+    (key === 'name' ? a.name.localeCompare(b.name) * sign
+      : key === 'avg' ? blankLast(a.avg, b.avg, (x, z) => x - z)
+      : (a[key] - b[key]) * sign)
+    || b.bottles - a.bottles || a.name.localeCompare(b.name));
+  if (!rows.length) {
+    host.innerHTML = '<p class="empty">No ' + label.toLowerCase() + ' recorded on any opened bottle.</p>';
+    return;
+  }
+  host.innerHTML = '<table data-like="' + field + '"><thead><tr>' + sortHead(cols, srt.key, srt.dir)
+    + '</tr></thead><tbody>'
+    + rows.map((r) => '<tr><th scope="row">' + esc(r.name) + '</th>'
+      + '<td class="num">' + r.bottles + '</td>'
+      + '<td class="num">' + r.rated + '</td>'
+      /* One decimal, out of 5 — the heading's star says what it is, and a
+         phone has no room for four columns of "/5". */
+      + '<td class="num nowrap">' + (r.avg == null ? '—' : (Math.round(r.avg * 10) / 10).toFixed(1)) + '</td>'
+      + '</tr>').join('')
+    + '</tbody></table>';
+}
+
 function renderOpened() {
   const rows = visibleOpened(), total = state.opened.length;
   const q = document.getElementById('openedFind').value.trim();
   document.getElementById('openedCount').textContent = plural(total, 'bottle');
-  document.getElementById('openedFindNote').textContent = q && total
-    ? 'Showing ' + rows.length + ' of ' + total + ' — the filter changes this list only.' : '';
+  document.getElementById('openedFindNote').textContent = (q || timingPick.size) && total
+    ? 'Showing ' + rows.length + ' of ' + total + ' — the filter changes this list only, never the figures above.' : '';
   const wrap = document.getElementById('openedWrap');
   if (!total) {
     wrap.innerHTML = '<p class="empty">No bottles opened yet. When you open one, press its wine on '
@@ -3326,6 +3532,8 @@ function renderOpened() {
       + '<td class="num" data-label="Rating">' + (o.rating ? '<span aria-hidden="true" class="stars">'
           + '★'.repeat(o.rating) + '</span> ' + o.rating + '/5' : '—')
       + '</td>'
+      + '<td data-label="Timing">' + timingPill(timingOf(o)) + '</td>'
+      + '<td class="num nowrap" data-label="Age">' + esc(fmtAge(ageAtOpening(o))) + '</td>'
       + '<td data-label="Note">' + esc(o.note) + '</td>'
       + '</tr>').join('')
     + '</tbody></table>';
@@ -4526,8 +4734,10 @@ const checkedWithin = (w, days) => !!w.checkedAt && Date.now() - Date.parse(w.ch
    THE SAMPLE DATA IS THE DEMO, and a feature is not finished until it reaches
    it. Every wine is invented and named for nothing real, and between them they
    reach every status, an estimate, a wine with no value or window, a finished
-   wine, a price paid under, inside and over its value, and the opened log. Years count from THIS year, so the demo never goes
-   stale.
+   wine, a price paid under, inside and over its value, and the opened log —
+   a bottle opened early, in its window and late, an NV one, one with no
+   window, grape or region, and one whose wine has been deleted. Years count
+   from THIS year, so the demo never goes stale.
 
    It is ADDITIVE and destroys nothing — stable `demo-` ids are what make that
    work, so a second load replaces the demo rows rather than duplicating them. */
@@ -4571,6 +4781,20 @@ function sampleData() {
         note: 'The last one, and the best.', label: (Y - 5) + ' Long Gone Grenache' },
       { id: 'demo-o3', wineId: 'demo-ready', date: back(12), rating: null, note: '',
         label: (Y - 3) + ' Example Ridge Pinot Noir' },
+      /* The Opened tab's dashboard needs every timing, an NV bottle, blanks and
+         a line whose wine is gone (its vintage read back from the label). */
+      { id: 'demo-o4', wineId: 'demo-ready', date: back(5), rating: 5, note: 'Right where it should be.',
+        label: (Y - 3) + ' Example Ridge Pinot Noir' },
+      { id: 'demo-o5', wineId: 'demo-hold', date: back(60), rating: 3,
+        note: 'Opened far too young — tight and closed.', label: (Y - 2) + ' Sample Estate Cabernet Sauvignon' },
+      { id: 'demo-o6', wineId: 'demo-past', date: back(25), rating: 2,
+        note: 'Faded; should have gone two years ago.', label: (Y - 9) + ' Placeholder Bianco' },
+      { id: 'demo-o7', wineId: 'demo-sparkling', date: back(150), rating: 5, note: 'A birthday toast.',
+        label: 'NV Fictional Brut Rosé' },
+      { id: 'demo-o8', wineId: 'demo-none', date: back(80), rating: null, note: '',
+        label: (Y - 4) + ' Mystery Bottle From a Friend' },
+      { id: 'demo-o9', wineId: 'demo-gone', date: back(300), rating: 4, note: '',
+        label: (Y - 12) + ' Retired Rioja Reserva', region: 'Rioja', grape: 'Tempranillo', paid: null },
     ],
   };
 }
@@ -4997,7 +5221,8 @@ $('openSave').addEventListener('click', () => {
      same after the wine is edited or deleted. */
   state.opened.push({ id: uid(), wineId: w.id, date: date, rating: r >= 1 && r <= 5 ? r : null,
                       note: cleanLine($('o_note').value, 140), label: cleanLine(wineLabel(w), 100),
-                      region: w.region, grape: w.grape, paid: w.paid });
+                      region: w.region, grape: w.grape, paid: w.paid,
+                      vintage: w.vintage, drinkFrom: w.drinkFrom, drinkTo: w.drinkTo });
   save();
   $('openDialog').close();
   toast(w.qty ? 'Enjoy it — ' + plural(w.qty, 'bottle') + ' left' : 'Enjoy it — that was the last one');
@@ -5535,8 +5760,35 @@ $('findBox').addEventListener('input', renderList);
 $('openedFind').addEventListener('input', renderOpened);
 $('clearOpenedFind').addEventListener('click', () => {
   $('openedFind').value = '';
-  renderOpened();
+  setTimingPick([]);
   $('openedFind').focus();
+});
+/* The timing tiles narrow the Opened list. The tiles are re-marked, not
+   redrawn, so the focus stays on the one just pressed. */
+function setTimingPick(keys) {
+  timingPick.clear();
+  keys.forEach((k) => { if (TIMING[k]) timingPick.add(k); });
+  document.querySelectorAll('#openedStats [data-timing]').forEach((b) =>
+    b.setAttribute('aria-pressed', String(timingPick.has(b.dataset.timing))));
+  renderOpened();
+}
+$('openedStats').addEventListener('click', (e) => {
+  const tile = e.target.closest('[data-timing]');
+  if (!tile) return;
+  const next = new Set(timingPick), k = tile.dataset.timing;
+  next[next.has(k) ? 'delete' : 'add'](k);
+  setTimingPick([...next]);
+});
+/* What You Like sorts by its headings, one order per table. */
+$('likeCard').addEventListener('click', (e) => {
+  const sort = e.target.closest('[data-sort]');
+  const table = sort && sort.closest('[data-like]');
+  if (!table) return;
+  const field = table.dataset.like, cur = likeSort[field];
+  likeSort[field] = nextSort(cur.key, cur.dir, sort.dataset.sort, !!sort.dataset.desc);
+  renderOpenedDash(computeOpened(state));
+  const again = $('likeCard').querySelector('[data-like="' + field + '"] [data-sort="' + sort.dataset.sort + '"]');
+  if (again) again.focus();
 });
 /* The status filter: ONE set, pressed from the dropdown's tick boxes and from
    the status tiles, and drawn back onto both by setStatusPick — so they can
@@ -5622,6 +5874,11 @@ const HELP = {
     <p>The tiles count <strong>bottles</strong>, not wines, and only bottles you still have. The value is each wine’s value per bottle times its count, shown as a range when the value is one; a wine with no value is left out and the line under the tiles says how many bottles that is.</p>`],
   chart: ['How This Chart Is Drawn', `<p>One bar per year, from this one on: how many of your bottles are <strong>inside their drinking window</strong> that year. A wine counts in every year of its window, so the bars overlap on purpose — the shape shows when the cellar is at its best and when bottles start running out of time.</p>
     <p>A window with no end counts in every year shown; a wine with no window is not drawn at all. Bottles are counted as they stand today, so the chart does not know what you will open between now and then. Each bar is a tint with the colour itself on the edge, from the shared palette.</p>`],
+  timing: ['How a Bottle’s Timing Is Decided', `<p>Each opened bottle is set against the <strong>drinking window its wine had on the day you opened it</strong> — the year on the date, against the window’s years. Editing the wine later does not change it.</p>
+    <p><strong>Early</strong> — opened before the window started. <strong>In Window</strong> — opened inside it. <strong>Late</strong> — opened after it closed. A bottle whose wine had no window is in no timing count, and the line under the tiles says how many.</p>
+    <p>Press <strong>Early</strong>, <strong>In Window</strong> or <strong>Late</strong> to show just those bottles in the list below; press it again to take it off. <strong>Average Age</strong> is the years from vintage to the year it was opened, over every bottle with a vintage. Every figure counts the whole log — Find never changes them.</p>`],
+  likes: ['How These Tables Are Worked Out', `<p>Every opened bottle, grouped by its <strong>grape</strong> and, separately, by its <strong>region</strong>, as they were recorded when it was opened. Names are matched ignoring capitals and extra spaces, so “pinot noir” and “Pinot Noir” are one row; a blend such as “Pinot Noir, Chardonnay” is a row of its own.</p>
+    <p><strong>Bottles</strong> counts them all. <strong>Rated</strong> is how many you gave stars to, and <strong>Avg ★</strong> is the average of those stars, out of 5 — a bottle you didn’t rate never pulls it down. Best-rated comes first, with the most bottles breaking a tie; press a heading to sort by it instead.</p>`],
 };
 const helpDialog = $('helpDialog');
 document.addEventListener('click', (e) => {
@@ -6573,6 +6830,7 @@ window.__wineTestHooks = {
   shareWines: shareWines, statusOf: statusOf, STATUS: STATUS, parseWineList: parseWineList,
   sameWine: sameWine, syncDecision: syncDecision, makePushGate: makePushGate,
   UPDATED_KEY: UPDATED_KEY, OPENED_COLUMNS: OPENED_COLUMNS,
+  timingOf: timingOf, ageAtOpening: ageAtOpening, likeGroups: likeGroups, computeOpened: computeOpened, TIMING: TIMING,
   encodeShare: encodeShare, decodeShare: decodeShare, csvWines: csvWines, csvOpened: csvOpened, csvCell: csvCell,
   raisesKeyboard: raisesKeyboard, opensOnFocus: opensOnFocus, esc: esc, todayISO: todayISO, fmtMoney: fmtMoney,
   nextSort: nextSort, COLUMNS: COLUMNS, tableToRows: tableToRows, cellText: cellText,

@@ -42,7 +42,16 @@ cellar on your other devices.
   or deleted; Paid shows once any bottle has one), your 1–5 rating and a note. **Find** narrows
   the list by any of those words, like the Cellar's.
   Press a line to change its date, rating or note; the bottle count is left alone.
-- **Folding cards** — At a Glance, Cellar and Drinking Windows Ahead fold up to their heading
+  Each line also says its **Timing** and **Age** (see below).
+- **Opened at the Right Time** — tiles at the top of the Opened tab count the bottles opened
+  **Early** (before the window opened), **In Window** and **Late** (after it closed), set against
+  the window the wine had on the day it was opened, plus the **Average Age** from vintage to
+  opening. Press Early, In Window or Late to narrow the list to them; Clear takes them off.
+- **What You Like** — your opened bottles grouped by grape and by region, with how many you
+  opened, how many you rated and the average stars of those, best-rated first. Press a heading to
+  sort. Both cards count the whole log (Find never changes them) and hide until a bottle is opened.
+- **Folding cards** — At a Glance, Cellar, Drinking Windows Ahead, Opened at the Right Time and
+  What You Like fold up to their heading
   (press the heading band, as in Money Map). Which ones you folded is remembered on this device.
 - **When a list doesn't fit as a table** — on a phone, or a half-screen window — it turns into
   a stack of cards, one to a line so it still reads in its sort order: the wine and its status
