@@ -3085,9 +3085,20 @@ function groupedRegion(name) {
    "Cabernet Sauvignon blend (87% CS…)" are both Cabernet Sauvignon. A style
    ("Bordeaux-style red blend") stays whole: it names no grape to take. The
    first grape named is not always the most of it, which is why it is a view. */
+/* The classic blends Look Up names (Charles, 2026-10-24: a red Bordeaux is not
+   a "Merlot blend"). Kept WHOLE in the Grouped view — "Bordeaux blend" must not
+   lose its "blend" and become a place — and older spellings fold into them. */
+const CLASSIC_BLENDS = [
+  [/\bbordeaux\b|\bmeritage\b/i, 'Bordeaux blend'],
+  [/\brh[oô]ne\b|\bGSM\b/i, 'Rhône blend'],
+  [/\bport\b/i, 'Port blend'],
+  [/\bchampagne\b/i, 'Champagne blend'],
+];
 function groupedGrape(name) {
   const plain = String(name || '').replace(/\([^)]*\)/g, ' ').replace(/\d+(\.\d+)?\s*%/g, ' ')
     .replace(/\s+/g, ' ').trim();
+  const classic = CLASSIC_BLENDS.find(([re]) => re.test(String(name || '')));
+  if (classic) return classic[1];
   if (/-style\b/i.test(plain)) return plain;
   const first = plain.split(/,|\/|&|\+|\band\b/i).map((p) => p.trim()).filter(Boolean)[0] || '';
   return first.replace(/\s+blend$/i, '').trim();
@@ -4699,9 +4710,12 @@ const LOOKUP_TOOL = {
         + 'brackets, abbreviations or classification (IGT, DOC, AVA). Empty if unknown.' },
       appellation: { type: 'string', description: 'The narrower appellation or sub-district, if finer than the area, '
         + 'e.g. "Stags Leap District" or "Dundee Hills". Empty if none.' },
-      grape: { type: 'string', description: 'The lead grape alone, e.g. "Pinot Noir"; for a blend, the lead grape '
-        + 'and the word blend, e.g. "Cabernet Sauvignon blend" or "Touriga Nacional blend". No percentages or '
-        + 'lists. Empty if unknown.' },
+      grape: { type: 'string', description: 'In this order: (1) labelled by a grape that is 75% or more (most New '
+        + 'World wines) - that grape alone, e.g. "Cabernet Sauvignon". (2) A classic blend, above all a wine labelled '
+        + 'by place - its blend name, exactly one of "Bordeaux blend" (any Cabernet/Merlot-family blend, Meritage), '
+        + '"Rhône blend" (Grenache/Syrah/Mourvèdre, Châteauneuf-du-Pape, GSM), "Port blend", "Champagne blend". '
+        + '(3) Otherwise the lead grape and the word blend, e.g. "Tempranillo blend". No percentages or lists. '
+        + 'Empty if unknown.' },
       value_low: NUM_OR_NULL,
       value_high: NUM_OR_NULL,
       value_is_estimate: { type: 'boolean', description: 'true unless the range comes from current retail listings for this vintage.' },
@@ -6366,7 +6380,7 @@ const HELP = {
   timing: ['How a Bottle’s Timing Is Decided', `<p>Each opened bottle is set against the <strong>drinking window its wine had on the day you opened it</strong> — the year on the date, against the window’s years. Editing the wine later does not change it.</p>
     <p><strong>Early</strong> — opened before the window started. <strong>In Window</strong> — opened inside it. <strong>Late</strong> — opened after it closed. A bottle whose wine had no window is in no timing count, and the line under the tiles says how many.</p>
     <p>Press <strong>Early</strong>, <strong>In Window</strong> or <strong>Late</strong> to show just those bottles in the list below; press it again to take it off. The <strong>Timing</strong> box beside Find ticks the same ones, and has <strong>No Window</strong> too. <strong>Average Age</strong> is the years from vintage to the year it was opened, over every bottle with a vintage. Every figure counts the whole log — Find never changes them.</p>`],
-  likes: ['How These Tables Are Worked Out', `<p>Every opened bottle, grouped by its <strong>grape</strong> and, separately, by its <strong>region</strong>, as they were recorded when it was opened. <strong>Grouped</strong> (the usual view) folds names written different ways: a region becomes its area and state or country — “Stags Leap District, Napa Valley, CA” counts as Napa Valley, California — and a grape becomes the first grape named, so “75% Cabernet Sauvignon, 18.2% Cabernet Franc” counts as Cabernet Sauvignon. Point at a row to see what it took in. The first grape named isn’t always the most of the blend, so <strong>As written</strong> counts every spelling apart, ignoring only capitals and extra spaces.</p>
+  likes: ['How These Tables Are Worked Out', `<p>Every opened bottle, grouped by its <strong>grape</strong> and, separately, by its <strong>region</strong>, as they were recorded when it was opened. <strong>Grouped</strong> (the usual view) folds names written different ways: a region becomes its area and state or country — “Stags Leap District, Napa Valley, CA” counts as Napa Valley, California — and a grape becomes the first grape named, so “75% Cabernet Sauvignon, 18.2% Cabernet Franc” counts as Cabernet Sauvignon — except a classic blend, which keeps its name: a Bordeaux, Meritage or “Bordeaux-style” wine counts as <strong>Bordeaux blend</strong>, and the same for Rhône, Port and Champagne blends. Point at a row to see what it took in. The first grape named isn’t always the most of the blend, so <strong>As written</strong> counts every spelling apart, ignoring only capitals and extra spaces.</p>
     <p><strong>Sub-region</strong> counts the narrower place inside a region — Stags Leap District inside Napa Valley — for the bottles that have one; it is counted as written in either view.</p>
     <p><strong>Bottles</strong> counts them all. <strong>Rated</strong> is how many you gave stars to, and <strong>Avg ★</strong> is the average of those stars, out of 5 — a bottle you didn’t rate never pulls it down. Best-rated comes first, with the most bottles breaking a tie; press a heading to sort by it instead.</p>`],
 };

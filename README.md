@@ -63,8 +63,10 @@ cellar on your other devices.
   District, Napa Valley, CA" as Napa Valley, California, and "75% Cabernet Sauvignon, …" as
   Cabernet Sauvignon; point at a row to see what it took in. **As written** counts every spelling
   apart.
-- **Consistent names from Look Up** — Claude writes a region as "Area, State or Country" and a
-  grape as the lead grape (or "… blend"), and is sent the names already in your cellar so it
+- **Consistent names from Look Up** — Claude writes a region as "Area, State or Country", and a
+  grape as the single grape when it is 75% or more of a wine labelled by grape, a classic blend's
+  name (**Bordeaux blend**, **Rhône blend**, **Port blend**, **Champagne blend**) — a red Bordeaux
+  is a Bordeaux blend, not a "Merlot blend" — or else the lead grape and "blend", and is sent the names already in your cellar so it
   reuses your spelling. A finer sub-district goes in the wine's **Sub-region** (e.g. Stags Leap
   District), shown after the region in both lists, copied onto opened bottles, and counted in What
   You Like's own Sub-region table. Run **Check All

@@ -47,7 +47,8 @@ the family doesn't.
   the old mess is never offered back. privacy.html says these names are sent; keep them in step.
 - What You Like defaults to **Grouped** (`groupedRegion`: brackets/classification dropped, "/" as a
   comma, US state spelled out, last two parts; `groupedGrape`: first grape named, no %/blend, a
-  "-style" kept whole). It is a VIEW, never written back; `wine-like-view` remembers it per device.
+  "-style" kept whole; `CLASSIC_BLENDS` — Bordeaux/Rhône/Port/Champagne blend — checked FIRST and kept
+  whole, older spellings like "Bordeaux-style red blend" or "other Port varieties" folded in). It is a VIEW, never written back; `wine-like-view` remembers it per device.
 - **SCHEMA 8 / SHARE_PAYLOAD_V 5: `subregion`** on a wine and (snapshot) an opened line. Look Up's
   `appellation` becomes `r.subregion`; it is a LOOKUP_FIELDS/LOOKUP_BOXES row, NOT in the note line
   any more. A wine with no `subregion` key has the old second part of its Looked up line moved in

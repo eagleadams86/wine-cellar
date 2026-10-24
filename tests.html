@@ -3635,7 +3635,14 @@ function define() {
     eq(g('Cabernet Sauvignon blend (87% CS, Merlot, Petit Verdot, Cab Franc)'), 'Cabernet Sauvignon');
     eq(g('80% Merlot, 20% Cabernet Franc'), 'Merlot');
     eq(g('Touriga Nacional blend'), 'Touriga Nacional');
-    eq(g('Bordeaux-style red blend'), 'Bordeaux-style red blend', 'a style names no grape to take');
+    eq(g('Bordeaux-style red blend'), 'Bordeaux blend', 'an older Bordeaux spelling folds into the classic name');
+    eq(g('Bordeaux blend'), 'Bordeaux blend', 'and the classic name keeps its "blend" — it is not a place');
+    eq(g('Meritage'), 'Bordeaux blend');
+    eq(g('Port blend (Touriga Nacional, Touriga Franca, others)'), 'Port blend');
+    eq(g('Touriga Nacional, Touriga Franca, other Port varieties'), 'Port blend', 'both tawnies, one row');
+    eq(g('GSM'), 'Rhône blend');
+    eq(g('Portugieser'), 'Portugieser', 'a grape with "port" inside it is not Port');
+    eq(g('Tempranillo blend'), 'Tempranillo', 'a lead-grape blend still counts with its grape');
     eq(g('Pinot Noir'), 'Pinot Noir');
   });
   t('What You Like counts grouped by default, says what it merged, and switches to As written', () => {
@@ -3677,6 +3684,7 @@ function define() {
     ok(/as the owner wrote it: Napa, CA/.test(b.messages[0].content), 'the owner’s own text is marked as theirs');
     const p = b.tools.find((t) => t.name === 'record_wine').input_schema.properties;
     ok(/Area, State or Country/.test(p.region.description) && /No percentages/.test(p.grape.description), 'the formats are in the schema');
+    ok(/"Bordeaux blend"/.test(p.grape.description) && /75% or more/.test(p.grape.description), 'with the classic blend names and the 75% rule');
     ok(b.tools.find((t) => t.name === 'record_wine').input_schema.required.indexOf('appellation') !== -1, 'strict: every property required');
     ok(/letter for letter/.test(b.system), 'and the system prompt says to reuse a fitting name');
     const r = H.readLookup({ confidence: 'high', region: 'Napa Valley, California', appellation: 'Stags Leap District',
