@@ -1921,7 +1921,12 @@ html[data-booting] footer { visibility: hidden; }
               placeholder="What it tastes like, why you bought it…"></textarea>
   </div>
   <p class="warn-line" id="wineWarn" role="status"></p>
+  <!-- A saved wine's two other actions live here, not on its row (Charles,
+       2026-10-24): the row is one target that opens this window. -->
   <div class="row-actions">
+    <button type="button" id="wineDrink" hidden>Opened One</button>
+    <button type="button" class="danger" id="wineDelete" hidden>Delete Wine</button>
+    <span class="spacer"></span>
     <button type="button" id="wineCancel">Cancel</button>
     <button type="button" class="primary" id="wineSave">Save</button>
   </div>
@@ -3196,9 +3201,9 @@ function renderList() {
      only when asked to. */
   const cols = state.wines.some((w) => w.paid != null) ? COLUMNS : COLUMNS.filter((c) => c.key !== 'paid');
   const shown = cols.map((c) => c.key), hasPaid = shown.indexOf('paid') !== -1;
-  const head = '<thead><tr>' + sortHead(cols, sortKey, sortDir)
-    + (viewOnly ? '' : '<th class="no-print"><span class="sr-only">Actions</span></th>')
-    + '</tr></thead>';
+  /* No actions column: Opened One and Delete are in the wine's own window,
+     which the whole row opens (2026-10-24). */
+  const head = '<thead><tr>' + sortHead(cols, sortKey, sortDir) + '</tr></thead>';
   wrap.innerHTML = '<table id="cellarTable" class="cards">' + head + '<tbody>'
     + v.rows.map((w) => {
       const st = statusOf(w, v.yr, v.soon);
@@ -3216,17 +3221,6 @@ function renderList() {
         + '<td class="nowrap" data-label="Window">' + esc(fmtWindow(w)) + '</td>'
         + '<td data-label="Status">' + (w.qty ? pillFor(st) : '<span class="pill">Finished</span>') + '</td>'
         + '<td data-label="Where">' + esc(w.location) + '</td>'
-        /* The actions cell is no-print, and that is also what keeps it out of
-           Copy and CSV — tableToRows() skips it. */
-        + (viewOnly ? ''
-           : '<td class="no-print rowacts"><button type="button" class="btn-small" data-drink="'
-             + esc(w.id) + '"' + (w.qty ? '' : ' disabled')
-             /* The name starts with the words on the button (WCAG 2.5.3), so
-                "click Opened One" reaches it by voice; the wine rides after. */
-             + ' aria-label="Opened One: ' + esc(wineLabel(w)) + '">Opened One</button>'
-             + '<button type="button" class="icon-btn danger" data-del="'
-             + esc(w.id) + '" aria-label="Delete ' + esc(wineLabel(w))
-             + '"><span aria-hidden="true">×</span></button></td>')
         + '</tr>';
     }).join('')
     + '</tbody></table>';
@@ -4574,11 +4568,44 @@ function openWine(id) {
   lookupStop();
   lookupStamp = null;
   showLookupWhen(it ? it.checkedAt : null);
+  /* Opened One and Delete are for a SAVED wine; a finished one has nothing
+     left to open. */
+  $('wineDrink').hidden = $('wineDelete').hidden = !it;
+  $('wineDrink').disabled = !(it && it.qty);
   $('lookupNote').textContent = '';
   $('lookupPanel').hidden = true;
   $('lookupPanel').textContent = '';
   openModal($('wineDialog'));
+  wineFormAtOpen = wineFormSnap();
 }
+/* The window's boxes as they stood when it opened, so leaving it for Opened
+   One can ask before throwing away what was typed (or what Look Up filled). */
+let wineFormAtOpen = '';
+const wineFormSnap = () => JSON.stringify([...$('wineDialog').querySelectorAll('input, select, textarea')]
+  .map((el) => (el.type === 'checkbox' ? el.checked : el.value)));
+/* Opened One from the wine's window. The window CLOSES first: left open
+   behind, its Bottles box would still say the old count, and its Save would
+   put the bottle back. Unsaved changes are asked about, never dropped quietly. */
+$('wineDrink').addEventListener('click', () => {
+  const it = editingId && state.wines.find((x) => x.id === editingId);
+  if (!it) { $('wineDialog').close(); render(); return; }
+  if (wineFormSnap() !== wineFormAtOpen
+      && !confirm('Leave “' + wineLabel(it) + '” without saving your changes?\n\n'
+        + 'Opened One takes a bottle off the saved count; what you changed here is not saved.')) return;
+  $('wineDialog').close();
+  openDrink(it.id);
+});
+/* Delete, from the wine's window. NAMES the record and says what is lost. */
+$('wineDelete').addEventListener('click', () => {
+  const it = editingId && state.wines.find((x) => x.id === editingId);
+  if (!it) { $('wineDialog').close(); render(); return; }   /* gone since the window opened */
+  if (!confirm('Delete “' + wineLabel(it) + '” (' + plural(it.qty, 'bottle') + ')?\n\n'
+             + 'Bottles you already opened stay in the Opened list. Undo (↩ in the header) brings it back until you reload.')) return;
+  $('wineDialog').close();
+  state.wines = state.wines.filter((x) => x.id !== it.id);
+  save();
+  toast('Wine deleted');
+});
 
 /* "Already in the cellar" may not know when it was added (Charles,
    2026-10-23): the day becomes optional and "Just the year" swaps the date
@@ -5402,25 +5429,10 @@ function onWineTableClick(e) {
     if (again) again.focus();
     return;
   }
-  const drink = e.target.closest('[data-drink]');
-  if (drink) { openDrink(drink.getAttribute('data-drink')); return; }
   const edit = e.target.closest('[data-edit]');
   if (edit) { openWine(edit.getAttribute('data-edit')); return; }
-  const del = e.target.closest('[data-del]');
-  if (!del) {
-    const row = e.target.closest('[data-open]');
-    if (row) openWine(row.getAttribute('data-open'));
-    return;
-  }
-  const id = del.getAttribute('data-del');
-  const it = state.wines.find((x) => x.id === id);
-  if (!it) { render(); return; }   /* gone since the list was drawn */
-  /* NAMES the record and says what is lost. */
-  if (!confirm('Delete “' + wineLabel(it) + '” (' + plural(it.qty, 'bottle') + ')?\n\n'
-             + 'Bottles you already opened stay in the Opened list. Undo (↩ in the header) brings it back until you reload.')) return;
-  state.wines = state.wines.filter((x) => x.id !== id);
-  save();
-  toast('Wine deleted');
+  const row = e.target.closest('[data-open]');
+  if (row) openWine(row.getAttribute('data-open'));
 }
 $('listWrap').addEventListener('click', onWineTableClick);
 $('nextList').addEventListener('click', onWineTableClick);

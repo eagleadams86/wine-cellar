@@ -51,7 +51,7 @@
    go MISSING look exactly like tests that pass — a suite that quietly shrank to
    three checks still says "all 3 tests pass". RAISE THIS when you add tests, and
    lower it only when you retire one deliberately. */
-const EXPECTED = 228;
+const EXPECTED = 230;
 
 /* ── It refuses to run anywhere but localhost, and that is load-bearing ──────
    GitHub Pages publishes this page BESIDE the app, where the iframe below would
@@ -3031,11 +3031,55 @@ function define() {
     ok(/<form id="keyForm"[^>]*method="dialog"/.test(APP_SRC),
        'method="dialog": a form’s default is a GET to this page, key in the query string');
   });
-  t('a row’s Opened One is named by the words on it', () => {
+  t('Opened One and Delete live in the wine’s window, not on its row', () => {
+    const D = W.document;
     H.__plant(FIXTURE);
-    const b = W.document.querySelector('#cellarTable [data-drink]');
-    ok(b && b.getAttribute('aria-label').indexOf(b.textContent.trim()) === 0,
-       'WCAG 2.5.3 — the spoken name starts with the visible one', b && b.getAttribute('aria-label'));
+    ok(!D.querySelector('#cellarTable button:not([data-sort]):not([data-edit])'),
+       'a row carries no buttons but its name — the whole row opens the window');
+    eq(D.querySelector('#cellarTable thead tr').children.length, D.querySelector('#cellarTable tbody tr').children.length,
+       'and no empty actions heading is left behind');
+    W.openWine(null);
+    ok(D.getElementById('wineDrink').hidden && D.getElementById('wineDelete').hidden, 'a NEW wine has neither');
+    D.getElementById('wineDialog').close();
+    W.openWine('fx-hold');
+    ok(!D.getElementById('wineDrink').hidden && !D.getElementById('wineDelete').hidden, 'a saved wine has both');
+    D.getElementById('wineDialog').close();
+  });
+  t('Delete in the wine’s window asks, then deletes and closes', () => {
+    const D = W.document, proto = W.Storage.prototype, realStore = proto.setItem, realConfirm = W.confirm;
+    proto.setItem = function () {};
+    let asked = '';
+    try {
+      H.__plant(FIXTURE);
+      W.openWine('fx-hold');
+      W.confirm = (m) => { asked = m; return false; };
+      D.getElementById('wineDelete').click();
+      ok(/Delete “2021 Charlie Cabernet” \(6 bottles\)/.test(asked), 'it names the wine and its bottles', asked);
+      ok(H.__state().wines.some((w) => w.id === 'fx-hold') && D.getElementById('wineDialog').open, 'No keeps it, window open');
+      W.confirm = () => true;
+      D.getElementById('wineDelete').click();
+      ok(!H.__state().wines.some((w) => w.id === 'fx-hold'), 'Yes deletes it');
+      ok(!D.getElementById('wineDialog').open, 'and the window closes');
+    } finally { proto.setItem = realStore; W.confirm = realConfirm; H.__plant(FIXTURE); }
+  });
+  t('Opened One from the window asks before dropping unsaved changes', () => {
+    const D = W.document, realConfirm = W.confirm;
+    let asked = 0;
+    try {
+      H.__plant(FIXTURE);
+      W.confirm = () => { asked++; return false; };
+      W.openWine('fx-hold');
+      D.getElementById('wineDrink').click();
+      eq(asked, 0, 'nothing typed, nothing to ask');
+      ok(D.getElementById('openDialog').open && !D.getElementById('wineDialog').open,
+         'the wine window closes and Opened One opens — a stale Bottles box behind it could put the bottle back');
+      D.getElementById('openDialog').close();
+      W.openWine('fx-hold');
+      D.getElementById('f_location').value = 'Rack Z';
+      D.getElementById('wineDrink').click();
+      eq(asked, 1, 'a change typed is asked about');
+      ok(D.getElementById('wineDialog').open && !D.getElementById('openDialog').open, 'and No stays in the window');
+    } finally { W.confirm = realConfirm; D.getElementById('wineDialog').close(); D.getElementById('openDialog').close(); H.__plant(FIXTURE); }
   });
 
   group('the editor never saves a number the reader did not type');
@@ -3141,7 +3185,8 @@ function define() {
     try {
       H.__plant(FIXTURE);
       W.setTab('cellar');
-      D.querySelector('[data-drink="fx-hold"]').click();
+      W.openWine('fx-hold');
+      D.getElementById('wineDrink').click();
       ok(D.getElementById('openDialog').open, 'the window opens');
       D.getElementById('o_rating').value = '5';
       D.getElementById('openSave').click();
@@ -3160,8 +3205,9 @@ function define() {
     H.__plant(Object.assign({}, FIXTURE, { wines: FIXTURE.wines.map((w) =>
       Object.assign({}, w, { qty: w.id === 'fx-past' ? 0 : w.qty })),
       settings: { soonYears: 1, showFinished: true } }));
-    const b = W.document.querySelector('[data-drink="fx-past"]');
-    ok(b && b.disabled, 'its Opened One is disabled');
+    W.openWine('fx-past');
+    ok(W.document.getElementById('wineDrink').disabled, 'its Opened One is disabled');
+    W.document.getElementById('wineDialog').close();
     H.__plant(FIXTURE);
   });
   t('removing a log line puts the bottle back', () => {

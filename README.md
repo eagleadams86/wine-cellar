@@ -43,7 +43,9 @@ cellar on your other devices.
   text column about two words a line, so it never scrolls sideways or squeezes into tall rows.
   This covers Drink Next, the Cellar, the Opened log and the paste preview. The column headings
   become a row of **Sort by** buttons. It is layout only: Copy and CSV still export the full table.
-- **Opened One** beside each wine takes a bottle off the count and writes a line in that log.
+- **Opened One** and **Delete Wine** are in the wine's own window (press its row): Opened One
+  takes a bottle off the count and writes a line in that log, asking first if you had changed
+  something in the window without saving.
   Removing a line puts the bottle back, so a mistaken press is easy to undo.
 - **Paste a List** reads the table Claude writes when you ask it to look wines up — see below.
 - **✦ Check All Wines** looks every wine with bottles left up with Claude at once — see below.

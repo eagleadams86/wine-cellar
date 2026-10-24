@@ -169,6 +169,12 @@ the family doesn't.
   Money Map keeps it: it is screen layout, so it neither syncs nor rides in a share link, and
   needs no SCHEMA bump. The full-screen chart button stays a child of `#chartCard` (it is
   positioned against the card) and `maxiReady()` takes it away while the card is folded.
+- **Opened One and Delete are in the wine window, not on the row** (2026-10-24, Charles): the
+  whole row opens the window, so the Cellar table has no actions column. Both show only for a
+  SAVED wine; Opened One is disabled at 0 bottles. Opened One CLOSES the wine window first — left
+  open behind, its Bottles box would hold the old count and its Save would put the bottle back —
+  and asks first if the boxes differ from when it opened (`wineFormSnap`/`wineFormAtOpen`). The
+  Opened tab's × (remove a log line) stays on its row.
 - **An opened line is edited in the Opened One window** (`openBottleEdit`, `editingBottleId`):
   date, rating and note only, never the count and never the label (the name as it was).
 - **A wine name wraps and carries no underline** (2026-10-24): `.rowbtn` overrides the base
