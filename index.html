@@ -5766,8 +5766,50 @@ function lookupDiffs(w, r) {
       : [{ key: 'note', label: 'Note', yours: '', claude: line, tick: true }];
   }
   return LOOKUP_FIELDS.filter(([, , , has, same]) => has(r) && !same(w, r))
-    .map(([key, label, empty, , , shown]) => ({ key: key, label: label, yours: shown(w),
-      claude: shown(Object.assign({}, w, r, { color: r.color })), tick: empty(w) }));
+    .map(([key, label, empty, , , shown]) => Object.assign({ key: key, label: label, yours: shown(w),
+      claude: shown(Object.assign({}, w, r, { color: r.color })) }, empty(w)
+        ? { tick: true, why: 'your box is empty' } : tickRule(key, w, r)));
+}
+/* ── Which lines start ticked (Charles, 2026-10-24) ────────────────────────
+   A check that offers twenty changes and ticks none of them is twenty lines to
+   read for nothing; one that ticks everything overwrites good figures with
+   guesses. So each line starts the way a careful reader would set it, and says
+   why — the box is still yours to change. The rule is BETTER EVIDENCE WINS:
+   prices from current listings beat an estimate, a published window beats an
+   estimate, and an estimate never quietly replaces either. Two estimates are
+   left alone: a second guess is not news. */
+const ESTIMATE_WORDS = /\b(my|own|estimat\w*|guess\w*|assum\w*)\b/i;
+/* Where the wine's current window came from, read off its Looked up line
+   ("window: …" up to the next " · "). A window with no such line was typed in
+   by you, or pasted from a list — treated as yours, not as a guess. */
+function windowBasisOf(w) {
+  const line = String(w.notes || '').split('\n').find((l) => l.indexOf('Looked up ') === 0) || '';
+  const m = / · window: (.*?)(?: · [a-z0-9.-]+\.[a-z]{2,}(?:, |$)|$)/i.exec(line);
+  return m ? m[1] : null;
+}
+function tickRule(key, w, r) {
+  if (key === 'value') {
+    if (!r.valueEst) return { tick: true, why: w.valueEst ? 'current prices beat your estimate' : 'newer prices' };
+    return { tick: false, why: w.valueEst ? 'both are estimates' : 'an estimate would replace real prices' };
+  }
+  if (key === 'window') {
+    const claudeGuess = !r.windowBasis || ESTIMATE_WORDS.test(r.windowBasis);
+    const basis = windowBasisOf(w);
+    const yoursGuess = basis != null && ESTIMATE_WORDS.test(basis);
+    if (!claudeGuess) return yoursGuess ? { tick: true, why: 'a published window beats your estimate' }
+      : { tick: false, why: basis != null ? 'both are published; yours kept' : 'yours was entered by hand' };
+    return { tick: false, why: yoursGuess ? 'both are estimates' : 'an estimate would replace ' + (basis != null ? 'a published window' : 'yours') };
+  }
+  if (key === 'region' || key === 'grape') {
+    /* The same place or grape, only written another way: take the house
+       spelling. Anything that means something else stays yours. */
+    const fold = key === 'region' ? groupedRegion : groupedGrape;
+    const mine = fold(w[key]).toLowerCase(), theirs = fold(r[key]).toLowerCase();
+    /* "Sonoma Coast" and "Sonoma Coast, California" are one place, the state added. */
+    return mine === theirs || (key === 'region' && mine.indexOf(',') === -1 && theirs.indexOf(mine + ', ') === 0)
+      ? { tick: true, why: 'the same ' + key + ', written the usual way' } : { tick: false, why: 'yours kept' };
+  }
+  return { tick: false, why: 'yours kept' };
 }
 /* Puts the named fields of Claude's answer onto the wine. The "Looked up…"
    line is written once: a newer check REPLACES the older line rather than
@@ -5893,7 +5935,9 @@ function checkBlock(w) {
       const what = d.key === 'note' ? 'Add to the notes: <strong>' + esc(d.claude) + '</strong>'
         : esc(d.label) + ' <strong>' + esc(d.claude) + '</strong> '
           + (d.yours && d.yours !== '—' ? '(yours: ' + esc(d.yours) + ')' : '(empty now)')
-          + (basis ? ' — ' + esc(basis) : '');
+          + (basis ? ' — ' + esc(basis) : '')
+          /* Why it starts the way it does, quietly, at the end. */
+          + (d.why ? ' <span class="lookdone">· ' + (d.tick ? 'ticked: ' : 'left: ') + esc(d.why) + '</span>' : '');
       return '<label class="checkline"><input type="checkbox" data-tick="' + esc(w.id + '|' + d.key) + '"'
         + (checkTicked(w.id, d) ? ' checked' : '') + '><span>' + what + '</span></label>';
     }).join('')
@@ -5907,8 +5951,9 @@ function renderCheckIntro() {
   $('checkIntro').textContent = !wines.length ? 'There are no wines with bottles left to check.'
     : todo ? 'Claude looks up the ' + plural(todo, 'wine') + ' selected below — about $'
       + (todo * 0.14).toFixed(2) + ' from your API account and ' + plural(mins, 'minute')
-      + ', three at a time. Then tick what to change: empty boxes start ticked, anything you entered '
-      + 'starts unticked. Nothing changes until you save.'
+      + ', three at a time. Lines start ticked when Claude’s answer is better evidence — an empty box, '
+      + 'current prices over an estimate, a published window over an estimate — and each says why; '
+      + 'change any of them. Nothing changes until you save.'
     : wines.some((w) => checkAnswer(w)) ? 'Tick what to change, then save'
       + (checkSelectable().length ? ' — or select more wines to check.' : '.')
     : 'No wine is selected — every one was checked in the last ' + since + '. Select any to check again.';
@@ -7202,6 +7247,7 @@ window.__wineTestHooks = {
   buildLookupRequest: buildLookupRequest, lookupWine: lookupWine, readLookup: readLookup,
   sourceNamesOtherWine: sourceNamesOtherWine, wineWords: wineWords,
   lookupErrorMessage: lookupErrorMessage, lookupNoteLine: lookupNoteLine,
+  tickRule: tickRule, windowBasisOf: windowBasisOf,
   wineFacts: wineFacts, dealOf: dealOf, fmtPaid: fmtPaid, fmtDate: fmtDate, cleanAdded: cleanAdded, lookupDiffs: lookupDiffs, applyLookupTo: applyLookupTo, checkWines: checkWines, coreOf: coreOf, cleanChecked: cleanChecked, fmtChecked: fmtChecked, putLookupNote: putLookupNote, stampChecked: stampChecked, LOOKUP_TOOL: LOOKUP_TOOL,
   LOOKUP_KEY_STORE: LOOKUP_KEY_STORE, SHARE_MAX_BYTES: SHARE_MAX_BYTES, b64urlEncode: b64urlEncode,
 };

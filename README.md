@@ -147,8 +147,15 @@ left (finished wines are skipped), three at a time.
   looks nothing up until you press **Check N Wines** (it can't be pressed with none selected).
   **Stop Checking** keeps what has come back.
 - **Then you choose, line by line.** Each wine gets a panel with one ticked line per thing Claude
-  says differently. A box that is **empty** starts ticked; anything **you entered** starts
-  unticked, so nothing of yours is replaced unless you tick it. Colour is never pre-ticked. **Tick All** ticks every line on offer and then becomes **Untick All**. A wine
+  says differently, each saying **why** it starts ticked or not. The rule is better evidence wins:
+  - **Ticked:** an empty box; a value from current prices (over an estimate or older prices); a
+    critic's published window over an estimate; your region or grape rewritten the usual way
+    when it is the same place or grape ("Stags Leap District, Napa Valley, CA" → "Napa Valley,
+    California").
+  - **Left unticked:** an estimate replacing real prices or a published window; one estimate
+    replacing another; a window you typed yourself; a region or grape that means something else.
+    Colour is never pre-ticked.
+  Any line can still be ticked or unticked by hand. **Tick All** ticks every line on offer and then becomes **Untick All**. A wine
   Claude could not find offers only its "could not find" note line, ticked, and one that already matches says so.
 - **Save Ticked Changes** appears once something is ticked, and saves it all at once, so one **Undo** takes the whole check back. Each
   changed wine's "Looked up…" note line is replaced with today's, not stacked.

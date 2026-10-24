@@ -48,6 +48,11 @@ the family doesn't.
 - What You Like defaults to **Grouped** (`groupedRegion`: brackets/classification dropped, "/" as a
   comma, US state spelled out, last two parts; `groupedGrape`: first grape named, no %/blend, a
   "-style" kept whole). It is a VIEW, never written back; `wine-like-view` remembers it per device.
+- **Check All's default ticks are `tickRule`** (Charles, 2026-10-24: "an estimate overwriting an
+  actual" must not be pre-ticked). Better evidence wins: listings (`!r.valueEst`) tick; a published
+  window ticks only over YOUR estimate. "Estimate" is `ESTIMATE_WORDS` on the basis text; yours is
+  read off the Looked up line by `windowBasisOf` — no line means typed by hand, never overwritten
+  unasked. Each line shows its `why`. Don't go back to "only empty boxes start ticked".
 
 ## Decisions — Don't Undo
 
@@ -237,6 +242,6 @@ commented copy in the repo.
 
 ## Tests
 
-`tests.html`, `EXPECTED = 255`. Run it headless (Playwright) rather than in the Browser pane:
+`tests.html`, `EXPECTED = 256`. Run it headless (Playwright) rather than in the Browser pane:
 the pane throttles hidden timers and its focus heuristics turn the 705px keyboard-focus check
 red on untouched code.
