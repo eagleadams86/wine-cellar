@@ -48,6 +48,11 @@ the family doesn't.
 - What You Like defaults to **Grouped** (`groupedRegion`: brackets/classification dropped, "/" as a
   comma, US state spelled out, last two parts; `groupedGrape`: first grape named, no %/blend, a
   "-style" kept whole). It is a VIEW, never written back; `wine-like-view` remembers it per device.
+- **SCHEMA 8 / SHARE_PAYLOAD_V 5: `subregion`** on a wine and (snapshot) an opened line. Look Up's
+  `appellation` becomes `r.subregion`; it is a LOOKUP_FIELDS/LOOKUP_BOXES row, NOT in the note line
+  any more. A wine with no `subregion` key has the old second part of its Looked up line moved in
+  (`subregionFromNotes`, guarded against window/could-not-find/hosts parts). What You Like's
+  Sub-region table is never folded.
 - **Check All's default ticks are `tickRule`** (Charles, 2026-10-24: "an estimate overwriting an
   actual" must not be pre-ticked). Better evidence wins: listings (`!r.valueEst`) tick; a published
   window ticks only over YOUR estimate. "Estimate" is `ESTIMATE_WORDS` on the basis text; yours is
@@ -242,6 +247,6 @@ commented copy in the repo.
 
 ## Tests
 
-`tests.html`, `EXPECTED = 256`. Run it headless (Playwright) rather than in the Browser pane:
+`tests.html`, `EXPECTED = 258`. Run it headless (Playwright) rather than in the Browser pane:
 the pane throttles hidden timers and its focus heuristics turn the 705px keyboard-focus check
 red on untouched code.

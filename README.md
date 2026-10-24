@@ -65,7 +65,9 @@ cellar on your other devices.
   apart.
 - **Consistent names from Look Up** — Claude writes a region as "Area, State or Country" and a
   grape as the lead grape (or "… blend"), and is sent the names already in your cellar so it
-  reuses your spelling. A finer sub-district goes in the wine's Look Up note. Run **Check All
+  reuses your spelling. A finer sub-district goes in the wine's **Sub-region** (e.g. Stags Leap
+  District), shown after the region in both lists, copied onto opened bottles, and counted in What
+  You Like's own Sub-region table. Run **Check All
   Wines** to bring older wines into line — it only changes what you tick.
 - **Folding cards** — At a Glance, Cellar, Drinking Windows Ahead, Opened at the Right Time,
   What You Like and Bottles Opened fold up to their heading

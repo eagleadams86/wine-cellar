@@ -1812,10 +1812,11 @@ html[data-booting] footer { visibility: hidden; }
           <button type="button" class="btn-small" data-like-view="written">As written</button>
         </span>
       </h2>
-      <p class="chart-title">Your opened bottles by grape and by region, best-rated first.</p>
+      <p class="chart-title">Your opened bottles by grape, by region and by sub-region, best-rated first.</p>
       <div class="likes">
         <div class="table-scroll" id="likeGrapes"></div>
         <div class="table-scroll" id="likeRegions"></div>
+        <div class="table-scroll" id="likeSubregions"></div>
       </div>
       <p class="warn-line" id="likeWarn" role="status"></p>
     </div>
@@ -1945,12 +1946,16 @@ html[data-booting] footer { visibility: hidden; }
   <div class="grid2">
     <div class="field">
       <label for="f_region">Region</label>
-      <input type="text" id="f_region" maxlength="60" autocomplete="off">
+      <input type="text" id="f_region" maxlength="60" autocomplete="off" placeholder="e.g. Napa Valley, California">
     </div>
     <div class="field">
-      <label for="f_grape">Grape or blend</label>
-      <input type="text" id="f_grape" maxlength="60" autocomplete="off">
+      <label for="f_subregion">Sub-region</label>
+      <input type="text" id="f_subregion" maxlength="60" autocomplete="off" placeholder="e.g. Stags Leap District">
     </div>
+  </div>
+  <div class="field">
+    <label for="f_grape">Grape or blend</label>
+    <input type="text" id="f_grape" maxlength="60" autocomplete="off">
   </div>
   <div class="grid2">
     <div class="field">
@@ -2065,9 +2070,13 @@ html[data-booting] footer { visibility: hidden; }
         <input type="text" id="ob_region" maxlength="60" autocomplete="off">
       </div>
       <div class="field">
-        <label for="ob_grape">Grape or blend</label>
-        <input type="text" id="ob_grape" maxlength="60" autocomplete="off">
+        <label for="ob_subregion">Sub-region</label>
+        <input type="text" id="ob_subregion" maxlength="60" autocomplete="off">
       </div>
+    </div>
+    <div class="field">
+      <label for="ob_grape">Grape or blend</label>
+      <input type="text" id="ob_grape" maxlength="60" autocomplete="off">
     </div>
     <div class="grid2">
       <div class="field">
@@ -2456,7 +2465,7 @@ const TABS        = ['cellar', 'opened'];
    3 (2026-10-23): `paid`, what one bottle actually cost. 4 (2026-10-24):
    `checkedAt`, when Claude last answered for the wine. 5 (2026-10-24): an
    opened line's `region`, `grape` and `paid`, copied from its wine. */
-const SCHEMA = 7;
+const SCHEMA = 8;
 
 /* ── Ids from outside are not trusted ──────────────────────────────────────
    Ids reach `data-id` attributes and <option value>s in a dozen places, so an
@@ -2577,6 +2586,23 @@ function cleanChecked(v) {
   return Number.isFinite(t) && t <= Date.now() + 864e5 ? v : null;
 }
 
+/* The sub-district a Looked up line carried before SCHEMA 8, and the notes
+   without it. Only a part that is not the date, a window basis, the "could
+   not find" words or the list of websites — so an older line is never
+   mistaken for one. */
+function subregionFromNotes(notes) {
+  const lines = String(notes || '').split('\n');
+  const at = lines.findIndex((l) => l.indexOf('Looked up ') === 0);
+  if (at === -1) return null;
+  const parts = lines[at].split(' · ');
+  const p = parts[1];
+  if (!p || /^window: /.test(p) || /^Claude could not find/.test(p)
+      || /^[a-z0-9.-]+\.[a-z]{2,}(, [a-z0-9.-]+\.?[a-z]*)*$/i.test(p)) return null;
+  parts.splice(1, 1);
+  lines[at] = parts.join(' · ');
+  return { subregion: cleanLine(p, 60), notes: lines.join('\n') };
+}
+
 /* ── The allowlist ─────────────────────────────────────────────────────────
    normalizeState REBUILDS rather than merges, so a field not named here does
    not survive a save. That is deliberate: it is what makes a corrupt or hostile
@@ -2601,8 +2627,8 @@ function normalizeState(raw) {
     if (!map.has(key)) map.set(key, uid());
     return map.get(key);
   };
-  out.wines = (Array.isArray(raw.wines) ? raw.wines : [])
-    .filter((it) => it && typeof it === 'object')
+  const rawWines = (Array.isArray(raw.wines) ? raw.wines : []).filter((it) => it && typeof it === 'object');
+  out.wines = rawWines
     .map((it) => {
       let low = cleanMoney(it.valueLow), high = cleanMoney(it.valueHigh);
       if (low == null && high != null) { low = high; }
@@ -2634,8 +2660,21 @@ function normalizeState(raw) {
         added: cleanAdded(it.added),
         notes: cleanNote(it.notes, 300),
         checkedAt: cleanChecked(it.checkedAt),
+        /* The narrower place inside the region — "Stags Leap District" inside
+           "Napa Valley, California" (SCHEMA 8, 2026-10-24). */
+        subregion: cleanLine(it.subregion, 60),
       };
     });
+  /* Before SCHEMA 8 a sub-district lived in the Looked up note line, as its
+     second part ("Looked up 2026-10-24 · Stags Leap District · window: …").
+     A wine with no subregion KEY has it moved out of the note into the field,
+     once — the key's presence is what says it has been done. */
+  rawWines.forEach((it, i) => {
+    if ('subregion' in it) return;
+    const w = out.wines[i];
+    const moved = subregionFromNotes(w.notes);
+    if (moved) { w.subregion = moved.subregion; w.notes = moved.notes; }
+  });
   out.opened = (Array.isArray(raw.opened) ? raw.opened : [])
     .filter((it) => it && typeof it === 'object')
     .map((it) => {
@@ -2668,6 +2707,7 @@ function normalizeState(raw) {
         drinkTo: 'drinkTo' in it ? cleanYear(it.drinkTo) : undefined,
         /* Where it was opened — home, a restaurant, a tasting (SCHEMA 7). */
         place: cleanLine(it.place, 40),
+        subregion: 'subregion' in it ? cleanLine(it.subregion, 60) : null,
       };
     });
   {
@@ -2675,6 +2715,7 @@ function normalizeState(raw) {
     out.opened.forEach((o) => {
       const w = o.wineId ? byId.get(o.wineId) : null;
       if (o.region == null) o.region = w ? w.region : '';
+      if (o.subregion == null) o.subregion = w ? w.subregion : '';
       if (o.grape == null) o.grape = w ? w.grape : '';
       if (o.paid === undefined) o.paid = w ? w.paid : null;
       /* A deleted wine still names its vintage: the label starts with it
@@ -3050,7 +3091,8 @@ function groupedGrape(name) {
 function likeGroups(lines, field, grouped) {
   const groups = new Map();
   let blank = 0;
-  const fold = grouped ? (field === 'region' ? groupedRegion : groupedGrape) : (x) => x;
+  /* A sub-region is already the narrow name; only region and grape fold. */
+  const fold = grouped && field === 'region' ? groupedRegion : grouped && field === 'grape' ? groupedGrape : (x) => x;
   lines.forEach((o) => {
     const written = String(o[field] || '').trim().replace(/\s+/g, ' ');
     const name = written ? fold(written) || written : '';
@@ -3064,7 +3106,9 @@ function likeGroups(lines, field, grouped) {
     if (o.rating != null) { g.rated += 1; g.sum += o.rating; }
   });
   const rows = [...groups.values()].map((g) => ({
-    name: [...g.spellings].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))[0][0],
+    /* The spelling used most; on a tie, one with capitals over one without. */
+    name: [...g.spellings].sort((a, b) => b[1] - a[1]
+      || (a[0] === a[0].toLowerCase()) - (b[0] === b[0].toLowerCase()) || a[0].localeCompare(b[0]))[0][0],
     bottles: g.bottles, rated: g.rated, avg: g.rated ? g.sum / g.rated : null,
     from: [...g.from].sort(),
   }));
@@ -3085,6 +3129,7 @@ function computeOpened(st, grouped) {
     all: st.opened.length, timing: timing,
     age: { avg: aged ? ageSum / aged : null, unaged: st.opened.length - aged },
     grapes: likeGroups(st.opened, 'grape', grouped), regions: likeGroups(st.opened, 'region', grouped),
+    subregions: likeGroups(st.opened, 'subregion', grouped),
   };
 }
 
@@ -3216,6 +3261,11 @@ function renderStats(c) {
   document.getElementById('overviewWarn').textContent = notes.join(' ');
 }
 
+/* A Region cell: the region, with its sub-region quieter after it. */
+function regionCell(x) {
+  return esc(x.region) + (x.subregion ? (x.region ? ' <span class="lookdone">· ' : '<span class="lookdone">')
+    + esc(x.subregion) + '</span>' : '');
+}
 function pillFor(status) {
   const s = STATUS[status];
   return '<span class="pill' + (s.cls ? ' ' + s.cls : '') + '">' + esc(s.label) + '</span>';
@@ -3431,7 +3481,8 @@ const likeColumns = (label) => [
    share link. `null` means the table's own order. */
 let sortKey = null, sortDir = 'desc';
 let openedSortKey = null, openedSortDir = 'desc';
-let likeSort = { grape: { key: null, dir: 'desc' }, region: { key: null, dir: 'desc' } };
+let likeSort = { grape: { key: null, dir: 'desc' }, region: { key: null, dir: 'desc' },
+                 subregion: { key: null, dir: 'desc' } };
 /* What You Like's view: Grouped (the default) or As written. A per-device
    convenience, like the folds — never part of the cellar. */
 const LIKE_VIEW_KEY = 'wine-like-view';
@@ -3465,7 +3516,7 @@ function visibleWines() {
   const yr = thisYear(), soon = state.settings.soonYears;
   let rows = state.wines.filter((w) => w.qty > 0 || state.settings.showFinished || viewOnly);
   const total = rows.length;
-  if (q) rows = rows.filter((w) => [wineLabel(w), w.region, w.grape, w.location, w.notes,
+  if (q) rows = rows.filter((w) => [wineLabel(w), w.region, w.subregion, w.grape, w.location, w.notes,
     COLOR_LABEL[w.color]].some((t) => String(t || '').toLowerCase().indexOf(q) !== -1));
   if (only) rows = rows.filter((w) => statusPick.has(statusOf(w, yr, soon)));
   /* The table's OWN order is the order you would drink them in: status first,
@@ -3527,7 +3578,7 @@ function renderList() {
         + '<th scope="row">' + wineNameCell(w) + '</th>'
         /* data-label is what a phone shows beside each value once the row
            has become a card — the column headings are not on screen there. */
-        + '<td data-label="Region">' + esc(w.region) + '</td>'
+        + '<td data-label="Region">' + regionCell(w) + '</td>'
         + '<td data-label="Grape">' + esc(w.grape) + '</td>'
         + '<td class="num" data-label="Bottles">' + esc(w.qty) + '</td>'
         + '<td class="num nowrap" data-label="Value">' + esc(fmtValue(w)) + '</td>'
@@ -3548,7 +3599,7 @@ function visibleOpened() {
   /* Find, in the list: every word you can see on a line, the date as shown. */
   const q = document.getElementById('openedFind').value.trim().toLowerCase();
   let rows = !q ? state.opened.slice() : state.opened.filter((o) =>
-    [o.label, o.region, o.grape, o.place, o.note, fmtDate(o.date), o.paid == null ? '' : fmtPaid(o.paid),
+    [o.label, o.region, o.subregion, o.grape, o.place, o.note, fmtDate(o.date), o.paid == null ? '' : fmtPaid(o.paid),
      TIMING[timingOf(o)].label].some((t) => String(t || '').toLowerCase().indexOf(q) !== -1));
   if (timingPick.size) rows = rows.filter((o) => timingPick.has(timingOf(o)));
   return rows.sort((a, b) => {
@@ -3611,8 +3662,10 @@ function renderOpenedDash(c) {
     b.setAttribute('aria-pressed', String((b.dataset.likeView === 'grouped') === likeGrouped)));
   renderLike('grape', c.grapes, 'Grape');
   renderLike('region', c.regions, 'Region');
+  renderLike('subregion', c.subregions, 'Sub-region');
   const blanks = [];
-  [[c.grapes.blank, 'grape', 'Grape'], [c.regions.blank, 'region', 'Region']].forEach((b) => {
+  [[c.grapes.blank, 'grape', 'Grape'], [c.regions.blank, 'region', 'Region'],
+   [c.subregions.blank, 'sub-region', 'Sub-region']].forEach((b) => {
     if (b[0]) blanks.push(plural(b[0], 'bottle') + ' with no ' + b[1] + ' recorded '
       + (b[0] === 1 ? 'is' : 'are') + ' left out of the ' + b[2] + ' table.');
   });
@@ -3620,7 +3673,7 @@ function renderOpenedDash(c) {
 }
 /* Its own order is best-rated first, unrated last, then the most bottles. */
 function renderLike(field, g, label) {
-  const host = document.getElementById(field === 'grape' ? 'likeGrapes' : 'likeRegions');
+  const host = document.getElementById({ grape: 'likeGrapes', region: 'likeRegions', subregion: 'likeSubregions' }[field]);
   const cols = likeColumns(label), srt = likeSort[field];
   const key = srt.key || 'avg', sign = (srt.key ? srt.dir : 'desc') === 'asc' ? 1 : -1;
   const blankLast = (x, y, f) => (x == null && y == null) ? 0 : x == null ? 1 : y == null ? -1 : f(x, y) * sign;
@@ -3678,7 +3731,7 @@ function renderOpened() {
       + '<th scope="row">' + (viewOnly ? esc(o.label)
           : '<button type="button" class="rowbtn" data-edit-bottle="' + esc(o.id) + '">' + esc(o.label) + '</button>')
       + '</th>'
-      + '<td data-label="Region">' + esc(o.region) + '</td>'
+      + '<td data-label="Region">' + regionCell(o) + '</td>'
       + '<td data-label="Grape">' + esc(o.grape) + '</td>'
       + (hasPlace ? '<td data-label="Where">' + esc(o.place) + '</td>' : '')
       + (hasPaid ? '<td class="num nowrap" data-label="Paid">' + esc(fmtPaid(o.paid)) + '</td>' : '')
@@ -3739,7 +3792,7 @@ function searchApp(st, query) {
   /* A wine matches on everything written about it; the vintage is part of its
      label, so "2019" finds the 2019s. */
   wines.slice().sort((a, b) => wineLabel(a).localeCompare(wineLabel(b))).forEach((w) => {
-    if (![wineLabel(w), w.region, w.grape, w.location, w.notes].some(has)) return;
+    if (![wineLabel(w), w.region, w.subregion, w.grape, w.location, w.notes].some(has)) return;
     push({ view: 'cellar', id: w.id, where: wineLabel(w),
            snippet: [plural(w.qty, 'bottle'), w.region, fmtWindow(w) !== '—' ? 'drink ' + fmtWindow(w) : '',
                      w.location].filter(Boolean).join(' · ') });
@@ -3747,7 +3800,7 @@ function searchApp(st, query) {
   /* An opened bottle matches on its wine, its note and its date as stored. It
      opens no editor — the log line is the record — so it carries no id. */
   opened.slice().sort((a, b) => String(b.date).localeCompare(String(a.date))).forEach((o) => {
-    if (![o.label, o.note, o.date, o.place, o.region, o.grape].some(has)) return;
+    if (![o.label, o.note, o.date, o.place, o.region, o.subregion, o.grape].some(has)) return;
     push({ view: 'opened', id: null, where: o.label,
            snippet: 'Opened ' + fmtDate(o.date) + (o.place ? ' at ' + o.place : '')
              + (o.rating ? ' · ' + o.rating + '/5' : '') + (o.note ? ' · ' + o.note : '') });
@@ -4286,8 +4339,9 @@ wireScrollRow(document.querySelector('.tabs'), document.querySelector('.tabrow >
 const SHARE_FORMAT = 1;
 /* 2: `added` may be blank or a bare year (see SCHEMA). 3: `paid`, when ticked.
    4: an opened line carries its own snapshot — a bottle logged away from home
-   has no wine to be filled from — and its place, with the notes. */
-const SHARE_PAYLOAD_V = 4;
+   has no wine to be filled from — and its place, with the notes.
+   5: a wine's and a line's sub-region. */
+const SHARE_PAYLOAD_V = 5;
 const SHARE_WARN_AT = 8000;
 
 const b64urlEncode = (bytes) => {
@@ -4350,7 +4404,7 @@ function buildSharePayload(st, opts) {
     scope: keep,
     settings: { soonYears: st.settings.soonYears, showFinished: keep === 'everything' },
     wines: shareWines(st, keep, thisYear()).map((w) => {
-      const r = { id: w.id, vintage: w.vintage, name: w.name, color: w.color, region: w.region,
+      const r = { id: w.id, vintage: w.vintage, name: w.name, color: w.color, region: w.region, subregion: w.subregion,
                   grape: w.grape, qty: w.qty, valueLow: w.valueLow, valueHigh: w.valueHigh,
                   valueEst: w.valueEst, drinkFrom: w.drinkFrom, drinkTo: w.drinkTo,
                   source: w.source, added: w.added };
@@ -4361,7 +4415,7 @@ function buildSharePayload(st, opts) {
   };
   if (o.opened === true) out.opened = st.opened.map((x) => {
     const r = { id: x.id, wineId: x.wineId, date: x.date, rating: x.rating, note: notes ? x.note : '',
-                label: x.label, region: x.region, grape: x.grape, vintage: x.vintage,
+                label: x.label, region: x.region, subregion: x.subregion, grape: x.grape, vintage: x.vintage,
                 drinkFrom: x.drinkFrom, drinkTo: x.drinkTo, place: notes ? x.place : '' };
     if (o.paid === true) r.paid = x.paid;
     return r;
@@ -4854,7 +4908,8 @@ function readLookup(found, asked) {
     confidence: ['high', 'medium', 'low'].indexOf(f.confidence) === -1 ? 'low' : f.confidence,
     color: COLORS.indexOf(f.color) === -1 ? null : f.color,
     region: cleanLine(f.region, 60),
-    appellation: cleanLine(f.appellation, 60),
+    /* The tool's `appellation` is the wine's Sub-region. Never the region again. */
+    subregion: sameText(f.appellation, f.region) ? '' : cleanLine(f.appellation, 60),
     grape: cleanLine(f.grape, 60),
     valueLow: low,
     valueHigh: high == null || high === low ? null : high,
@@ -4877,9 +4932,7 @@ function lookupNoteLine(r, today) {
      that it was looked for — but no sources: those were about some other wine. */
   if (r.confidence === 'low') return 'Looked up ' + today + ' · Claude could not find this exact wine';
   const hosts = [...new Set(r.sources.map((s) => new URL(s.url).hostname.replace(/^www\./, '')))].slice(0, 3);
-  /* The sub-district the two-part region leaves out, kept here so it is not lost. */
-  const narrow = r.appellation && !sameText(r.appellation, r.region) ? ' · ' + r.appellation : '';
-  return ('Looked up ' + today + narrow + (r.windowBasis ? ' · window: ' + r.windowBasis : '')
+  return ('Looked up ' + today + (r.windowBasis ? ' · window: ' + r.windowBasis : '')
     + (hosts.length ? ' · ' + hosts.join(', ') : '')).slice(0, 160);
 }
 /* The ONE rule for putting that line into notes, for the editor, Check All and
@@ -4951,7 +5004,7 @@ function sampleData() {
     return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
   };
   const w = (o) => Object.assign({ color: 'red', region: '', grape: '', qty: 1, valueLow: null,
-    valueHigh: null, valueEst: false, paid: null, drinkFrom: null, drinkTo: null, location: '', source: 'cellar',
+    valueHigh: null, valueEst: false, paid: null, drinkFrom: null, drinkTo: null, location: '', source: 'cellar', subregion: '',
     added: back(200), notes: '' }, o);
   return {
     wines: [
@@ -4961,7 +5014,7 @@ function sampleData() {
       w({ id: 'demo-ready', vintage: Y - 3, name: 'Example Ridge Pinot Noir', region: 'Sonoma Coast',
           grape: 'Pinot Noir', qty: 3, valueLow: 35, valueHigh: 45, valueEst: true, paid: 39.99,
           drinkFrom: Y - 1, drinkTo: Y + 5, location: 'Rack A', source: 'wineaccess' }),
-      w({ id: 'demo-hold', vintage: Y - 2, name: 'Sample Estate Cabernet Sauvignon', region: 'Napa Valley',
+      w({ id: 'demo-hold', vintage: Y - 2, name: 'Sample Estate Cabernet Sauvignon', region: 'Napa Valley', subregion: 'Oakville',
           grape: 'Cabernet Sauvignon', qty: 6, valueLow: 60, valueHigh: 75, paid: 52, drinkFrom: Y + 3,
           drinkTo: Y + 14, location: 'Rack B', notes: 'Bought by the case to open one a year.' }),
       w({ id: 'demo-past', vintage: Y - 9, name: 'Placeholder Bianco', color: 'white', region: 'Friuli',
@@ -5030,6 +5083,7 @@ function openWine(id) {
   $('f_color').value = it ? it.color : 'red';
   $('f_name').value = it ? it.name : '';
   $('f_region').value = it ? it.region : '';
+  $('f_subregion').value = it ? it.subregion || '' : '';
   $('f_grape').value = it ? it.grape : '';
   $('f_qty').value = it ? it.qty : 1;
   $('f_location').value = it ? it.location : '';
@@ -5158,7 +5212,8 @@ $('wineSave').addEventListener('click', () => {
   }
   const fields = {
     vintage: vintage, name: name, color: $('f_color').value,
-    region: cleanLine($('f_region').value, 60), grape: cleanLine($('f_grape').value, 60),
+    region: cleanLine($('f_region').value, 60), subregion: cleanLine($('f_subregion').value, 60),
+    grape: cleanLine($('f_grape').value, 60),
     qty: qty, location: cleanLine($('f_location').value, 40),
     valueLow: low != null ? low : high, valueHigh: low != null ? high : null,
     valueEst: $('f_est').checked, paid: paid, drinkFrom: from, drinkTo: to,
@@ -5242,6 +5297,8 @@ const LOOKUP_BOXES = [
    (r) => boxNum('f_from') === r.drinkFrom && boxNum('f_to') === r.drinkTo],
   ['region', 'Region', () => !$('f_region').value.trim(), (r) => { $('f_region').value = r.region; },
    (r) => !!r.region, (r) => sameText($('f_region').value, r.region)],
+  ['subregion', 'Sub-region', () => !$('f_subregion').value.trim(), (r) => { $('f_subregion').value = r.subregion; },
+   (r) => !!r.subregion, (r) => sameText($('f_subregion').value, r.subregion)],
   ['grape', 'Grape', () => !$('f_grape').value.trim(), (r) => { $('f_grape').value = r.grape; },
    (r) => !!r.grape, (r) => sameText($('f_grape').value, r.grape)],
   /* Colour has no empty state — a new wine starts as red — so a lookup sets
@@ -5273,7 +5330,7 @@ function renderLookupPanel(r) {
   const shown = {
     value: r.valueLow != null ? fmtRange(r.valueLow, r.valueHigh) + (r.valueEst ? ' est.' : '') : '',
     window: r.drinkFrom != null || r.drinkTo != null ? fmtWindow(r) : '',
-    region: r.region, grape: r.grape, color: r.color ? COLOR_LABEL[r.color] : '',
+    region: r.region, subregion: r.subregion, grape: r.grape, color: r.color ? COLOR_LABEL[r.color] : '',
   };
   const basis = { value: r.valueBasis, window: r.windowBasis };
   let differ = 0;
@@ -5399,6 +5456,7 @@ function fillOpenDialog(o) {
   $('ob_vintage').value = o ? numBox(o.vintage) : '';
   $('ob_paid').value = o ? numBox(o.paid) : '';
   $('ob_region').value = o ? o.region || '' : '';
+  $('ob_subregion').value = o ? o.subregion || '' : '';
   $('ob_grape').value = o ? o.grape || '' : '';
   $('ob_from').value = o ? numBox(o.drinkFrom) : '';
   $('ob_to').value = o ? numBox(o.drinkTo) : '';
@@ -5447,7 +5505,8 @@ function readOpenWineBoxes() {
   const name = cleanLine($('ob_name').value, 80);
   return { name: name, label: cleanLine(wineLabel({ vintage: vintage, name: name }), 100),
            vintage: vintage, paid: cleanMoney($('ob_paid').value),
-           region: cleanLine($('ob_region').value, 60), grape: cleanLine($('ob_grape').value, 60),
+           region: cleanLine($('ob_region').value, 60), subregion: cleanLine($('ob_subregion').value, 60),
+           grape: cleanLine($('ob_grape').value, 60),
            drinkFrom: from, drinkTo: to };
 }
 $('openSave').addEventListener('click', () => {
@@ -5486,7 +5545,7 @@ $('openSave').addEventListener('click', () => {
   /* The name, region, grape, price, vintage and window are copied, so the log
      still reads the same after the wine is edited or deleted. */
   state.opened.push(Object.assign({ id: uid(), wineId: w.id, label: cleanLine(wineLabel(w), 100),
-                      region: w.region, grape: w.grape, paid: w.paid,
+                      region: w.region, subregion: w.subregion, grape: w.grape, paid: w.paid,
                       vintage: w.vintage, drinkFrom: w.drinkFrom, drinkTo: w.drinkTo }, told));
   save();
   $('openDialog').close();
@@ -5509,7 +5568,7 @@ function obLookupStop() {
    Returns what it filled and what differed but was kept. */
 function applyObLookup(r, all) {
   const filled = [], kept = [];
-  [['Region', 'ob_region', r.region], ['Grape', 'ob_grape', r.grape]].forEach(([label, id, v]) => {
+  [['Region', 'ob_region', r.region], ['Sub-region', 'ob_subregion', r.subregion], ['Grape', 'ob_grape', r.grape]].forEach(([label, id, v]) => {
     if (!v) return;
     const box = $(id), mine = box.value.trim();
     if (!mine || all) { if (mine !== v) { box.value = v; filled.push(label); } }
@@ -5583,6 +5642,7 @@ function withLookup(row, r) {
   }
   if (out.drinkFrom == null && out.drinkTo == null) { out.drinkFrom = r.drinkFrom; out.drinkTo = r.drinkTo; }
   if (!out.region) out.region = r.region;
+  if (!out.subregion) out.subregion = r.subregion;
   if (!out.grape) out.grape = r.grape;
   if (!out.colorKnown && r.color) out.color = r.color;
   out.notes = putLookupNote(out.notes, lookupNoteLine(r, todayISO()));
@@ -5748,6 +5808,8 @@ const LOOKUP_FIELDS = [
    (w) => fmtWindow(w), (w, r) => { w.drinkFrom = r.drinkFrom; w.drinkTo = r.drinkTo; }],
   ['region', 'Region', (w) => !String(w.region || '').trim(), (r) => !!r.region,
    (w, r) => sameText(w.region, r.region), (w) => w.region, (w, r) => { w.region = r.region; }],
+  ['subregion', 'Sub-region', (w) => !String(w.subregion || '').trim(), (r) => !!r.subregion,
+   (w, r) => sameText(w.subregion, r.subregion), (w) => w.subregion, (w, r) => { w.subregion = r.subregion; }],
   ['grape', 'Grape', (w) => !String(w.grape || '').trim(), (r) => !!r.grape,
    (w, r) => sameText(w.grape, r.grape), (w) => w.grape, (w, r) => { w.grape = r.grape; }],
   ['color', 'Colour', () => false, (r) => !!r.color,
@@ -6284,6 +6346,7 @@ const HELP = {
     <p><strong>Early</strong> — opened before the window started. <strong>In Window</strong> — opened inside it. <strong>Late</strong> — opened after it closed. A bottle whose wine had no window is in no timing count, and the line under the tiles says how many.</p>
     <p>Press <strong>Early</strong>, <strong>In Window</strong> or <strong>Late</strong> to show just those bottles in the list below; press it again to take it off. The <strong>Timing</strong> box beside Find ticks the same ones, and has <strong>No Window</strong> too. <strong>Average Age</strong> is the years from vintage to the year it was opened, over every bottle with a vintage. Every figure counts the whole log — Find never changes them.</p>`],
   likes: ['How These Tables Are Worked Out', `<p>Every opened bottle, grouped by its <strong>grape</strong> and, separately, by its <strong>region</strong>, as they were recorded when it was opened. <strong>Grouped</strong> (the usual view) folds names written different ways: a region becomes its area and state or country — “Stags Leap District, Napa Valley, CA” counts as Napa Valley, California — and a grape becomes the first grape named, so “75% Cabernet Sauvignon, 18.2% Cabernet Franc” counts as Cabernet Sauvignon. Point at a row to see what it took in. The first grape named isn’t always the most of the blend, so <strong>As written</strong> counts every spelling apart, ignoring only capitals and extra spaces.</p>
+    <p><strong>Sub-region</strong> counts the narrower place inside a region — Stags Leap District inside Napa Valley — for the bottles that have one; it is counted as written in either view.</p>
     <p><strong>Bottles</strong> counts them all. <strong>Rated</strong> is how many you gave stars to, and <strong>Avg ★</strong> is the average of those stars, out of 5 — a bottle you didn’t rate never pulls it down. Best-rated comes first, with the most bottles breaking a tie; press a heading to sort by it instead.</p>`],
 };
 const helpDialog = $('helpDialog');
@@ -6370,10 +6433,10 @@ $('exportBtn').addEventListener('click', downloadBackup);
    view. Both go through the SAME csvCell/toCsv as the table exports. */
 function csvWines(st) {
   const yr = thisYear();
-  const rows = [['Vintage', 'Wine', 'Colour', 'Region', 'Grape', 'Bottles', 'Value low', 'Value high',
+  const rows = [['Vintage', 'Wine', 'Colour', 'Region', 'Sub-region', 'Grape', 'Bottles', 'Value low', 'Value high',
                  'Estimate', 'Paid', 'Drink from', 'Drink by', 'Status', 'Where', 'Came from', 'Added', 'Notes']]
     .concat(st.wines.slice().sort((a, b) => wineLabel(a).localeCompare(wineLabel(b))).map((w) => [
-      w.vintage == null ? 'NV' : w.vintage, w.name, COLOR_LABEL[w.color], w.region, w.grape, w.qty,
+      w.vintage == null ? 'NV' : w.vintage, w.name, COLOR_LABEL[w.color], w.region, w.subregion, w.grape, w.qty,
       w.valueLow == null ? '' : w.valueLow, w.valueHigh == null ? (w.valueLow == null ? '' : w.valueLow) : w.valueHigh,
       w.valueEst ? 'yes' : '', w.paid == null ? '' : w.paid, w.drinkFrom == null ? '' : w.drinkFrom, w.drinkTo == null ? '' : w.drinkTo,
       w.qty ? STATUS[statusOf(w, yr, st.settings.soonYears)].label : 'Finished', w.location,
@@ -6381,9 +6444,9 @@ function csvWines(st) {
   return toCsv(rows);
 }
 function csvOpened(st) {
-  const rows = [['Opened', 'Wine', 'Region', 'Grape', 'Paid', 'Rating', 'Note', 'Where']].concat(st.opened.slice()
+  const rows = [['Opened', 'Wine', 'Region', 'Sub-region', 'Grape', 'Paid', 'Rating', 'Note', 'Where']].concat(st.opened.slice()
     .sort((a, b) => a.date.localeCompare(b.date))
-    .map((o) => [o.date, o.label, o.region, o.grape, o.paid == null ? '' : o.paid,
+    .map((o) => [o.date, o.label, o.region, o.subregion, o.grape, o.paid == null ? '' : o.paid,
       o.rating == null ? '' : o.rating, o.note, o.place]));
   return toCsv(rows);
 }

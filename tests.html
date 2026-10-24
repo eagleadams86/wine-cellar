@@ -51,7 +51,7 @@
    go MISSING look exactly like tests that pass — a suite that quietly shrank to
    three checks still says "all 3 tests pass". RAISE THIS when you add tests, and
    lower it only when you retire one deliberately. */
-const EXPECTED = 256;
+const EXPECTED = 258;
 
 /* ── It refuses to run anywhere but localhost, and that is load-bearing ──────
    GitHub Pages publishes this page BESIDE the app, where the iframe below would
@@ -898,11 +898,11 @@ function define() {
   t('the allowlist strips a field nobody declared', () => {
     eq(Object.keys(one({ secret: 'kept?' })).sort(),
        ['added', 'checkedAt', 'color', 'drinkFrom', 'drinkTo', 'grape', 'id', 'location', 'name', 'notes', 'paid', 'qty',
-        'region', 'source', 'valueEst', 'valueHigh', 'valueLow', 'vintage'],
+        'region', 'source', 'subregion', 'valueEst', 'valueHigh', 'valueLow', 'vintage'],
        'a new stored field must be added to normalizeState AND bump SCHEMA');
     const o = H.normalizeState({ opened: [{ id: 'o', secret: 1 }] }).opened[0];
     eq(Object.keys(o).sort(), ['date', 'drinkFrom', 'drinkTo', 'grape', 'id', 'label', 'note', 'paid', 'place', 'rating',
-       'region', 'vintage', 'wineId'], 'an opened bottle too');
+       'region', 'subregion', 'vintage', 'wineId'], 'an opened bottle too');
   });
   t('text is capped in code, not only by maxlength', () => {
     eq(one({ name: 'x'.repeat(500) }).name.length, 80, 'a paste ignores the attribute');
@@ -1066,7 +1066,7 @@ function define() {
     ok(csv.indexOf('\r\n') > -1, 'CRLF, so Excel on Windows reads it as one file');
     ok(csv.split('\r\n')[0].indexOf('Wine') > -1, 'a header row');
     eq(csv.split('\r\n').length, 4, 'one row per wine');
-    ok(/Opened,Wine,Region,Grape,Paid,Rating,Note/.test(H.csvOpened(H.normalizeState(FIXTURE))), 'and the opened log has its own');
+    ok(/Opened,Wine,Region,Sub-region,Grape,Paid,Rating,Note/.test(H.csvOpened(H.normalizeState(FIXTURE))), 'and the opened log has its own');
   });
 
   group('share links carry figures, never identity');
@@ -1076,7 +1076,7 @@ function define() {
        'a new top-level key in a share payload is a deliberate decision');
     eq(Object.keys(p.wines[0]).sort(),
        ['added', 'color', 'drinkFrom', 'drinkTo', 'grape', 'id', 'name', 'qty', 'region', 'source',
-        'valueEst', 'valueHigh', 'valueLow', 'vintage'],
+        'subregion', 'valueEst', 'valueHigh', 'valueLow', 'vintage'],
        'and so is a new per-wine one — notes and location are absent unless asked for');
     eq(p.settings.soonYears, 1, 'settings ride along — a status means nothing under another rule');
   });
@@ -3661,7 +3661,34 @@ function define() {
     ok(/letter for letter/.test(b.system), 'and the system prompt says to reuse a fitting name');
     const r = H.readLookup({ confidence: 'high', region: 'Napa Valley, California', appellation: 'Stags Leap District',
                              window_basis: 'critic', sources: [] }, { name: 'X' });
-    ok(/· Stags Leap District ·/.test(H.lookupNoteLine(r, '2026-10-24')), 'the sub-district is kept in the note');
+    eq(r.subregion, 'Stags Leap District', 'the sub-district comes back as the Sub-region');
+    ok(!/Stags Leap/.test(H.lookupNoteLine(r, '2026-10-24')), 'and no longer rides in the note');
+    const d = H.lookupDiffs({ region: 'Napa Valley, California', subregion: '' }, r).find((x) => x.key === 'subregion');
+    ok(d && d.tick, 'Check All offers it, ticked, into an empty box');
+  });
+  t('a sub-district in an old Looked up line moves into Sub-region, once', () => {
+    const st = H.normalizeState({ wines: [
+      { id: 'a', name: 'A', region: 'Napa Valley, California',
+        notes: 'Mine.\nLooked up 2026-10-24 · Stags Leap District · window: Own estimate · cellartracker.com, winebid.com' },
+      { id: 'b', name: 'B', notes: 'Looked up 2026-10-24 · window: My estimate · vivino.com' },
+      { id: 'c', name: 'C', notes: 'Looked up 2026-10-24 · Claude could not find this exact wine' },
+      { id: 'd', name: 'D', notes: 'Looked up 2026-10-23 · wine-searcher.com, vivino.com' },
+      { id: 'e', name: 'E', subregion: '', notes: 'Looked up 2026-10-24 · Dundee Hills · window: x' }],
+      opened: [{ id: 'o', wineId: 'a', date: '2026-10-01', label: 'A' }] });
+    const w = (id) => st.wines.find((x) => x.id === id);
+    eq([w('a').subregion, w('a').notes], ['Stags Leap District',
+      'Mine.\nLooked up 2026-10-24 · window: Own estimate · cellartracker.com, winebid.com'], 'moved, and the note keeps the rest');
+    eq([w('b').subregion, w('c').subregion, w('d').subregion], ['', '', ''], 'a window, the could-not-find words or websites are never taken for one');
+    eq([w('e').subregion, /Dundee Hills/.test(w('e').notes)], ['', true], 'a wine that already has the field is left alone');
+    eq(st.opened[0].subregion, 'Stags Leap District', 'an opened bottle copies it from its wine');
+  });
+  t('What You Like counts sub-regions in a table of their own', () => {
+    const c = H.computeOpened(H.normalizeState({ opened: [
+      { id: 'a', date: '2026-01-01', label: 'A', region: 'Napa Valley, California', subregion: 'Stags Leap District', rating: 4 },
+      { id: 'b', date: '2026-01-02', label: 'B', region: 'Napa Valley, CA', subregion: 'stags leap district', rating: 2 },
+      { id: 'c', date: '2026-01-03', label: 'C', region: 'Navarra, Spain', subregion: '', rating: 5 }] }), true);
+    eq(c.subregions.rows.map((r) => [r.name, r.bottles, r.avg]), [['Stags Leap District', 2, 3]]);
+    eq(c.subregions.blank, 1, 'a bottle with none is counted aloud');
   });
   t('removing a log line puts the bottle back', () => {
     ok(/if \(w\) w\.qty = Math\.min\(999, w\.qty \+ 1\)/.test(stripComments(APP_SRC)),
