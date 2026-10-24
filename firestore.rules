@@ -20,7 +20,21 @@ service cloud.firestore {
       allow read, write: if request.auth != null && request.auth.uid == uid;
     }
 
+    // Label photos (2026-10-24): one small JPEG per wine, beside the cellar
+    // document rather than in it, because a document is capped at 1 MB. The
+    // rule above does NOT reach this path — a match covers its own document,
+    // not the ones under it — so it has its own, with the same uid check and
+    // a shape and size cap so this path can only ever hold a photo.
+    match /winecellar/{uid}/photos/{photoId} {
+      allow read, delete: if request.auth != null && request.auth.uid == uid;
+      allow create, update: if request.auth != null && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['data', 'at'])
+        && request.resource.data.data is string
+        && request.resource.data.data.size() <= 300000
+        && request.resource.data.data.matches('data:image/jpeg;base64,.*');
+    }
+
     // Everything else is denied by default: there is deliberately no
-    // `match /{document=**}` catch-all, and the app touches no other path.
+    // `match /{document=**}` catch-all, and the app touches no other paths.
   }
 }

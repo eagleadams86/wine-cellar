@@ -942,6 +942,12 @@
   /* When Claude last checked this wine, at the far end of the button's line —
      there is room beside it on a wide window, and it wraps under on a phone. */
   .lookupbar #lookupWhen { margin-left: auto; }
+  /* The label photo's line, above Look Up: the kept copy as a small square,
+     then its buttons. */
+  .photobar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-4);
+              margin: 0 0 var(--sp-4); }
+  .photothumb { width: 4rem; height: 4rem; object-fit: cover; flex: none;
+                border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface-alt); }
   /* What Claude found, under the bar: a quiet panel of the same family as the
      form panels, with its sources as ordinary links. */
   .lookup-panel { border: 1px solid var(--border); border-radius: var(--radius-sm);
@@ -1935,6 +1941,15 @@ html[data-booting] footer { visibility: hidden; }
       </select>
     </div>
   </div>
+  <!-- A label photo: Look Up reads it, and a small copy is kept with the wine
+       (on this device and in your own account — never in a share link). -->
+  <div class="photobar no-print">
+    <img id="photoImg" class="photothumb" alt="The label photo kept with this wine" hidden>
+    <button type="button" id="photoBtn">Add Label Photo</button>
+    <button type="button" class="link" id="photoRemove" hidden>Remove Photo</button>
+    <input type="file" id="photoFile" accept="image/jpeg,image/png,image/heic,image/heif,image/webp" class="sr-only" aria-hidden="true" tabindex="-1">
+    <span class="hint" id="photoNote" role="status"></span>
+  </div>
   <!-- Look Up fills the EMPTY boxes below from what Claude finds, and says
        what it kept of yours; the panel shows its sources. -->
   <div class="lookupbar no-print">
@@ -2277,6 +2292,8 @@ html[data-booting] footer { visibility: hidden; }
     <button type="button" id="importBtn"><span aria-hidden="true">⬆︎</span> Restore from Backup…</button>
     <input type="file" id="importFile" accept="application/json,.json" class="sr-only" aria-hidden="true" tabindex="-1">
   </div>
+  <label class="checkline"><input type="checkbox" id="backupPhotos">
+    <span>Include label photos — up to about 200 KB each, so the file gets bigger</span></label>
   <hr>
   <p>Every wine, and every opened bottle, as a spreadsheet — all of them, whatever the table is
     showing. It is a one-way door: the CSV is for reading elsewhere, and
@@ -2465,7 +2482,7 @@ const TABS        = ['cellar', 'opened'];
    3 (2026-10-23): `paid`, what one bottle actually cost. 4 (2026-10-24):
    `checkedAt`, when Claude last answered for the wine. 5 (2026-10-24): an
    opened line's `region`, `grape` and `paid`, copied from its wine. */
-const SCHEMA = 8;
+const SCHEMA = 9;
 
 /* ── Ids from outside are not trusted ──────────────────────────────────────
    Ids reach `data-id` attributes and <option value>s in a dozen places, so an
@@ -2586,6 +2603,151 @@ function cleanChecked(v) {
   return Number.isFinite(t) && t <= Date.now() + 864e5 ? v : null;
 }
 
+/* ── Label photos ──────────────────────────────────────────────────────────
+   A wine may keep ONE photo of its label (Charles, 2026-10-24). The photo is
+   never in `state`: a cellar document is capped at 1 MB in Firestore, and
+   twenty photos would break sync for the whole cellar. So:
+   - `photoAt` on the wine (in state, synced) says a photo exists and when it
+     was taken;
+   - the photo itself is a small JPEG data: URL in this device's IndexedDB
+     (`wine-photos`) — NOT localStorage, whose ~5 MB is shared by every app on
+     this origin — and in its own cloud document,
+     winecellar/{uid}/photos/{wineId}, fetched only when a wine is opened.
+   Deleting is deferred to the NEXT LOAD, through `wine-photo-gone`, because
+   Undo can bring a wine back until then and its photo must still be there.
+   `wine-photo-unsent` holds photos not yet in the cloud (signed out, offline,
+   or refused) and is retried after every sign-in. */
+const PHOTO_DB = 'wine-photos';
+const PHOTO_GONE_KEY = 'wine-photo-gone';
+const PHOTO_UNSENT_KEY = 'wine-photo-unsent';
+/* The kept copy is about 100–200 KB (measured: a busy 12 MP label, 176 KB);
+   the cap leaves room and is what the cloud rules allow too. Only a JPEG data URL, because that is all this app makes. */
+const PHOTO_MAX = 300000;
+const PHOTO_RE = /^data:image\/jpeg;base64,[A-Za-z0-9+/]+={0,2}$/;
+function cleanPhoto(v, cap) {
+  return typeof v === 'string' && v.length <= (cap || PHOTO_MAX) && PHOTO_RE.test(v) ? v : null;
+}
+/* The sharp copy sent to Claude, used for that lookup only and never kept, may
+   be bigger — under the API's 5 MB for one image. */
+const PHOTO_SEND_MAX = 4500000;
+/* A short list of wine ids in localStorage. Shape-checked on the way in and
+   out, like every id. */
+function photoIds(key) {
+  try {
+    const v = JSON.parse(localStorage.getItem(key) || '[]');
+    return Array.isArray(v) ? [...new Set(v.filter((x) => typeof x === 'string' && ID_RE.test(x)))].slice(0, 1000) : [];
+  } catch (e) { return []; }
+}
+function setPhotoIds(key, ids) {
+  try { localStorage.setItem(key, JSON.stringify([...new Set(ids)].slice(0, 1000))); } catch (e) { /* blocked */ }
+}
+/* Which wines LOST a photo between two states — deleted, or the photo
+   removed. Pure and pinned. */
+function photoIdsGone(prev, next) {
+  const now = new Map(((next && next.wines) || []).map((w) => [w.id, w]));
+  return ((prev && prev.wines) || []).filter((w) => w.photoAt && !(now.get(w.id) && now.get(w.id).photoAt)).map((w) => w.id);
+}
+/* Called by save() with the state it is replacing. A wine that has a photo
+   again (Undo) leaves the gone list and is queued to send, in case the cloud
+   copy went meanwhile. */
+function photoBookkeeping(prevJson, next) {
+  let prev = null;
+  try { prev = JSON.parse(prevJson || 'null'); } catch (e) { prev = null; }
+  const gone = photoIdsGone(prev, next);
+  const live = new Set(next.wines.filter((w) => w.photoAt).map((w) => w.id));
+  const was = photoIds(PHOTO_GONE_KEY);
+  const back = was.filter((id) => live.has(id));
+  if (!gone.length && !back.length) return;
+  setPhotoIds(PHOTO_GONE_KEY, was.filter((id) => !live.has(id)).concat(gone));
+  if (back.length) setPhotoIds(PHOTO_UNSENT_KEY, photoIds(PHOTO_UNSENT_KEY).concat(back));
+}
+/* IndexedDB, wrapped so every call resolves (a blocked or private-mode store
+   reads as "no photo", never an error). Tests swap it for an in-memory one —
+   the suite never writes the reader's own storage. */
+let photoStore = (() => {
+  let dbp = null;
+  const open = () => dbp || (dbp = new Promise((res, rej) => {
+    const rq = indexedDB.open(PHOTO_DB, 1);
+    rq.onupgradeneeded = () => rq.result.createObjectStore('photos');
+    rq.onsuccess = () => res(rq.result);
+    rq.onerror = () => { dbp = null; rej(rq.error); };
+  }));
+  const run = (mode, fn) => open().then((db) => new Promise((res, rej) => {
+    const tx = db.transaction('photos', mode);
+    const rq = fn(tx.objectStore('photos'));
+    tx.oncomplete = () => res(rq.result);
+    tx.onerror = tx.onabort = () => rej(tx.error);
+  }));
+  return {
+    get: (id) => run('readonly', (st) => st.get(id))
+      .then((v) => (v && cleanPhoto(v.data) ? { data: v.data, at: cleanChecked(v.at) } : null)).catch(() => null),
+    put: (id, data, at) => run('readwrite', (st) => st.put({ data: data, at: at }, id)).then(() => true).catch(() => false),
+    del: (id) => run('readwrite', (st) => st.delete(id)).catch(() => null),
+    keys: () => run('readonly', (st) => st.getAllKeys()).then((k) => (Array.isArray(k) ? k : [])).catch(() => []),
+  };
+})();
+/* A wine's photo: this device's copy unless the cloud's is newer (taken on
+   another device). Null when there is none anywhere. */
+async function loadPhoto(w) {
+  if (!w || !w.photoAt) return null;
+  const local = await photoStore.get(w.id);
+  if (local && local.at && local.at >= w.photoAt) return local;
+  const remote = window.wcPhotoFetch ? await window.wcPhotoFetch(w.id) : null;
+  if (remote) { await photoStore.put(w.id, remote.data, remote.at); return remote; }
+  return local;
+}
+function photoQueue(id) {
+  setPhotoIds(PHOTO_UNSENT_KEY, photoIds(PHOTO_UNSENT_KEY).concat([id]));
+  if (window.wcPhotoFlush) window.wcPhotoFlush();
+}
+/* The gone list as it stood when this page LOADED: only those are past Undo,
+   so only those are deleted, here and (once signed in) in the cloud. */
+let photoGoneAtBoot = [];
+async function sweepPhotos() {
+  const live = new Set(state.wines.filter((w) => w.photoAt).map((w) => w.id));
+  photoGoneAtBoot = photoIds(PHOTO_GONE_KEY).filter((id) => !live.has(id));
+  setPhotoIds(PHOTO_GONE_KEY, photoGoneAtBoot);
+  /* Any copy here whose wine has no photo any more — deleted on this device
+     in an earlier visit, or on another one. */
+  const keys = await photoStore.keys();
+  for (const k of keys) if (!live.has(k)) await photoStore.del(k);
+}
+/* Called by the sync module once a cloud delete has gone through. */
+function inTests() {
+  try { return !!(window.frameElement && window.frameElement.hasAttribute('data-wine-tests')); }
+  catch (e) { return false; }
+}
+function photoGoneDone(id) {
+  photoGoneAtBoot = photoGoneAtBoot.filter((x) => x !== id);
+  setPhotoIds(PHOTO_GONE_KEY, photoIds(PHOTO_GONE_KEY).filter((x) => x !== id));
+}
+/* What a backup file's `photos` may put back: only a valid photo, for a wine
+   in the restored cellar that says it has one. Pure and pinned. */
+function backupPhotoEntries(raw, st) {
+  const ph = raw && raw.photos && typeof raw.photos === 'object' && !Array.isArray(raw.photos) ? raw.photos : {};
+  return st.wines.filter((w) => w.photoAt && Object.prototype.hasOwnProperty.call(ph, w.id) && cleanPhoto(ph[w.id]))
+    .map((w) => [w.id, ph[w.id], w.photoAt]);
+}
+/* Two sizes from one picked file: a sharp one for Claude to read, used for
+   that lookup only, and a small one to keep. createImageBitmap reads the file
+   without a blob: URL, which the CSP does not allow. */
+async function shrinkPhoto(file) {
+  const bmp = await createImageBitmap(file);
+  const at = (edge, q) => {
+    const k = Math.min(1, edge / Math.max(bmp.width, bmp.height));
+    const c = document.createElement('canvas');
+    c.width = Math.max(1, Math.round(bmp.width * k));
+    c.height = Math.max(1, Math.round(bmp.height * k));
+    c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
+    return c.toDataURL('image/jpeg', q);
+  };
+  const send = at(1568, 0.85);
+  let keep = at(800, 0.7);
+  if (!cleanPhoto(keep)) keep = at(640, 0.55);
+  if (bmp.close) bmp.close();
+  return { send: send, keep: cleanPhoto(keep) };
+}
+
 /* The sub-district a Looked up line carried before SCHEMA 8, and the notes
    without it. Only a part that is not the date, a window basis, the "could
    not find" words or the list of websites — so an older line is never
@@ -2671,6 +2833,11 @@ function normalizeState(raw) {
         /* The narrower place inside the region — "Stags Leap District" inside
            "Napa Valley, California" (SCHEMA 8, 2026-10-24). */
         subregion: cleanLine(it.subregion, 60),
+        /* When its label photo was last taken, or null for none (SCHEMA 9,
+           2026-10-24). The PHOTO is never in state — it lives in this
+           device's IndexedDB and its own cloud document (see "Label photos");
+           this stamp is what says one exists, and which copy is newer. */
+        photoAt: cleanChecked(it.photoAt),
       };
     });
   /* Before SCHEMA 8 a sub-district lived in the Looked up note line, as its
@@ -2850,6 +3017,7 @@ function save() {
     undoRing = pushSnapshot(undoRing, undoSnapshot, UNDO_CAP);
   }
   undoCore = core;
+  photoBookkeeping(undoSnapshot, state);
   undoSnapshot = JSON.stringify(state);
   updateUndoBtn();
   try {
@@ -4701,6 +4869,10 @@ const LOOKUP_TOOL = {
     additionalProperties: false,
     properties: {
       matched_wine: { type: 'string', description: 'The bottle your sources describe: producer, wine and vintage.' },
+      label_name: { type: 'string', description: 'Only when a label photo is attached: the producer and wine as the '
+        + 'label prints them, without the vintage, accents as printed. Empty when there is no photo or it cannot be read.' },
+      label_vintage: { anyOf: [{ type: 'integer' }, { type: 'null' }],
+        description: 'Only when a label photo is attached: the vintage printed on it. null otherwise.' },
       confidence: { type: 'string', enum: ['high', 'medium', 'low'],
         description: 'high: sources name this exact wine and vintage. medium: right wine, nearby vintages or thin sources. low: could not find it.' },
       color: { type: 'string', enum: ['red', 'white', 'rose', 'sparkling', 'dessert'] },
@@ -4732,7 +4904,7 @@ const LOOKUP_TOOL = {
         },
       },
     },
-    required: ['matched_wine', 'confidence', 'color', 'region', 'appellation', 'grape', 'value_low', 'value_high',
+    required: ['matched_wine', 'label_name', 'label_vintage', 'confidence', 'color', 'region', 'appellation', 'grape', 'value_low', 'value_high',
                'value_is_estimate', 'value_basis', 'drink_from', 'drink_to', 'window_basis', 'sources'],
   },
 };
@@ -4742,6 +4914,9 @@ const LOOKUP_SYSTEM = [
   'facts they can rely on: what one 750ml bottle is worth today, and the years it is best to drink.',
   '',
   'Search the web for the exact bottle - producer, wine and vintage. Then call record_wine once.',
+  '',
+  'If a photo of the label is attached, read the producer, wine, vintage and appellation from it',
+  'FIRST and search for that exact bottle; the label wins over anything the owner typed.',
   '',
   'Value: the current US retail price range for one bottle of THIS vintage, from merchant listings',
   'or a price aggregator such as Wine-Searcher. If this vintage is not listed, use nearby vintages',
@@ -4786,9 +4961,12 @@ function knownNames(st) {
 /* The whole request for one wine — PURE, so tests.html pins its shape, and the
    terminal test runs exactly this body. `today` is passed in so the prompt's
    "today" is the reader's date, not the model's guess. */
-function buildLookupRequest(w, today, tune, names) {
+function buildLookupRequest(w, today, tune, names, photo) {
   const t = tune || {};
-  const label = (w.vintage ? w.vintage : 'NV') + ' ' + cleanLine(w.name, 80);
+  const typed = cleanLine(w.name, 80);
+  /* With a photo and no name, the label IS the question. */
+  const label = typed ? (w.vintage ? w.vintage : 'NV') + ' ' + typed
+    : (w.vintage ? w.vintage + ', ' : '') + 'the wine in the label photo';
   const n = names || { regions: [], grapes: [] };
   const known = [
     w.region ? 'Region, as the owner wrote it: ' + cleanLine(w.region, 60) : '',
@@ -4807,9 +4985,18 @@ function buildLookupRequest(w, today, tune, names) {
     tools: [{ type: 'web_search_20260209', name: 'web_search', max_uses: t.maxSearches || LOOKUP_SEARCHES },
             LOOKUP_TOOL],
     tool_choice: { type: 'auto' },
-    messages: [{ role: 'user', content: 'Today is ' + today + '.\n\nThe bottle: ' + label
-      + (known ? '\n' + known : '') + '\n\nLook it up, then call record_wine.' }],
+    messages: [{ role: 'user', content: photoContent(photo, 'Today is ' + today + '.\n\nThe bottle: ' + label
+      + (known ? '\n' + known : '') + (photo ? '\nA photo of its label is attached.' : '')
+      + '\n\nLook it up, then call record_wine.') }],
   };
+}
+/* A label photo goes BEFORE the words, as Claude reads best; without one the
+   question stays a plain string, exactly as before photos. `photo` is a JPEG
+   data URL from shrinkPhoto(), or the kept copy. */
+function photoContent(photo, text) {
+  const data = cleanPhoto(photo, PHOTO_SEND_MAX) ? photo.slice(photo.indexOf(',') + 1) : '';
+  return data ? [{ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: data } },
+                 { type: 'text', text: text }] : text;
 }
 
 const LOOKUP_HEADERS = (key) => ({
@@ -4840,7 +5027,7 @@ function lookupErrorMessage(status, data) {
    (unchecked — readLookup() is the boundary), plus what it cost. */
 async function lookupWine(w, key, opts) {
   const o = opts || {};
-  const body = buildLookupRequest(w, todayISO(), o.tune, o.names || knownNames(state));
+  const body = buildLookupRequest(w, todayISO(), o.tune, o.names || knownNames(state), o.photo);
   const usage = { input: 0, output: 0, searches: 0, rounds: 0 };
   let nudged = false;
   for (let round = 0; round < LOOKUP_MAX_ROUNDS; round++) {
@@ -4927,6 +5114,9 @@ function readLookup(found, asked) {
   }).filter(Boolean).slice(0, 6);
   return {
     matched: cleanLine(f.matched_wine, 120),
+    /* What a label photo says, for filling an EMPTY name and vintage. */
+    labelName: cleanLine(f.label_name, 80),
+    labelVintage: cleanYear(f.label_vintage),
     confidence: ['high', 'medium', 'low'].indexOf(f.confidence) === -1 ? 'low' : f.confidence,
     color: COLORS.indexOf(f.color) === -1 ? null : f.color,
     region: cleanLine(f.region, 60),
@@ -5146,9 +5336,67 @@ function openWine(id) {
   $('lookupNote').textContent = '';
   $('lookupPanel').hidden = true;
   $('lookupPanel').textContent = '';
+  photoReset(it);
   openModal($('wineDialog'));
   wineFormAtOpen = wineFormSnap();
 }
+
+/* ── The label photo, in the wine window ─────────────────────────────────── */
+/* `photoDraft` is a photo picked in THIS window ({ send, keep }), `photoRemoved`
+   that Remove was pressed, `photoShown` the saved copy on screen. Nothing is
+   kept until Save, as with every other box. */
+let photoDraft = null, photoRemoved = false, photoShown = null, photoSeq = 0;
+function showPhoto(data) {
+  $('photoImg').hidden = !data;
+  if (data) $('photoImg').src = data; else $('photoImg').removeAttribute('src');
+  $('photoRemove').hidden = !data;
+  $('photoBtn').textContent = data ? 'Replace Photo' : 'Add Label Photo';
+}
+function photoReset(it) {
+  const seq = ++photoSeq;
+  photoDraft = null; photoRemoved = false; photoShown = null;
+  $('photoNote').textContent = '';
+  showPhoto(null);
+  if (!it || !it.photoAt) return;
+  $('photoNote').textContent = 'Loading the photo…';
+  loadPhoto(it).then((p) => {
+    /* Still the same window, and nothing picked or removed meanwhile. */
+    if (seq !== photoSeq || !$('wineDialog').open || photoDraft || photoRemoved) return;
+    photoShown = p;
+    $('photoNote').textContent = p ? '' : window.wcSignedIn && window.wcSignedIn()
+      ? 'The photo could not be found on this device or in your account.'
+      : 'The photo is not on this device — sign in to fetch it.';
+    showPhoto(p && p.data);
+  });
+}
+/* The photo Look Up sends: the sharp one just picked, else the kept copy. */
+const photoForLookup = () => (photoDraft ? photoDraft.send : photoRemoved ? null : photoShown && photoShown.data);
+$('photoBtn').addEventListener('click', () => $('photoFile').click());
+$('photoFile').addEventListener('change', async () => {
+  const input = $('photoFile');
+  const file = input.files && input.files[0];
+  input.value = '';                   /* so the same photo can be picked twice */
+  if (!file) return;
+  const seq = ++photoSeq;
+  $('photoNote').textContent = 'Reading the photo…';
+  let got = null;
+  try { got = await shrinkPhoto(file); } catch (e) { got = null; }
+  if (seq !== photoSeq || !$('wineDialog').open) return;
+  if (!got || !got.keep || !cleanPhoto(got.send, PHOTO_SEND_MAX)) {
+    $('photoNote').textContent = 'That photo could not be read here. Try a JPEG or PNG.';
+    return;
+  }
+  photoDraft = got; photoRemoved = false;
+  showPhoto(got.keep);
+  $('photoNote').textContent = 'Look Up will read the label. The photo is kept when you Save.';
+});
+$('photoRemove').addEventListener('click', () => {
+  ++photoSeq;
+  photoDraft = null; photoRemoved = true;
+  showPhoto(null);
+  $('photoNote').textContent = 'The photo goes when you Save.';
+  $('photoBtn').focus();
+});
 /* The window's boxes as they stood when it opened, so leaving it for Opened
    One can ask before throwing away what was typed (or what Look Up filled). */
 let wineFormAtOpen = '';
@@ -5240,6 +5488,7 @@ $('wineSave').addEventListener('click', () => {
       if (added > todayISO()) return bad('The day it was added cannot be after today.', 'f_added');
     }
   }
+  let savedId = null;
   const fields = {
     vintage: vintage, name: name, color: $('f_color').value,
     region: cleanLine($('f_region').value, 60), subregion: cleanLine($('f_subregion').value, 60),
@@ -5275,10 +5524,23 @@ $('wineSave').addEventListener('click', () => {
     const renamed = wineKey(fields) !== wineKey(it);
     Object.assign(it, fields);
     if (renamed) it.checkedAt = lookupStamp && lookupStamp.key === wineKey(fields) ? lookupStamp.at : null;
+    savedId = it.id;
   } else {
-    state.wines.push(Object.assign({ id: uid(),
+    savedId = uid();
+    state.wines.push(Object.assign({ id: savedId,
       checkedAt: lookupStamp && lookupStamp.key === wineKey(fields) ? lookupStamp.at : null }, fields));
   }
+  /* The photo: a new one is stored before the save that says it exists; a
+     removed one is only un-claimed here — save() puts it on the gone list,
+     and it is deleted on the next load, past Undo. */
+  const w = state.wines.find((x) => x.id === savedId);
+  if (photoDraft) {
+    w.photoAt = nowStamp();
+    photoStore.put(savedId, photoDraft.keep, w.photoAt).then(() => photoQueue(savedId));
+  } else if (photoRemoved) {
+    w.photoAt = null;
+  }
+  photoDraft = null; photoRemoved = false;
   state = normalizeState(state);
   save();
   $('wineDialog').close();
@@ -5380,6 +5642,8 @@ function renderLookupPanel(r) {
   }).join('');
   panel.innerHTML = '<p><strong>' + esc(r.matched || 'No match') + '</strong> '
     + '<span class="pill ' + conf[0] + '">' + esc(conf[1]) + '</span></p>'
+    + (r.labelName ? '<p>The label reads <strong>' + esc((r.labelVintage ? r.labelVintage + ' ' : '') + r.labelName)
+      + '</strong></p>' : '')
     + lines
     + (r.sources.length ? '<p>Sources:</p><ul>' + r.sources.map((x) => '<li><a href="' + esc(x.url)
       + '" target="_blank" rel="noopener noreferrer">' + esc(x.title) + '</a></li>').join('') + '</ul>' : '')
@@ -5408,7 +5672,10 @@ $('lookupPanel').addEventListener('click', (e) => {
 $('lookupBtn').addEventListener('click', async () => {
   if (lookupCtl) { lookupStop(); $('lookupNote').textContent = 'Stopped.'; return; }
   const name = cleanLine($('f_name').value, 80);
-  if (!name) { $('lookupNote').textContent = 'Type the wine’s name first.'; $('f_name').focus(); return; }
+  const photo = photoForLookup();
+  if (!name && !photo) {
+    $('lookupNote').textContent = 'Type the wine’s name or add a label photo first.'; $('f_name').focus(); return;
+  }
   const key = lookupKey();
   if (!key) { $('lookupNote').textContent = 'Add your Claude API key in Settings first.'; return; }
   const w = { vintage: cleanYear($('f_vintage').value), name: name,
@@ -5416,13 +5683,21 @@ $('lookupBtn').addEventListener('click', async () => {
   const ctl = new AbortController();
   lookupCtl = ctl;
   $('lookupBtn').textContent = 'Stop Looking';
-  $('lookupNote').textContent = 'Searching the web — this can take a minute…';
+  $('lookupNote').textContent = (photo ? 'Reading the label and searching' : 'Searching the web')
+    + ' — this can take a minute…';
   $('lookupPanel').hidden = true;
   try {
-    const got = await lookupWine(w, key, { signal: ctl.signal });
+    const got = await lookupWine(w, key, { signal: ctl.signal, photo: photo });
     if (lookupCtl !== ctl || !$('wineDialog').open) return;   /* stopped, or the window closed */
     const r = readLookup(got.found, w);
     lookupLast = r;
+    /* An EMPTY name and vintage take what the label says, so a photo alone
+       starts a wine. A typed name is the reader's and stays. */
+    const read = [];
+    if (!$('f_name').value.trim() && r.labelName) { $('f_name').value = r.labelName; w.name = r.labelName; read.push('name'); }
+    if ($('f_vintage').value === '' && r.labelVintage != null) {
+      $('f_vintage').value = r.labelVintage; w.vintage = r.labelVintage; read.push('vintage');
+    }
     /* Checked: saved now when the wine is saved under this name, else by Save. */
     const saved = editingId && state.wines.find((x) => x.id === editingId);
     const at = saved && wineKey(saved) === wineKey(w) ? stampChecked(editingId) : nowStamp();
@@ -5430,11 +5705,12 @@ $('lookupBtn').addEventListener('click', async () => {
     showLookupWhen(at);
     const done = r.confidence === 'low' ? { filled: [], kept: [] } : applyLookup(r, false);
     if (r.confidence === 'low') $('f_notes').value = putLookupNote($('f_notes').value, lookupNoteLine(r, todayISO()));
-    $('lookupNote').textContent = r.confidence === 'low'
+    $('lookupNote').textContent = (read.length ? 'Read the ' + read.join(' and ') + ' from the label. ' : '')
+      + (r.confidence === 'low'
       ? 'Claude could not find this exact wine, so only a note was added.'
       : done.filled.length ? 'Filled ' + done.filled.join(', ').toLowerCase() + '. Check it, then Save.'
         : done.kept.length ? 'Your boxes were all filled in, so nothing changed — pick what to use below.'
-        : 'Claude’s answer matches what you have.';
+        : 'Claude’s answer matches what you have.');
     renderLookupPanel(r);
   } catch (e) {
     if (lookupCtl === ctl && !(e && e.name === 'AbortError')) $('lookupNote').textContent = e.message;
@@ -6452,8 +6728,21 @@ $('dataClose').addEventListener('click', () => $('dataDialog').close());
 
 /* Named, not an inline handler: the delete-all dialog offers the very same
    download as its safety net, and the two must never drift apart. */
-function downloadBackup() {
-  const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
+/* `withPhotos` adds each wine's label photo under `photos` (wine id → data
+   URL) — outside the cellar itself, which normalizeState() never lets hold one.
+   Off by default in Back Up; on for the delete-all safety net, since after
+   that this copy is all there is. */
+async function downloadBackup(withPhotos) {
+  let out = state;
+  if (withPhotos === true) {
+    const photos = {};
+    for (const w of state.wines.filter((x) => x.photoAt)) {
+      const p = await loadPhoto(w);
+      if (p) photos[w.id] = p.data;
+    }
+    out = Object.assign({}, state, { photos: photos });
+  }
+  const blob = new Blob([JSON.stringify(out, null, 2)], { type: 'application/json' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
   a.download = 'wine-cellar-backup-' + todayISO() + '.json';
@@ -6461,7 +6750,7 @@ function downloadBackup() {
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
   toast('Backup downloaded');
 }
-$('exportBtn').addEventListener('click', downloadBackup);
+$('exportBtn').addEventListener('click', () => downloadBackup($('backupPhotos').checked));
 
 /* EVERY wine and every opened bottle, regardless of what is on screen — which
    is what makes these different from a table's own ⬇ CSV. A backup is not a
@@ -6523,6 +6812,10 @@ $('importFile').addEventListener('change', () => {
                + (window.wcSignedIn && window.wcSignedIn() ? ' and on your other signed-in devices.' : '.'))) return;
     state = incoming;
     save();
+    /* Photos in the file go back on this device and up to the cloud. */
+    backupPhotoEntries(raw, incoming).forEach(([id, data, at]) => {
+      photoStore.put(id, data, at).then(() => photoQueue(id));
+    });
     $('dataDialog').close();
     toast('Backup restored');
   };
@@ -6540,11 +6833,13 @@ $('clearBtn').addEventListener('click', () => {
     + (window.wcSignedIn && window.wcSignedIn()
       ? 'You are signed in, so your other devices are cleared too. ' : '')
     + 'Undo (↩ in the header) brings it all back until you reload, close this page or another tab or device changes the cellar — '
-    + 'after that, a downloaded backup is the only way to get any of it back.';
+    + 'after that, a downloaded backup is the only way to get any of it back.'
+    + (state.wines.some((w) => w.photoAt)
+      ? ' Label photos go too, the next time the app opens; the backup button here includes them.' : '');
   openModal(clearDialog);
 });
 
-$('clearBackupBtn').addEventListener('click', downloadBackup);
+$('clearBackupBtn').addEventListener('click', () => downloadBackup(true));
 $('clearCancel').addEventListener('click', () => clearDialog.close());
 $('clearConfirm').addEventListener('click', () => {
   /* Settings deliberately SURVIVE a clear. */
@@ -7301,6 +7596,9 @@ async function boot() {
      as the render above — a frame later and the reveal is itself the flash. The
      head script explains what was flashing before it. */
   document.documentElement.removeAttribute('data-booting');
+  /* Photos past Undo are deleted now — never from a shared view (its cellar is
+     somebody else's, and every photo here would look orphaned) or the tests. */
+  if (!viewOnly && !inTests()) sweepPhotos();
 }
 
 boot();
@@ -7325,6 +7623,12 @@ window.__wineTestHooks = {
     render();
   },
   __state: function () { return state; },
+  /* Swaps the IndexedDB photo store for the suite's in-memory one, and sets a
+     picked photo, so photo tests touch nothing on disk. Returns the old store. */
+  __photoStore: function (next) { const was = photoStore; photoStore = next; return was; },
+  __photoDraft: function (d) { photoDraft = d; photoRemoved = false; },
+  cleanPhoto: cleanPhoto, photoIdsGone: photoIdsGone, backupPhotoEntries: backupPhotoEntries,
+  photoContent: photoContent, PHOTO_MAX: PHOTO_MAX, PHOTO_SEND_MAX: PHOTO_SEND_MAX,
   SCHEMA: SCHEMA, ID_RE: ID_RE, STORAGE_KEY: STORAGE_KEY, THEME_KEY: THEME_KEY,
   TAB_KEY: TAB_KEY, TABS: TABS, SHARE_FORMAT: SHARE_FORMAT, SHARE_PAYLOAD_V: SHARE_PAYLOAD_V,
   blankState: blankState, normalizeState: normalizeState, defaultSettings: defaultSettings,
@@ -7812,6 +8116,52 @@ async function startSync() {
      exists to stop. */
   pushGate.release(() => window.cloudPush());
   listen();
+  photosAfterSignIn();
+}
+
+/* ── Label photos in the cloud ─────────────────────────────────────────────
+   One document per photo, winecellar/{uid}/photos/{wineId} = { data, at },
+   beside the cellar document rather than inside it (its 1 MB cap). Sent from
+   the unsent list, fetched one at a time when a wine is opened, and deleted
+   from the list of photos that were past Undo when this page loaded. A refusal
+   (offline, or rules that do not allow it yet) leaves the photo on the list
+   for the next try and never touches the cellar's own sync. */
+const photoRef = (id) => F.doc(db, COLLECTION, user.uid, 'photos', id);
+let photoFlushing = false, photoFlushAgain = false, photoWarned = false;
+const photoWarn = (e) => {
+  if (!photoWarned) { photoWarned = true; console.warn('Label photos are not reaching the cloud yet:', e && e.code); }
+};
+async function flushPhotos() {
+  if (!user || !F) return;
+  if (photoFlushing) { photoFlushAgain = true; return; }
+  photoFlushing = true;
+  try {
+    do {
+      photoFlushAgain = false;
+      for (const id of photoIds(PHOTO_UNSENT_KEY)) {
+        const w = window.wcGet().wines.find((x) => x.id === id);
+        const p = w && w.photoAt ? await photoStore.get(id) : null;
+        if (p) await F.setDoc(photoRef(id), { data: p.data, at: p.at || w.photoAt });
+        setPhotoIds(PHOTO_UNSENT_KEY, photoIds(PHOTO_UNSENT_KEY).filter((x) => x !== id));
+      }
+    } while (photoFlushAgain);
+  } catch (e) { photoWarn(e); }
+  finally { photoFlushing = false; }
+}
+window.wcPhotoFlush = () => { flushPhotos(); };
+window.wcPhotoFetch = async (id) => {
+  if (!user || !F || !ID_RE.test(id)) return null;
+  try {
+    const snap = await F.getDoc(photoRef(id));
+    const d = snap.exists() ? snap.data() : null;
+    return d && cleanPhoto(d.data) ? { data: d.data, at: cleanChecked(d.at) } : null;
+  } catch (e) { photoWarn(e); return null; }
+};
+async function photosAfterSignIn() {
+  try {
+    for (const id of photoGoneAtBoot.slice()) { await F.deleteDoc(photoRef(id)); photoGoneDone(id); }
+  } catch (e) { photoWarn(e); }
+  flushPhotos();
 }
 
 /* The live listener, on its own so it can be RE-OPENED. The error callback is

@@ -108,7 +108,8 @@ footer { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; }
     <div class="card">
       <p><strong>Google sign-in / Firestore (optional, off until you choose it).</strong> If you
       press “Sign In to Sync”, your cellar is stored in a Firebase/Firestore database operated by
-      the developer so the same data appears on your other devices, and Firebase Authentication
+      the developer so the same data appears on your other devices (with any label photos, each in
+      its own document beside your cellar), and Firebase Authentication
       records your Google account's email address and display name. Security rules confine
       every account to its own document — no other signed-in user can read yours. This only
       ever happens if you sign in; the app never does it on its own.</p>
@@ -126,6 +127,13 @@ footer { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; }
       <a href="https://www.anthropic.com/legal/privacy" rel="noopener noreferrer">Anthropic's
       privacy policy</a>. The key itself stays in this browser: it is never synced, backed up or put
       in a share link, and nothing is sent to Anthropic until you press the button.</p>
+      <p><strong>Label photos (optional).</strong> If you add a photo of a wine's label, Look Up
+      sends that photo to Anthropic too, so Claude can read the label. A small copy is kept with
+      the wine: in this browser's own storage on your device and, if you are signed in, in your own
+      part of the Firestore database (its own document, under the same rule that no other account
+      can read). A photo is never put in a share link, is in a downloaded backup only if you tick
+      “Include label photos”, and is deleted from your device and your account the next time the
+      app opens after you remove it or delete its wine.</p>
     </div>
     <div class="card">
       <p><strong>Backups you download.</strong> “Download Backup” writes a JSON file straight to

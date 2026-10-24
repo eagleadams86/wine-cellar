@@ -59,6 +59,21 @@ the family doesn't.
   window ticks only over YOUR estimate. "Estimate" is `ESTIMATE_WORDS` on the basis text; yours is
   read off the Looked up line by `windowBasisOf` — no line means typed by hand, never overwritten
   unasked. Each line shows its `why`. Don't go back to "only empty boxes start ticked".
+- **SCHEMA 9: `photoAt`** (2026-10-24) — when a wine's label photo was taken (`cleanChecked`
+  shape), or null. **The photo is never in `state`**: a JPEG data URL (`cleanPhoto`, ≤300 000
+  chars; the sharp copy SENT to Claude has its own `PHOTO_SEND_MAX`) in IndexedDB `wine-photos`
+  (never localStorage — the origin's 5 MB is shared by every app) and in
+  `winecellar/{uid}/photos/{wineId}` = `{ data, at }`, its own Firestore doc because the cellar doc
+  is capped at 1 MB. `firestore.rules` has the sub-match — the parent match does NOT cover it, and
+  the console rules must be updated to match or cloud photos are refused (the photo stays
+  local and on `wine-photo-unsent`). Deletes are DEFERRED: `save()` → `photoBookkeeping` puts a
+  wine that lost its photo on `wine-photo-gone`, and only the list as it stood at boot
+  (`photoGoneAtBoot`) is deleted — Undo can bring a wine back until a reload. `sweepPhotos()` runs
+  after the reveal, never in a shared view or the harness (`inTests()`). Not in share links
+  (whitelist); in a backup only with **Include label photos** (`photos` map, restored by
+  `backupPhotoEntries`). Tests swap the store with `__photoStore` — the suite never writes the disk.
+  `accept` on the file input lists types: `image/*` opened a "comment" for the tests' comment
+  stripper and failed three source tests.
 
 ## Decisions — Don't Undo
 
@@ -248,6 +263,6 @@ commented copy in the repo.
 
 ## Tests
 
-`tests.html`, `EXPECTED = 259`. Run it headless (Playwright) rather than in the Browser pane:
+`tests.html`, `EXPECTED = 268`. Run it headless (Playwright) rather than in the Browser pane:
 the pane throttles hidden timers and its focus heuristics turn the 705px keyboard-focus check
 red on untouched code.
