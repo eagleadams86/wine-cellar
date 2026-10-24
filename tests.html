@@ -51,7 +51,7 @@
    go MISSING look exactly like tests that pass — a suite that quietly shrank to
    three checks still says "all 3 tests pass". RAISE THIS when you add tests, and
    lower it only when you retire one deliberately. */
-const EXPECTED = 269;
+const EXPECTED = 270;
 
 /* ── It refuses to run anywhere but localhost, and that is load-bearing ──────
    GitHub Pages publishes this page BESIDE the app, where the iframe below would
@@ -2690,6 +2690,19 @@ function define() {
     ok(!(await H.isHeic(new W.File(['x'], 'label.png', { type: 'image/png' }))), 'a PNG is not');
     ok(!/image\/hei[cf]/.test(APP_SRC.match(/id="photoFile"[^>]*/)[0]),
        'the picker does not ask for HEIC, so the system hands over a JPEG where it can');
+  });
+  t('a photo that cannot be READ is told apart from one that cannot be decoded', async () => {
+    const unreadable = { type: 'image/jpeg', size: 2900000, name: 'IMG_2411.jpeg',
+      slice: () => ({ arrayBuffer: async () => { throw new W.DOMException('changed', 'NotReadableError'); } }) };
+    let shrunk = false;
+    const r = await H.readPicked(unreadable, async () => { shrunk = true; return null; });
+    ok(/pick it from the folder that opens/.test(r.problem), 'a file Photos was still writing: pick it again');
+    ok(!shrunk, 'and nothing tries to decode what cannot be read');
+    const bad = await H.readPicked(new W.File(['not an image'], 'x.jpg', { type: 'image/jpeg' }), async () => { throw new Error('x'); });
+    ok(/could not be opened \(image\/jpeg, 0 KB\)/.test(bad.problem), 'a broken file says its type and size, for the next report');
+    const good = await H.readPicked(new W.File(['x'], 'x.jpg', { type: 'image/jpeg' }),
+      async () => ({ send: PHOTO, keep: PHOTO }));
+    eq([good.problem, good.got.keep], ['', PHOTO], 'and a good one comes through');
   });
   t('which wines lost a photo: deleted, or the photo removed — nothing else', () => {
     const at = '2026-10-24T12:00:00.000Z';

@@ -76,7 +76,10 @@ the family doesn't.
   stripper and failed three source tests. It leaves HEIC OUT on purpose: Chrome cannot decode
   HEIC at all and Claude's API takes none, so the picker is asked for a compatible copy, and a
   HEIC that still arrives (Charles's first try, from Photos in Chrome on the Mac) gets
-  `HEIC_HELP` — `isHeic()` reads the `ftyp` brand, then the type and name.
+  `HEIC_HELP` — `isHeic()` reads the `ftyp` brand, then the type and name. `readPicked()` READS
+  before it decodes: macOS exports a Photos pick into a temp `uuid=` folder as it is picked, and
+  Chrome refuses a file that changed after the pick, so that gets `PHOTO_REPICK_HELP` (pick it
+  again from that folder) and any other failure names the file's type and size.
 
 ## Decisions — Don't Undo
 
@@ -267,6 +270,6 @@ was a one-line version of the cellar rule.
 
 ## Tests
 
-`tests.html`, `EXPECTED = 269`. Run it headless (Playwright) rather than in the Browser pane:
+`tests.html`, `EXPECTED = 270`. Run it headless (Playwright) rather than in the Browser pane:
 the pane throttles hidden timers and its focus heuristics turn the 705px keyboard-focus check
 red on untouched code.

@@ -2737,6 +2737,23 @@ function backupPhotoEntries(raw, st) {
    the `ftyp` box names a HEIF brand — or else its type or name. */
 const HEIC_HELP = 'That is an iPhone HEIC photo, which Chrome can’t open. Add it from your iPhone or from '
   + 'Safari on the Mac, which can — or export it as a JPEG from Photos first (File → Export).';
+const PHOTO_REPICK_HELP = 'The photo was still being copied out of Photos when it was picked. Press '
+  + 'Add Label Photo again and pick it from the folder that opens — it is ready there now.';
+/* A picked file to { got } or { problem: what to tell the reader }. It is
+   READ before it is decoded, because the two fail for different reasons: a
+   photo picked from Photos on the Mac is exported into a temporary folder as
+   it is picked, and Chrome refuses to read a file that changed after the
+   pick — while the very same file, picked again from that folder, is fine
+   (Charles, 2026-10-24). `shrink` is passed in so tests can stand in for it. */
+async function readPicked(file, shrink) {
+  try { await file.slice(0, 16).arrayBuffer(); } catch (e) { return { got: null, problem: PHOTO_REPICK_HELP }; }
+  let got = null;
+  try { got = await shrink(file); } catch (e) { got = null; }
+  if (got && got.keep && cleanPhoto(got.send, PHOTO_SEND_MAX)) return { got: got, problem: '' };
+  if (await isHeic(file)) return { got: null, problem: HEIC_HELP };
+  return { got: null, problem: 'That photo could not be opened (' + (cleanLine(file.type, 40) || 'unknown type') + ', '
+    + Math.round((Number(file.size) || 0) / 1024) + ' KB). Try a JPEG or PNG.' };
+}
 function heicBrand(bytes) {
   if (!bytes || bytes.length < 12) return false;
   const tag = (at) => String.fromCharCode(bytes[at], bytes[at + 1], bytes[at + 2], bytes[at + 3]);
@@ -5397,15 +5414,9 @@ $('photoFile').addEventListener('change', async () => {
   if (!file) return;
   const seq = ++photoSeq;
   $('photoNote').textContent = 'Reading the photo…';
-  let got = null;
-  try { got = await shrinkPhoto(file); } catch (e) { got = null; }
+  const { got, problem } = await readPicked(file, shrinkPhoto);
   if (seq !== photoSeq || !$('wineDialog').open) return;
-  if (!got || !got.keep || !cleanPhoto(got.send, PHOTO_SEND_MAX)) {
-    const heic = await isHeic(file);
-    if (seq !== photoSeq) return;
-    $('photoNote').textContent = heic ? HEIC_HELP : 'That photo could not be read here. Try a JPEG or PNG.';
-    return;
-  }
+  if (problem) { $('photoNote').textContent = problem; return; }
   photoDraft = got; photoRemoved = false;
   showPhoto(got.keep);
   $('photoNote').textContent = 'Look Up will read the label. The photo is kept when you Save.';
@@ -7648,7 +7659,7 @@ window.__wineTestHooks = {
   __photoStore: function (next) { const was = photoStore; photoStore = next; return was; },
   __photoDraft: function (d) { photoDraft = d; photoRemoved = false; },
   cleanPhoto: cleanPhoto, photoIdsGone: photoIdsGone, backupPhotoEntries: backupPhotoEntries,
-  photoContent: photoContent, heicBrand: heicBrand, isHeic: isHeic, PHOTO_MAX: PHOTO_MAX, PHOTO_SEND_MAX: PHOTO_SEND_MAX,
+  photoContent: photoContent, heicBrand: heicBrand, isHeic: isHeic, readPicked: readPicked, PHOTO_MAX: PHOTO_MAX, PHOTO_SEND_MAX: PHOTO_SEND_MAX,
   SCHEMA: SCHEMA, ID_RE: ID_RE, STORAGE_KEY: STORAGE_KEY, THEME_KEY: THEME_KEY,
   TAB_KEY: TAB_KEY, TABS: TABS, SHARE_FORMAT: SHARE_FORMAT, SHARE_PAYLOAD_V: SHARE_PAYLOAD_V,
   blankState: blankState, normalizeState: normalizeState, defaultSettings: defaultSettings,
