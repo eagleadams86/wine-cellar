@@ -5148,13 +5148,28 @@ const checkTicks = new Map();    /* 'id|field' → ticked, so a re-render keeps 
    a wine leaves it the moment its answer arrives, so Start never re-bills it. */
 const checkPicks = new Set();
 let checkCtl = null;
-const checkPicked = () => checkWines(state).filter((w) => checkPicks.has(w.id));
+/* A wine with an answer on screen cannot be selected: its panel is for
+   choosing what to SAVE, and a selection box there read as one of those ticks
+   (Charles, 2026-10-24). Its box comes back when the check ends — Save,
+   Cancel, Escape or a click outside (checkEnd) — and every Select button skips
+   it, or Select All would quietly re-bill wines whose boxes are not shown. A
+   failed lookup has no answer, so it keeps its box to try again. */
+const checkSelectable = () => checkWines(state).filter((w) => !checkAnswer(w));
+const checkPicked = () => checkSelectable().filter((w) => checkPicks.has(w.id));
 function checkPickStale() {
   const days = Number($('checkSince').value) || 90;
   checkPicks.clear();
-  checkWines(state).forEach((w) => {
+  checkSelectable().forEach((w) => {
     if (!checkedWithin(w, days) || checkFailed.has(w.id)) checkPicks.add(w.id);
   });
+}
+/* Closing the window, any way at all, ENDS the check: what came back and what
+   was ticked go with it, so reopening starts fresh with every box showing.
+   Nothing paid for is re-billed by that — each answer already stamped its
+   wine's checkedAt, so a wine checked today opens unselected. */
+function checkEnd() {
+  checkStop();
+  checkFound.clear(); checkFailed.clear(); checkTicks.clear(); checkPicks.clear();
 }
 /* Start says how many it will look up, and cannot be pressed for none. */
 function checkStartLabel() {
@@ -5193,7 +5208,7 @@ function checkButtons() {
   /* Tick All flips to Untick All once everything on offer is ticked. */
   $('checkAll').hidden = !!checkCtl || !offered.length;
   $('checkAll').textContent = offered.length && ticked === offered.length ? 'Untick All' : 'Tick All';
-  const all = checkWines(state).length, picked = checkPicked().length;
+  const all = checkSelectable().length, picked = checkPicked().length;
   $('checkPickBar').hidden = !!checkCtl || !all;
   $('checkPickCount').textContent = picked + ' of ' + all + ' selected';
   checkStartLabel();
@@ -5204,7 +5219,8 @@ function checkBlock(w) {
   const r = checkAnswer(w), why = checkFailed.get(w.id), picked = checkPicks.has(w.id);
   /* The pick box is labelled by the wine's name, and says when it was last
      checked — the time saved on the wine, so it reads the same after a reload. */
-  const head = '<p><label class="pickname"><input type="checkbox" data-pick="' + esc(w.id) + '"'
+  const head = r ? '<p><strong>' + esc(wineLabel(w)) + '</strong> '
+    : '<p><label class="pickname"><input type="checkbox" data-pick="' + esc(w.id) + '"'
     + (picked ? ' checked' : '') + (checkCtl ? ' disabled' : '') + '><strong>' + esc(wineLabel(w))
     + '</strong></label> ';
   const when = ' <span class="lookdone">' + esc(fmtChecked(w.checkedAt)) + '</span>';
@@ -5239,7 +5255,8 @@ function renderCheckIntro() {
       + (todo * 0.14).toFixed(2) + ' from your API account and ' + plural(mins, 'minute')
       + ', three at a time. Then tick what to change: empty boxes start ticked, anything you entered '
       + 'starts unticked. Nothing changes until you save.'
-    : wines.some((w) => checkAnswer(w)) ? 'Tick what to change, then save — or select more wines to check.'
+    : wines.some((w) => checkAnswer(w)) ? 'Tick what to change, then save'
+      + (checkSelectable().length ? ' — or select more wines to check.' : '.')
     : 'No wine is selected — every one was checked in the last ' + since + '. Select any to check again.';
 }
 function renderCheck() {
@@ -5356,7 +5373,7 @@ $('checkAll').addEventListener('click', () => {
 });
 $('checkCancel').addEventListener('click', () => $('checkDialog').close());
 $('checkPickAll').addEventListener('click', () => {
-  checkWines(state).forEach((w) => checkPicks.add(w.id));
+  checkSelectable().forEach((w) => checkPicks.add(w.id));
   renderCheck();
 });
 $('checkPickNone').addEventListener('click', () => { checkPicks.clear(); renderCheck(); });
@@ -5809,7 +5826,7 @@ document.addEventListener('keydown', (e) => {
    attribute rather than the `close` event, which some engines never deliver
    (the family's rule for a hook whose failure is silent). */
 [['wineDialog', () => lookupStop()], ['pasteDialog', () => pasteLookupStop()],
- ['checkDialog', () => checkStop()]]
+ ['checkDialog', () => checkEnd()]]
   .forEach(([id, stop]) => {
     new MutationObserver(() => { if (!$(id).open) stop(); })
       .observe($(id), { attributes: true, attributeFilter: ['open'] });

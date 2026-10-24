@@ -116,7 +116,10 @@ the family doesn't.
   `lookupDiffs`/`applyLookupTo` are the saved-wine twins of `LOOKUP_BOXES`/`applyLookup` (those
   read the FORM; these read a wine) — change a field's rule in both. Pre-tick rule: an EMPTY
   field starts ticked, a replacement unticked, colour never. Answers live in `checkFound`
-  (wine id → `{key: wineKey, r}`) for the page's life so a stray close never re-bills; ticks in
+  (wine id → `{key: wineKey, r}`) until the window closes ANY way — `checkEnd()` (from the
+  `open`-attribute observer) clears answers, failures, ticks and picks, so reopening starts fresh
+  (2026-10-24; before, they lived for the page's life). `checkedAt` + the not-checked-lately
+  default selection are what stop a re-bill now. Ticks live in
   `checkTicks` so a re-render keeps them, and an arriving answer redraws only its own panel.
   Save is one `save()` = one Undo step; it re-reads each wine by id at save time. `__plant`
   clears all three maps.
@@ -134,6 +137,9 @@ the family doesn't.
   Start looks up; `checkTicks` (`data-tick`, Tick All) say what Save changes. Never share the
   words. Picks fill on open from `#checkSince` (not checked in N days, plus this sitting's
   failures — page-life only, not `state`); a wine leaves the picks when its answer arrives.
+  A wine WITH an answer has no pick box at all (`checkSelectable()`), and every Select button and
+  the count skip it — a hidden box Select All could tick would re-bill invisibly. A failed lookup
+  has no answer, so it keeps its box.
 - **Not found still leaves a note** (2026-10-24): `lookupNoteLine` says "Claude could not find
   this exact wine" for `low`, with no sources; `putLookupNote()` is the ONE rule (replace an older
   "Looked up" line, else append, only within 300) for the editor, Check All (a pre-ticked `note`

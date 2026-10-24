@@ -103,8 +103,9 @@ left (finished wines are skipped), three at a time.
 - **You choose which wines.** Every wine has a box and says when it was last checked. The window
   opens with the wines **not checked in the last 90 days** selected; **Select Not Checked In**
   with its menu (30 days, 90 days, 6 months, a year) picks again, and **Select All** /
-  **Select None** do what they say. A wine leaves the selection as soon as its answer arrives;
-  one that fails stays selected to try again.
+  **Select None** do what they say. Once a wine's answer arrives its box goes away until the
+  check ends — the only tick boxes left in its panel are the changes to save — and the Select
+  buttons skip it. A wine whose lookup failed keeps its box, still selected, to try again.
 - **It says the cost first** — how many selected wines, about how many dollars and minutes — and
   looks nothing up until you press **Check N Wines** (it can't be pressed with none selected).
   **Stop Checking** keeps what has come back.
@@ -114,9 +115,10 @@ left (finished wines are skipped), three at a time.
   Claude could not find offers only its "could not find" note line, ticked, and one that already matches says so.
 - **Save Ticked Changes** appears once something is ticked, and saves it all at once, so one **Undo** takes the whole check back. Each
   changed wine's "Looked up…" note line is replaced with today's, not stacked.
-- **Closing the window stops the lookups but keeps the answers** for as long as the page is open,
-  so reopening it carries on from where it was — you never pay twice for the same wine. A wine
-  renamed since is looked up afresh. A key Claude rejects stops the check at once and says why.
+- **Closing the window ends the check** — Save, Cancel, Escape or a click outside. The lookups
+  stop, and the answers and anything ticked but not saved go with them, so reopening starts fresh.
+  That never re-bills a wine by itself: each one checked today opens unselected. A key Claude
+  rejects stops the check at once and says why.
 
 Only the wine's vintage, name, region and grape are sent, and only when you press the button.
 The page calls `https://api.anthropic.com` directly — the one host added to its security policy

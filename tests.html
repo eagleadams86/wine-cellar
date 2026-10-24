@@ -2851,7 +2851,7 @@ function define() {
       });
     } finally { proto.setItem = realStore; D.getElementById('checkDialog').close(); H.__plant(FIXTURE); }
   });
-  t('closing the check window stops every lookup, and keeps what came back', async () => {
+  t('closing the check window stops every lookup', async () => {
     const D = W.document, signals = [];
     await withKey(hangingFetch(signals), async () => {
       H.__plant(CHECK_FX);
@@ -2955,8 +2955,19 @@ function define() {
         ok(Date.now() - Date.parse(get('fx-ready').checkedAt) < 60000 && Date.now() - Date.parse(get('fx-empty').checkedAt) < 60000,
            'both stamped when the answer came, before any Save');
         eq(get('fx-hold').checkedAt, fx.wines.find((w) => w.id === 'fx-hold').checkedAt, 'an unselected wine is untouched');
-        ok(!pick('fx-ready').checked && !pick('fx-empty').checked, 'an answered wine leaves the selection');
-        ok(/Checked today/.test(D.querySelector('#checkList [data-check="fx-empty"]').textContent), 'and says so');
+        ok(!pick('fx-ready') && !pick('fx-empty'), 'an answered wine has no selection box — its panel is for the changes');
+        ok(pick('fx-hold') && pick('fx-past'), 'the others keep theirs');
+        ok(/Checked today/.test(D.querySelector('#checkList [data-check="fx-empty"]').textContent), 'and says when');
+        D.getElementById('checkPickAll').click();
+        eq(D.getElementById('checkPickCount').textContent, '2 of 2 selected', 'Select All skips the answered wines');
+        ok(/Check 2 Wines/.test(D.getElementById('checkStart').textContent), 'so Start cannot re-bill a box nobody can see');
+        D.getElementById('checkCancel').click();
+        await tick();
+        D.getElementById('checkBtn').click();
+        ok(pick('fx-ready') && !pick('fx-ready').checked && !pick('fx-empty').checked,
+           'closing ended the check: the boxes are back, and a wine checked today starts unselected');
+        ok(!D.querySelector('#checkList .pill') && !D.querySelector('#checkList [data-tick]'),
+           'and the answers went with it — reopening starts fresh');
       });
     } finally { proto.setItem = realStore; D.getElementById('checkDialog').close(); H.__plant(FIXTURE); }
   });
