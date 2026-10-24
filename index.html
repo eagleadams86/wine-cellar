@@ -889,10 +889,7 @@
   /* What a tile's number counts, under it — quieter than the label above. */
   .stat .v .sub { display: block; font-size: var(--fs-xs); font-weight: var(--fw-normal);
                   color: var(--text-secondary); margin-top: 2px; }
-  /* A row's two actions sit side by side and never wrap under each other. */
-  td.rowacts, td.nowrap { white-space: nowrap; }
-  td.rowacts .btn-small { margin-right: var(--sp-3); }
-  td.rowacts .btn-small:disabled { opacity: .45; cursor: not-allowed; }
+  td.nowrap { white-space: nowrap; }
   .stars { color: var(--warn); letter-spacing: 1px; }
   #wineDialog, #pasteDialog, #checkDialog { max-width: 700px; }
   textarea { resize: vertical; }
@@ -981,7 +978,7 @@
      (not a number, not a nowrap window or price, not the pill or the buttons)
      at least 10rem — two or three words a line. A table that cannot give its
      text that much is too cramped to read as a table, even if it squeezes in. */
-  table.cards.fitprobe tbody :is(th, td):not(.num):not(.nowrap):not(.rowacts):not([data-label="Status"]) {
+  table.cards.fitprobe tbody :is(th, td):not(.num):not(.nowrap):not([data-label="Status"]) {
     min-width: 10rem; }
   @media screen {
     /* ONE card to a line at every width, so the list still reads top to
@@ -1036,22 +1033,17 @@
     /* The name's line holds the name and the pill and nothing else: a wide card
        had room left on it, and the first field crept up beside the pill, so
        no two cards started their fields in the same place. An empty full-width
-       item after the pill (order 0, first in the row) breaks the line. The
-       Opened list sets its own first line below. */
-    table.cards.cardview:not(#openedTable) tbody tr::before { content: ''; order: 0; flex: 0 0 100%; height: 0; }
+       item after the pill (order 0, first in the row) breaks the line. */
+    table.cards.cardview tbody tr::before { content: ''; order: 0; flex: 0 0 100%; height: 0; }
     /* A field with nothing in it says nothing, rather than a label beside a blank. */
     table.cards.cardview tbody td:empty { display: none; }
     /* A note is a sentence, so it gets the whole line. */
     table.cards.cardview tbody td[data-label="Note"] { flex-basis: 100%; }
-    table.cards.cardview tbody td.rowacts { flex-basis: 100%; display: flex; gap: var(--sp-4);
-      align-items: center; margin-top: 4px; }
-    table.cards.cardview tbody td.rowacts::before { content: none; }
-    /* The Opened list: the date (which needs no label) and the × share the
-       name's line, so a bottle is the name, its rating and its note. */
+    /* The Opened list: the date (which needs no label) shares the name's
+       line, so a bottle is the name, its rating and its note. */
     #openedTable.cardview tbody td[data-label="Opened"] { order: -1; flex: 0 0 auto; margin-left: auto;
       white-space: nowrap; color: var(--text-secondary); }
     #openedTable.cardview tbody td[data-label="Opened"]::before { content: none; }
-    #openedTable.cardview tbody td.rowacts { order: 1; flex: 0 0 auto; margin: 0 0 0 auto; }
     #openedTable.cardview tbody td[data-label="Note"] { order: 2; }
   }
 
@@ -1769,7 +1761,7 @@ html[data-booting] footer { visibility: hidden; }
         </span>
       </h2>
       <p class="chart-title">Every bottle you have marked as opened, newest first, with your rating
-        and a note. Press <strong>Opened One</strong> beside a wine on the Cellar tab to add to it, and
+        and a note. Open a wine on the Cellar tab and press <strong>Opened One</strong> to add to it, and
         a line here to change its date, rating or note.</p>
       <div class="table-scroll" id="openedWrap"></div>
     </div>
@@ -1963,6 +1955,8 @@ html[data-booting] footer { visibility: hidden; }
   </div>
   <p class="warn-line" id="openWarn" role="status"></p>
   <div class="row-actions">
+    <button type="button" class="danger" id="openRemove" hidden>Remove This Bottle</button>
+    <span class="spacer"></span>
     <button type="button" id="openCancel">Cancel</button>
     <button type="button" class="primary" id="openSave">Take One Off the Count</button>
   </div>
@@ -3245,13 +3239,13 @@ function renderOpened() {
   document.getElementById('openedCount').textContent = plural(rows.length, 'bottle');
   const wrap = document.getElementById('openedWrap');
   if (!rows.length) {
-    wrap.innerHTML = '<p class="empty">No bottles opened yet. Press Opened One beside a wine on '
-      + 'the Cellar tab when you open one.</p>';
+    wrap.innerHTML = '<p class="empty">No bottles opened yet. When you open one, press its wine on '
+      + 'the Cellar tab, then Opened One.</p>';
     return;
   }
   wrap.innerHTML = '<table id="openedTable" class="cards"><thead><tr>'
     + sortHead(OPENED_COLUMNS, openedSortKey, openedSortDir)
-    + (viewOnly ? '' : '<th class="no-print"><span class="sr-only">Actions</span></th>')
+    /* No actions column: Remove is in the line's own window (2026-10-24). */
     + '</tr></thead><tbody>'
     + rows.map((o) => '<tr' + (viewOnly ? '' : ' class="rowlink" data-open-bottle="' + esc(o.id) + '"') + '>'
       + '<td data-label="Opened">' + esc(fmtDate(o.date)) + '</td>'
@@ -3266,9 +3260,6 @@ function renderOpened() {
           + '★'.repeat(o.rating) + '</span> ' + o.rating + '/5' : '—')
       + '</td>'
       + '<td data-label="Note">' + esc(o.note) + '</td>'
-      + (viewOnly ? '' : '<td class="no-print rowacts"><button type="button" class="icon-btn danger" data-undrink="'
-        + esc(o.id) + '" aria-label="Remove this line for ' + esc(o.label)
-        + '"><span aria-hidden="true">×</span></button></td>')
       + '</tr>').join('')
     + '</tbody></table>';
 }
@@ -4881,6 +4872,8 @@ let editingBottleId = null;
 function dressOpenDialog(editing) {
   $('openTitle').textContent = editing ? 'Edit an Opened Bottle' : 'Opened a Bottle';
   $('openSave').textContent = editing ? 'Save' : 'Take One Off the Count';
+  /* Only a line that exists can be removed. */
+  $('openRemove').hidden = !editing;
 }
 function openBottleEdit(id) {
   const o = state.opened.find((x) => x.id === id);
@@ -5448,19 +5441,20 @@ $('openedWrap').addEventListener('click', (e) => {
     if (again) again.focus();
     return;
   }
-  const del = e.target.closest('[data-undrink]');
-  if (!del) {
-    const row = e.target.closest('[data-edit-bottle], [data-open-bottle]');
-    if (row) openBottleEdit(row.getAttribute('data-edit-bottle') || row.getAttribute('data-open-bottle'));
-    return;
-  }
-  const o = state.opened.find((x) => x.id === del.getAttribute('data-undrink'));
-  if (!o) { render(); return; }
+  const row = e.target.closest('[data-edit-bottle], [data-open-bottle]');
+  if (row) openBottleEdit(row.getAttribute('data-edit-bottle') || row.getAttribute('data-open-bottle'));
+});
+/* Remove, from the line's own window — the Cellar's Delete, the same way.
+   Removing a line is how a mistaken Opened One is undone, so the bottle goes
+   back on the count — and the question says so before it happens. Re-found by
+   id: the line may have gone since the window opened. */
+$('openRemove').addEventListener('click', () => {
+  const o = editingBottleId && state.opened.find((x) => x.id === editingBottleId);
+  if (!o) { $('openDialog').close(); render(); return; }
   const w = o.wineId ? state.wines.find((x) => x.id === o.wineId) : null;
-  /* Removing a line is how a mistaken Opened One is undone, so the bottle goes
-     back on the count — and the question says so before it happens. */
   if (!confirm('Remove the bottle of “' + o.label + '” opened ' + fmtDate(o.date) + '?\n\n'
       + (w ? 'It goes back on the count, as unopened.' : 'The wine itself has been deleted, so there is no count to put it back on.'))) return;
+  $('openDialog').close();
   state.opened = state.opened.filter((x) => x.id !== o.id);
   if (w) w.qty = Math.min(999, w.qty + 1);
   save();

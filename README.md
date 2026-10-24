@@ -45,8 +45,9 @@ cellar on your other devices.
   become a row of **Sort by** buttons. It is layout only: Copy and CSV still export the full table.
 - **Opened One** and **Delete Wine** are in the wine's own window (press its row): Opened One
   takes a bottle off the count and writes a line in that log, asking first if you had changed
-  something in the window without saving.
-  Removing a line puts the bottle back, so a mistaken press is easy to undo.
+  something in the window without saving. Press a line on the Opened tab to change its date,
+  rating or note, or to **Remove This Bottle** — which puts the bottle back on the count, so a
+  mistaken press is easy to undo.
 - **Paste a List** reads the table Claude writes when you ask it to look wines up — see below.
 - **✦ Check All Wines** looks every wine with bottles left up with Claude at once — see below.
 - **↩ Undo** (⌘Z / Ctrl+Z) walks back through this sitting's changes, one Save at a time —

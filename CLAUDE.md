@@ -174,7 +174,9 @@ the family doesn't.
   SAVED wine; Opened One is disabled at 0 bottles. Opened One CLOSES the wine window first — left
   open behind, its Bottles box would hold the old count and its Save would put the bottle back —
   and asks first if the boxes differ from when it opened (`wineFormSnap`/`wineFormAtOpen`). The
-  Opened tab's × (remove a log line) stays on its row.
+  Opened tab followed the same day: **Remove This Bottle** (`#openRemove`) is in the line's edit
+  window, shown only when editing a line, and no table has an actions column (`td.rowacts` is
+  gone, with its CSS).
 - **An opened line is edited in the Opened One window** (`openBottleEdit`, `editingBottleId`):
   date, rating and note only, never the count and never the label (the name as it was).
 - **A wine name wraps and carries no underline** (2026-10-24): `.rowbtn` overrides the base
