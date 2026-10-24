@@ -51,7 +51,7 @@
    go MISSING look exactly like tests that pass — a suite that quietly shrank to
    three checks still says "all 3 tests pass". RAISE THIS when you add tests, and
    lower it only when you retire one deliberately. */
-const EXPECTED = 273;
+const EXPECTED = 276;
 
 /* ── It refuses to run anywhere but localhost, and that is load-bearing ──────
    GitHub Pages publishes this page BESIDE the app, where the iframe below would
@@ -901,8 +901,8 @@ function define() {
         'qty', 'region', 'source', 'subregion', 'valueEst', 'valueHigh', 'valueLow', 'vintage'],
        'a new stored field must be added to normalizeState AND bump SCHEMA');
     const o = H.normalizeState({ opened: [{ id: 'o', secret: 1 }] }).opened[0];
-    eq(Object.keys(o).sort(), ['date', 'drinkFrom', 'drinkTo', 'grape', 'id', 'label', 'note', 'paid', 'place', 'rating',
-       'region', 'subregion', 'vintage', 'wineId'], 'an opened bottle too');
+    eq(Object.keys(o).sort(), ['date', 'drinkFrom', 'drinkTo', 'grape', 'id', 'label', 'note', 'paid', 'photoAt', 'place',
+       'rating', 'region', 'subregion', 'vintage', 'wineId'], 'an opened bottle too');
   });
   t('text is capped in code, not only by maxlength', () => {
     eq(one({ name: 'x'.repeat(500) }).name.length, 80, 'a paste ignores the attribute');
@@ -2748,6 +2748,47 @@ function define() {
     const next = { wines: [{ id: 'b', photoAt: null }, { id: 'c', photoAt: '2026-10-25T09:00:00.000Z' }] };
     eq(H.photoIdsGone(prev, next), ['a', 'b'], 'a replaced photo is not gone, and a wine that never had one is not either');
     eq(H.photoIdsGone(null, next), [], 'a first save loses nothing');
+  });
+  t('an opened bottle keeps its own photo, counted like a wine’s', () => {
+    const at = '2026-10-24T12:00:00.000Z';
+    const prev = { wines: [], opened: [{ id: 'o1', photoAt: at }, { id: 'o2', photoAt: at }] };
+    eq(H.photoIdsGone(prev, { wines: [], opened: [{ id: 'o2', photoAt: at }] }), ['o1'], 'a removed line loses its photo');
+    const st = H.normalizeState({ opened: [{ id: 'o1', label: 'x', date: '2026-10-01', photoAt: at }] });
+    eq(st.opened[0].photoAt, at, 'the stamp survives the allowlist');
+    eq(H.backupPhotoEntries({ photos: { o1: PHOTO } }, st), [['o1', PHOTO, at]], 'and a backup brings it back');
+    const p = H.buildSharePayload(st, { keep: 'all', opened: true });
+    ok(!('photoAt' in p.opened[0]), 'but a share link never carries it');
+  });
+  t('the opened-bottle window has the photo row; a photo alone fills an empty name', async () => {
+    const D = W.document;
+    const fake = async () => ({ ok: true, status: 200, json: async () => ({ stop_reason: 'tool_use', usage: {},
+      content: [{ type: 'tool_use', name: 'record_wine', id: 't', input: { matched_wine: 'Sample Ridge Syrah 2018',
+        label_name: 'Sample Ridge Syrah', label_vintage: 2018, confidence: 'high', region: 'Sonoma County, California',
+        appellation: '', grape: 'Syrah', drink_from: 2022, drink_to: 2030, sources: [] } }] }) });
+    await withKey(fake, async () => {
+      try {
+        W.openLogBottle();
+        ok(!D.getElementById('ob_photoBtn').hidden && D.getElementById('ob_photoBtn').offsetParent !== null,
+           'Log a Bottle offers Add Label Photo');
+        H.__photoDraft({ send: PHOTO, keep: PHOTO }, 'opened');
+        D.getElementById('obLookupBtn').click();
+        for (let i = 0; i < 50 && !/from the label/.test(D.getElementById('obLookupNote').textContent); i++) await tick();
+        eq([D.getElementById('ob_name').value, D.getElementById('ob_vintage').value], ['Sample Ridge Syrah', '2018']);
+        eq(D.getElementById('ob_grape').value, 'Syrah', 'and the rest fills as before');
+      } finally { D.getElementById('openDialog').close(); }
+    });
+  });
+  t('editing an opened line shows its own photo', async () => {
+    const D = W.document, at = '2026-10-24T12:00:00.000Z', mem = new Map([['ol-1', { data: PHOTO, at: at }]]);
+    const was = H.__photoStore({ get: async (id) => mem.get(id) || null, put: async () => true,
+                                 del: async () => null, keys: async () => [...mem.keys()] });
+    try {
+      H.__plant({ wines: [], opened: [{ id: 'ol-1', label: '2018 Photo Line', date: '2026-10-01', photoAt: at }] });
+      W.openBottleEdit('ol-1');
+      for (let i = 0; i < 20 && D.getElementById('ob_photoImg').hidden; i++) await tick();
+      eq(D.getElementById('ob_photoImg').getAttribute('src'), PHOTO);
+      eq(D.getElementById('ob_photoBtn').textContent, 'Replace Photo');
+    } finally { D.getElementById('openDialog').close(); H.__photoStore(was); H.__plant(FIXTURE); }
   });
   t('a backup’s photos come back only for wines that claim one, and only valid ones', () => {
     const at = '2026-10-24T12:00:00.000Z';

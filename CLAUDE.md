@@ -59,6 +59,14 @@ the family doesn't.
   window ticks only over YOUR estimate. "Estimate" is `ESTIMATE_WORDS` on the basis text; yours is
   read off the Looked up line by `windowBasisOf` — no line means typed by hand, never overwritten
   unasked. Each line shows its `why`. Don't go back to "only empty boxes start ticked".
+- **SCHEMA 10: `photoAt` on an opened line too** (2026-10-24, Charles: the Opened tab had no
+  photo). `photoRow(ids)` is the ONE photo row, made twice — `winePhoto` and `bottlePhoto`
+  (`ob_photo*`, in `#openWineBox`, so Opened One's mode hides it). Opened One COPIES its wine's
+  photo to the line under the line's own id (same snapshot rule as label and window), so the
+  log keeps it after the wine goes. Every photo walk goes through `photoRecs(st)` (wines +
+  opened): bookkeeping, sweep, backup, restore, flush, Delete All's wording. A new record kind
+  that keeps a photo goes there. The opened Look Up sends the photo and fills an EMPTY name and
+  vintage from the label, like the wine window. Share payload's opened map is a whitelist — no photoAt.
 - **SCHEMA 9: `photoAt`** (2026-10-24) — when a wine's label photo was taken (`cleanChecked`
   shape), or null. **The photo is never in `state`**: a JPEG data URL (`cleanPhoto`, ≤300 000
   chars; the sharp copy SENT to Claude has its own `PHOTO_SEND_MAX`) in IndexedDB `wine-photos`
@@ -285,6 +293,6 @@ was a one-line version of the cellar rule.
 
 ## Tests
 
-`tests.html`, `EXPECTED = 273`. Run it headless (Playwright) rather than in the Browser pane:
+`tests.html`, `EXPECTED = 276`. Run it headless (Playwright) rather than in the Browser pane:
 the pane throttles hidden timers and its focus heuristics turn the 705px keyboard-focus check
 red on untouched code.

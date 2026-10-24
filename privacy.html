@@ -129,11 +129,12 @@ footer { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; }
       in a share link, and nothing is sent to Anthropic until you press the button.</p>
       <p><strong>Label photos (optional).</strong> If you add a photo of a wine's label, Look Up
       sends that photo to Anthropic too, so Claude can read the label. A small copy is kept with
-      the wine: in this browser's own storage on your device and, if you are signed in, in your own
+      the wine (or the opened bottle — opening a bottle copies its wine's photo onto that line):
+      in this browser's own storage on your device and, if you are signed in, in your own
       part of the Firestore database (its own document, under the same rule that no other account
       can read). A photo is never put in a share link, is in a downloaded backup only if you tick
       “Include label photos”, and is deleted from your device and your account the next time the
-      app opens after you remove it or delete its wine.</p>
+      app opens after you remove it or delete its wine or opened bottle.</p>
     </div>
     <div class="card">
       <p><strong>Backups you download.</strong> “Download Backup” writes a JSON file straight to

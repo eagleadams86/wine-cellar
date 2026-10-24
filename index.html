@@ -2072,6 +2072,15 @@ html[data-booting] footer { visibility: hidden; }
         <input type="number" id="ob_paid" min="0" step="0.01" inputmode="decimal">
       </div>
     </div>
+    <!-- The line's own label photo, as on a wine. Opened One copies its
+         wine's photo instead, so this row is in the box that mode hides. -->
+    <div class="photobar no-print">
+      <img id="ob_photoImg" class="photothumb" alt="The label photo kept with this bottle" hidden>
+      <button type="button" id="ob_photoBtn">Add Label Photo</button>
+      <button type="button" class="link" id="ob_photoRemove" hidden>Remove Photo</button>
+      <input type="file" id="ob_photoFile" accept="image/jpeg,image/png,image/webp" class="sr-only" aria-hidden="true" tabindex="-1">
+      <span class="hint" id="ob_photoNote" role="status"></span>
+    </div>
     <!-- Look Up fills the EMPTY boxes below; a box you filled is kept, and
          the line under it offers Claude's instead. -->
     <div class="lookupbar no-print">
@@ -2482,7 +2491,7 @@ const TABS        = ['cellar', 'opened'];
    3 (2026-10-23): `paid`, what one bottle actually cost. 4 (2026-10-24):
    `checkedAt`, when Claude last answered for the wine. 5 (2026-10-24): an
    opened line's `region`, `grape` and `paid`, copied from its wine. */
-const SCHEMA = 9;
+const SCHEMA = 10;
 
 /* ── Ids from outside are not trusted ──────────────────────────────────────
    Ids reach `data-id` attributes and <option value>s in a dozen places, so an
@@ -2607,8 +2616,8 @@ function cleanChecked(v) {
    A wine may keep ONE photo of its label (Charles, 2026-10-24). The photo is
    never in `state`: a cellar document is capped at 1 MB in Firestore, and
    twenty photos would break sync for the whole cellar. So:
-   - `photoAt` on the wine (in state, synced) says a photo exists and when it
-     was taken;
+   - `photoAt` on the wine — or an opened line, which keeps its own copy —
+     (in state, synced) says a photo exists and when it was taken;
    - the photo itself is a small JPEG data: URL in this device's IndexedDB
      (`wine-photos`) — NOT localStorage, whose ~5 MB is shared by every app on
      this origin — and in its own cloud document,
@@ -2641,11 +2650,14 @@ function photoIds(key) {
 function setPhotoIds(key, ids) {
   try { localStorage.setItem(key, JSON.stringify([...new Set(ids)].slice(0, 1000))); } catch (e) { /* blocked */ }
 }
-/* Which wines LOST a photo between two states — deleted, or the photo
+/* Everything that can keep a photo: the wines and, since SCHEMA 10, the
+   opened lines (each its own copy, under its own id). */
+const photoRecs = (st) => ((st && st.wines) || []).concat((st && st.opened) || []);
+/* Which records LOST a photo between two states — deleted, or the photo
    removed. Pure and pinned. */
 function photoIdsGone(prev, next) {
-  const now = new Map(((next && next.wines) || []).map((w) => [w.id, w]));
-  return ((prev && prev.wines) || []).filter((w) => w.photoAt && !(now.get(w.id) && now.get(w.id).photoAt)).map((w) => w.id);
+  const now = new Map(photoRecs(next).map((w) => [w.id, w]));
+  return photoRecs(prev).filter((w) => w.photoAt && !(now.get(w.id) && now.get(w.id).photoAt)).map((w) => w.id);
 }
 /* Called by save() with the state it is replacing. A wine that has a photo
    again (Undo) leaves the gone list and is queued to send, in case the cloud
@@ -2654,7 +2666,7 @@ function photoBookkeeping(prevJson, next) {
   let prev = null;
   try { prev = JSON.parse(prevJson || 'null'); } catch (e) { prev = null; }
   const gone = photoIdsGone(prev, next);
-  const live = new Set(next.wines.filter((w) => w.photoAt).map((w) => w.id));
+  const live = new Set(photoRecs(next).filter((w) => w.photoAt).map((w) => w.id));
   const was = photoIds(PHOTO_GONE_KEY);
   const back = was.filter((id) => live.has(id));
   if (!gone.length && !back.length) return;
@@ -2704,7 +2716,7 @@ function photoQueue(id) {
    so only those are deleted, here and (once signed in) in the cloud. */
 let photoGoneAtBoot = [];
 async function sweepPhotos() {
-  const live = new Set(state.wines.filter((w) => w.photoAt).map((w) => w.id));
+  const live = new Set(photoRecs(state).filter((w) => w.photoAt).map((w) => w.id));
   photoGoneAtBoot = photoIds(PHOTO_GONE_KEY).filter((id) => !live.has(id));
   setPhotoIds(PHOTO_GONE_KEY, photoGoneAtBoot);
   /* Any copy here whose wine has no photo any more — deleted on this device
@@ -2725,7 +2737,7 @@ function photoGoneDone(id) {
    in the restored cellar that says it has one. Pure and pinned. */
 function backupPhotoEntries(raw, st) {
   const ph = raw && raw.photos && typeof raw.photos === 'object' && !Array.isArray(raw.photos) ? raw.photos : {};
-  return st.wines.filter((w) => w.photoAt && Object.prototype.hasOwnProperty.call(ph, w.id) && cleanPhoto(ph[w.id]))
+  return photoRecs(st).filter((w) => w.photoAt && Object.prototype.hasOwnProperty.call(ph, w.id) && cleanPhoto(ph[w.id]))
     .map((w) => [w.id, ph[w.id], w.photoAt]);
 }
 /* An iPhone photo is HEIC, which Chrome cannot decode at all (Charles,
@@ -2919,6 +2931,9 @@ function normalizeState(raw) {
         /* Where it was opened — home, a restaurant, a tasting (SCHEMA 7). */
         place: cleanLine(it.place, 40),
         subregion: 'subregion' in it ? cleanLine(it.subregion, 60) : null,
+        /* The line's own label photo stamp (SCHEMA 10) — copied from its wine
+           by Opened One, or added in the line's window. */
+        photoAt: cleanChecked(it.photoAt),
       };
     });
   {
@@ -5383,68 +5398,11 @@ function openWine(id) {
   $('lookupNote').textContent = '';
   $('lookupPanel').hidden = true;
   $('lookupPanel').textContent = '';
-  photoReset(it);
+  winePhoto.reset(it);
   openModal($('wineDialog'));
   wineFormAtOpen = wineFormSnap();
 }
 
-/* ── The label photo, in the wine window ─────────────────────────────────── */
-/* `photoDraft` is a photo picked in THIS window ({ send, keep }), `photoRemoved`
-   that Remove was pressed, `photoShown` the saved copy on screen. Nothing is
-   kept until Save, as with every other box. */
-let photoDraft = null, photoRemoved = false, photoShown = null, photoSeq = 0;
-function showPhoto(data) {
-  $('photoImg').hidden = !data;
-  if (data) $('photoImg').src = data; else $('photoImg').removeAttribute('src');
-  $('photoRemove').hidden = !data;
-  $('photoBtn').textContent = data ? 'Replace Photo' : 'Add Label Photo';
-}
-const PHOTO_HINT = 'Or paste one here (⌘V), or drag it in.';
-function photoReset(it) {
-  const seq = ++photoSeq;
-  photoDraft = null; photoRemoved = false; photoShown = null;
-  /* The hint is for a keyboard; a phone's button opens its camera and library. */
-  $('photoNote').textContent = it && it.photoAt || matchMedia('(pointer: coarse)').matches ? '' : PHOTO_HINT;
-  showPhoto(null);
-  if (!it || !it.photoAt) return;
-  $('photoNote').textContent = 'Loading the photo…';
-  loadPhoto(it).then((p) => {
-    /* Still the same window, and nothing picked or removed meanwhile. */
-    if (seq !== photoSeq || !$('wineDialog').open || photoDraft || photoRemoved) return;
-    photoShown = p;
-    $('photoNote').textContent = p ? '' : window.wcSignedIn && window.wcSignedIn()
-      ? 'The photo could not be found on this device or in your account.'
-      : 'The photo is not on this device — sign in to fetch it.';
-    showPhoto(p && p.data);
-  });
-}
-/* The photo Look Up sends: the sharp one just picked, else the kept copy. */
-const photoForLookup = () => (photoDraft ? photoDraft.send : photoRemoved ? null : photoShown && photoShown.data);
-$('photoBtn').addEventListener('click', () => $('photoFile').click());
-$('photoFile').addEventListener('change', () => {
-  const input = $('photoFile');
-  const file = input.files && input.files[0];
-  input.value = '';                   /* so the same photo can be picked twice */
-  if (file) takePhotoFile(file);
-});
-/* Three ways in, one way through: the picker, a paste and a drop. What none
-   of them can do in Chrome is bring in a photo straight from the Photos
-   library (Charles, 2026-10-24): the picker's Photos pane copies the photo
-   out again every time the file is opened, so Chrome refuses it; and Photos'
-   ⌘C or a drag hands over the original HEIC FILE, which Chrome cannot decode
-   — and when a file is on the clipboard Chrome ignores any picture beside it
-   (measured: navigator.clipboard.read() came back empty). A JPEG exported
-   from Photos to a real folder works every way in, and so does the iPhone. */
-async function takePhotoFile(file) {
-  const seq = ++photoSeq;
-  $('photoNote').textContent = 'Reading the photo…';
-  const { got, problem } = await readPicked(file, shrinkPhoto);
-  if (seq !== photoSeq || !$('wineDialog').open) return;
-  if (problem) { $('photoNote').textContent = problem; return; }
-  photoDraft = got; photoRemoved = false;
-  showPhoto(got.keep);
-  $('photoNote').textContent = 'Look Up will read the label. The photo is kept when you Save.';
-}
 /* The image a paste or drop carries, or null. A paste into a TEXT box that
    also carries text is that text's paste, and left alone. Pure and pinned. */
 function imageFromTransfer(dt, intoText) {
@@ -5457,28 +5415,108 @@ function imageFromTransfer(dt, intoText) {
 }
 const isTextBox = (el) => !!el && (el.tagName === 'TEXTAREA'
   || (el.tagName === 'INPUT' && ['text', 'search', 'number', 'date', 'url', 'email'].indexOf(el.type) !== -1));
-$('wineDialog').addEventListener('paste', (e) => {
-  const img = imageFromTransfer(e.clipboardData, isTextBox(e.target));
-  if (!img) return;
-  e.preventDefault();
-  takePhotoFile(img);
-});
-$('wineDialog').addEventListener('dragover', (e) => {
-  if (e.dataTransfer && [...(e.dataTransfer.types || [])].indexOf('Files') !== -1) e.preventDefault();
-});
-$('wineDialog').addEventListener('drop', (e) => {
-  const img = imageFromTransfer(e.dataTransfer, false);
-  if (!img) return;
-  e.preventDefault();
-  takePhotoFile(img);
-});
-$('photoRemove').addEventListener('click', () => {
-  ++photoSeq;
-  photoDraft = null; photoRemoved = true;
-  showPhoto(null);
-  $('photoNote').textContent = 'The photo goes when you Save.';
-  $('photoBtn').focus();
-});
+/* ── The label photo, in a window ─────────────────────────────────────────
+   ONE photo row, made twice: the wine window's and the opened-bottle window's
+   (Charles, 2026-10-24: the Opened tab had none). `draft` is a photo picked in
+   THIS window ({ send, keep }), `removed` that Remove was pressed, `shown` the
+   saved copy on screen. Nothing is kept until Save, as with every other box. */
+const PHOTO_HINT = 'Or paste one here (⌘V), or drag it in.';
+function photoRow(ids) {
+  const el = (k) => $(ids[k]);
+  const row = { draft: null, removed: false, shown: null, seq: 0 };
+  const show = (data) => {
+    el('img').hidden = !data;
+    if (data) el('img').src = data; else el('img').removeAttribute('src');
+    el('remove').hidden = !data;
+    el('btn').textContent = data ? 'Replace Photo' : 'Add Label Photo';
+  };
+  row.reset = (rec) => {
+    const seq = ++row.seq;
+    row.draft = null; row.removed = false; row.shown = null;
+    /* The hint is for a keyboard; a phone's button opens its camera and library. */
+    el('note').textContent = rec && rec.photoAt || matchMedia('(pointer: coarse)').matches ? '' : PHOTO_HINT;
+    show(null);
+    if (!rec || !rec.photoAt) return;
+    el('note').textContent = 'Loading the photo…';
+    loadPhoto(rec).then((p) => {
+      /* Still the same window, and nothing picked or removed meanwhile. */
+      if (seq !== row.seq || !el('dialog').open || row.draft || row.removed) return;
+      row.shown = p;
+      el('note').textContent = p ? '' : window.wcSignedIn && window.wcSignedIn()
+        ? 'The photo could not be found on this device or in your account.'
+        : 'The photo is not on this device — sign in to fetch it.';
+      show(p && p.data);
+    });
+  };
+  /* The photo Look Up sends: the sharp one just picked, else the kept copy. */
+  row.forLookup = () => (row.draft ? row.draft.send : row.removed ? null : row.shown && row.shown.data);
+  row.setDraft = (d) => { row.draft = d; row.removed = false; };
+  /* Three ways in, one way through: the picker, a paste and a drop. What none
+     of them can do in Chrome is bring in a photo straight from the Photos
+     library (Charles, 2026-10-24): the picker's Photos pane copies the photo
+     out again every time the file is opened, so Chrome refuses it; and Photos'
+     ⌘C or a drag hands over the original HEIC FILE, which Chrome cannot decode
+     — and when a file is on the clipboard Chrome ignores any picture beside it
+     (measured: navigator.clipboard.read() came back empty). A JPEG exported
+     from Photos to a real folder works every way in, and so does the iPhone. */
+  row.take = async (file) => {
+    const seq = ++row.seq;
+    el('note').textContent = 'Reading the photo…';
+    const { got, problem } = await readPicked(file, shrinkPhoto);
+    if (seq !== row.seq || !el('dialog').open) return;
+    if (problem) { el('note').textContent = problem; return; }
+    row.setDraft(got);
+    show(got.keep);
+    el('note').textContent = 'Look Up will read the label. The photo is kept when you Save.';
+  };
+  /* On Save: a new photo is stored before the save that says it exists; a
+     removed one is only un-claimed — save() puts it on the gone list, and it
+     is deleted on the next load, past Undo. Call before save(). */
+  row.applyTo = (rec) => {
+    if (row.draft) {
+      rec.photoAt = nowStamp();
+      const keep = row.draft.keep, at = rec.photoAt;
+      photoStore.put(rec.id, keep, at).then(() => photoQueue(rec.id));
+    } else if (row.removed) {
+      rec.photoAt = null;
+    }
+    row.draft = null; row.removed = false;
+  };
+  el('btn').addEventListener('click', () => el('file').click());
+  el('file').addEventListener('change', () => {
+    const input = el('file');
+    const file = input.files && input.files[0];
+    input.value = '';                 /* so the same photo can be picked twice */
+    if (file) row.take(file);
+  });
+  el('remove').addEventListener('click', () => {
+    ++row.seq;
+    row.draft = null; row.removed = true;
+    show(null);
+    el('note').textContent = 'The photo goes when you Save.';
+    el('btn').focus();
+  });
+  el('dialog').addEventListener('paste', (e) => {
+    if (el('btn').offsetParent === null) return;   /* the row is hidden (Opened One copies its wine's) */
+    const img = imageFromTransfer(e.clipboardData, isTextBox(e.target));
+    if (!img) return;
+    e.preventDefault();
+    row.take(img);
+  });
+  el('dialog').addEventListener('dragover', (e) => {
+    if (e.dataTransfer && [...(e.dataTransfer.types || [])].indexOf('Files') !== -1) e.preventDefault();
+  });
+  el('dialog').addEventListener('drop', (e) => {
+    if (el('btn').offsetParent === null) return;
+    const img = imageFromTransfer(e.dataTransfer, false);
+    if (!img) return;
+    e.preventDefault();
+    row.take(img);
+  });
+  return row;
+}
+const winePhoto = photoRow({ dialog: 'wineDialog', img: 'photoImg', btn: 'photoBtn', remove: 'photoRemove',
+                             file: 'photoFile', note: 'photoNote' });
 /* The window's boxes as they stood when it opened, so leaving it for Opened
    One can ask before throwing away what was typed (or what Look Up filled). */
 let wineFormAtOpen = '';
@@ -5612,17 +5650,7 @@ $('wineSave').addEventListener('click', () => {
     state.wines.push(Object.assign({ id: savedId,
       checkedAt: lookupStamp && lookupStamp.key === wineKey(fields) ? lookupStamp.at : null }, fields));
   }
-  /* The photo: a new one is stored before the save that says it exists; a
-     removed one is only un-claimed here — save() puts it on the gone list,
-     and it is deleted on the next load, past Undo. */
-  const w = state.wines.find((x) => x.id === savedId);
-  if (photoDraft) {
-    w.photoAt = nowStamp();
-    photoStore.put(savedId, photoDraft.keep, w.photoAt).then(() => photoQueue(savedId));
-  } else if (photoRemoved) {
-    w.photoAt = null;
-  }
-  photoDraft = null; photoRemoved = false;
+  winePhoto.applyTo(state.wines.find((x) => x.id === savedId));
   state = normalizeState(state);
   save();
   $('wineDialog').close();
@@ -5754,7 +5782,7 @@ $('lookupPanel').addEventListener('click', (e) => {
 $('lookupBtn').addEventListener('click', async () => {
   if (lookupCtl) { lookupStop(); $('lookupNote').textContent = 'Stopped.'; return; }
   const name = cleanLine($('f_name').value, 80);
-  const photo = photoForLookup();
+  const photo = winePhoto.forLookup();
   if (!name && !photo) {
     $('lookupNote').textContent = 'Type the wine’s name or add a label photo first.'; $('f_name').focus(); return;
   }
@@ -5817,6 +5845,8 @@ $('logBtn').addEventListener('click', openLogBottle);
 let drinkingId = null;
 let editingBottleId = null;
 let loggingBottle = false;
+const bottlePhoto = photoRow({ dialog: 'openDialog', img: 'ob_photoImg', btn: 'ob_photoBtn', remove: 'ob_photoRemove',
+                               file: 'ob_photoFile', note: 'ob_photoNote' });
 function dressOpenDialog(mode) {
   $('openTitle').textContent = { edit: 'Edit an Opened Bottle', log: 'Log a Bottle' }[mode] || 'Opened a Bottle';
   $('openSave').textContent = mode === 'drink' ? 'Take One Off the Count' : 'Save';
@@ -5862,6 +5892,7 @@ function openBottleEdit(id) {
   loggingBottle = false;
   dressOpenDialog('edit');
   fillOpenDialog(o);
+  bottlePhoto.reset(o);
   openModal($('openDialog'));
 }
 function openLogBottle() {
@@ -5870,6 +5901,7 @@ function openLogBottle() {
   loggingBottle = true;
   dressOpenDialog('log');
   fillOpenDialog(null);
+  bottlePhoto.reset(null);
   openModal($('openDialog'));
   $('ob_name').focus();
 }
@@ -5883,6 +5915,7 @@ function openDrink(id) {
   $('openBody').textContent = wineLabel(w) + ' — ' + plural(w.qty, 'bottle') + ' left. This takes '
     + 'one off the count and adds a line to the Opened tab.';
   fillOpenDialog(null);
+  bottlePhoto.reset(null);
   openModal($('openDialog'));
 }
 /* The wine boxes, read once, the way normalizeState would read them. A window
@@ -5909,7 +5942,9 @@ $('openSave').addEventListener('click', () => {
     if (!wine.name) { $('openWarn').textContent = 'Type the wine’s name.'; $('ob_name').focus(); return; }
     delete wine.name;
     if (loggingBottle) {
-      state.opened.push(Object.assign({ id: uid(), wineId: null }, wine, told));
+      const line = Object.assign({ id: uid(), wineId: null }, wine, told);
+      bottlePhoto.applyTo(line);
+      state.opened.push(line);
       $('openDialog').close();
       save();
       toast('Logged — it is on the Opened tab');
@@ -5919,6 +5954,7 @@ $('openSave').addEventListener('click', () => {
     $('openDialog').close();
     if (!o) { render(); toast('That line has gone since the window opened, so nothing was changed.', 5000); return; }
     Object.assign(o, wine, told);
+    bottlePhoto.applyTo(o);
     save();
     toast('Saved');
     return;
@@ -5933,9 +5969,16 @@ $('openSave').addEventListener('click', () => {
   w.qty -= 1;
   /* The name, region, grape, price, vintage and window are copied, so the log
      still reads the same after the wine is edited or deleted. */
-  state.opened.push(Object.assign({ id: uid(), wineId: w.id, label: cleanLine(wineLabel(w), 100),
+  const line = Object.assign({ id: uid(), wineId: w.id, label: cleanLine(wineLabel(w), 100),
                       region: w.region, subregion: w.subregion, grape: w.grape, paid: w.paid,
-                      vintage: w.vintage, drinkFrom: w.drinkFrom, drinkTo: w.drinkTo }, told));
+                      vintage: w.vintage, drinkFrom: w.drinkFrom, drinkTo: w.drinkTo }, told);
+  /* And its label photo, as its OWN copy, so the line keeps it after the
+     wine is deleted — the same snapshot rule as the name and the window. */
+  if (w.photoAt) {
+    line.photoAt = w.photoAt;
+    loadPhoto(w).then((p) => { if (p) photoStore.put(line.id, p.data, line.photoAt).then(() => photoQueue(line.id)); });
+  }
+  state.opened.push(line);
   save();
   $('openDialog').close();
   toast(w.qty ? 'Enjoy it — ' + plural(w.qty, 'bottle') + ' left' : 'Enjoy it — that was the last one');
@@ -5975,7 +6018,10 @@ function applyObLookup(r, all) {
 $('obLookupBtn').addEventListener('click', async () => {
   if (obLookupCtl) { obLookupStop(); $('obLookupNote').textContent = 'Stopped.'; return; }
   const name = cleanLine($('ob_name').value, 80);
-  if (!name) { $('obLookupNote').textContent = 'Type the wine’s name first.'; $('ob_name').focus(); return; }
+  const photo = bottlePhoto.forLookup();
+  if (!name && !photo) {
+    $('obLookupNote').textContent = 'Type the wine’s name or add a label photo first.'; $('ob_name').focus(); return;
+  }
   const key = lookupKey();
   if (!key) { $('obLookupNote').textContent = 'Add your Claude API key in Settings first.'; return; }
   const w = { vintage: cleanYear($('ob_vintage').value), name: name,
@@ -5984,18 +6030,24 @@ $('obLookupBtn').addEventListener('click', async () => {
   obLookupCtl = ctl;
   $('obLookupBtn').textContent = 'Stop Looking';
   $('obLookupUse').hidden = true;
-  $('obLookupNote').textContent = 'Searching the web — this can take a minute…';
+  $('obLookupNote').textContent = (photo ? 'Reading the label and searching' : 'Searching the web')
+    + ' — this can take a minute…';
   try {
-    const got = await lookupWine(w, key, { signal: ctl.signal });
+    const got = await lookupWine(w, key, { signal: ctl.signal, photo: photo });
     if (obLookupCtl !== ctl || !$('openDialog').open) return;   /* stopped, or the window closed */
     const r = readLookup(got.found, w);
     obLookupLast = r;
-    if (r.confidence === 'low') { $('obLookupNote').textContent = 'Claude could not find this exact wine.'; return; }
+    /* An EMPTY name and vintage take what the label says, as in the wine window. */
+    const read = [];
+    if (!$('ob_name').value.trim() && r.labelName) { $('ob_name').value = r.labelName; read.push('name'); }
+    if ($('ob_vintage').value === '' && r.labelVintage != null) { $('ob_vintage').value = r.labelVintage; read.push('vintage'); }
+    const said = read.length ? 'Read the ' + read.join(' and ') + ' from the label. ' : '';
+    if (r.confidence === 'low') { $('obLookupNote').textContent = said + 'Claude could not find this exact wine.'; return; }
     const done = applyObLookup(r, false);
-    $('obLookupNote').textContent = (done.filled.length ? 'Filled ' + done.filled.join(', ').toLowerCase() + '.' : '')
+    $('obLookupNote').textContent = said + ((done.filled.length ? 'Filled ' + done.filled.join(', ').toLowerCase() + '.' : '')
       + (done.kept.length ? (done.filled.length ? ' ' : '') + 'Claude has a different '
         + done.kept.join(', ').toLowerCase() + ' — yours is kept.' : '')
-      || 'Claude’s answer matches what you have.';
+      || 'Claude’s answer matches what you have.');
     $('obLookupUse').hidden = !done.kept.length;
   } catch (e) {
     if (obLookupCtl === ctl && !(e && e.name === 'AbortError')) $('obLookupNote').textContent = e.message;
@@ -6818,7 +6870,7 @@ async function downloadBackup(withPhotos) {
   let out = state;
   if (withPhotos === true) {
     const photos = {};
-    for (const w of state.wines.filter((x) => x.photoAt)) {
+    for (const w of photoRecs(state).filter((x) => x.photoAt)) {
       const p = await loadPhoto(w);
       if (p) photos[w.id] = p.data;
     }
@@ -6916,7 +6968,7 @@ $('clearBtn').addEventListener('click', () => {
       ? 'You are signed in, so your other devices are cleared too. ' : '')
     + 'Undo (↩ in the header) brings it all back until you reload, close this page or another tab or device changes the cellar — '
     + 'after that, a downloaded backup is the only way to get any of it back.'
-    + (state.wines.some((w) => w.photoAt)
+    + (photoRecs(state).some((w) => w.photoAt)
       ? ' Label photos go too, the next time the app opens; the backup button here includes them.' : '');
   openModal(clearDialog);
 });
@@ -7708,7 +7760,7 @@ window.__wineTestHooks = {
   /* Swaps the IndexedDB photo store for the suite's in-memory one, and sets a
      picked photo, so photo tests touch nothing on disk. Returns the old store. */
   __photoStore: function (next) { const was = photoStore; photoStore = next; return was; },
-  __photoDraft: function (d) { photoDraft = d; photoRemoved = false; },
+  __photoDraft: function (d, which) { (which === 'opened' ? bottlePhoto : winePhoto).setDraft(d); },
   cleanPhoto: cleanPhoto, photoIdsGone: photoIdsGone, backupPhotoEntries: backupPhotoEntries,
   photoContent: photoContent, imageFromTransfer: imageFromTransfer, heicBrand: heicBrand, isHeic: isHeic, readPicked: readPicked, PHOTO_MAX: PHOTO_MAX, PHOTO_SEND_MAX: PHOTO_SEND_MAX,
   SCHEMA: SCHEMA, ID_RE: ID_RE, STORAGE_KEY: STORAGE_KEY, THEME_KEY: THEME_KEY,
@@ -8221,7 +8273,7 @@ async function flushPhotos() {
     do {
       photoFlushAgain = false;
       for (const id of photoIds(PHOTO_UNSENT_KEY)) {
-        const w = window.wcGet().wines.find((x) => x.id === id);
+        const w = photoRecs(window.wcGet()).find((x) => x.id === id);
         const p = w && w.photoAt ? await photoStore.get(id) : null;
         if (p) await F.setDoc(photoRef(id), { data: p.data, at: p.at || w.photoAt });
         setPhotoIds(PHOTO_UNSENT_KEY, photoIds(PHOTO_UNSENT_KEY).filter((x) => x !== id));

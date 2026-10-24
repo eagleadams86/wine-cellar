@@ -164,6 +164,9 @@ photo from the iPhone works directly. The window says which of these happened.
   (`winecellar/{uid}/photos/{wineId}`), fetched only when that wine is opened. The cellar itself
   holds only `photoAt`, the time it was taken, so a cellar full of photos never nears Firestore's
   1 MB-a-document limit.
+- **Opened bottles keep one too.** Log a Bottle and an opened line's edit window have the same
+  photo row and Look Up reads it the same way; **Opened One** copies the wine's photo onto the
+  line, so the Opened tab still has it after the wine is deleted.
 - **Never in a share link.** In a backup only if you tick **Include label photos** (the backup
   offered before Delete All always includes them).
 - **Deleting waits for the next load.** Removing a photo or deleting its wine takes it away from
