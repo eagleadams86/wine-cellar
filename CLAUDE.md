@@ -73,7 +73,10 @@ the family doesn't.
   (whitelist); in a backup only with **Include label photos** (`photos` map, restored by
   `backupPhotoEntries`). Tests swap the store with `__photoStore` — the suite never writes the disk.
   `accept` on the file input lists types: `image/*` opened a "comment" for the tests' comment
-  stripper and failed three source tests.
+  stripper and failed three source tests. It leaves HEIC OUT on purpose: Chrome cannot decode
+  HEIC at all and Claude's API takes none, so the picker is asked for a compatible copy, and a
+  HEIC that still arrives (Charles's first try, from Photos in Chrome on the Mac) gets
+  `HEIC_HELP` — `isHeic()` reads the `ftyp` brand, then the type and name.
 
 ## Decisions — Don't Undo
 
@@ -264,6 +267,6 @@ was a one-line version of the cellar rule.
 
 ## Tests
 
-`tests.html`, `EXPECTED = 268`. Run it headless (Playwright) rather than in the Browser pane:
+`tests.html`, `EXPECTED = 269`. Run it headless (Playwright) rather than in the Browser pane:
 the pane throttles hidden timers and its focus heuristics turn the 705px keyboard-focus check
 red on untouched code.

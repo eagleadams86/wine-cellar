@@ -1947,7 +1947,7 @@ html[data-booting] footer { visibility: hidden; }
     <img id="photoImg" class="photothumb" alt="The label photo kept with this wine" hidden>
     <button type="button" id="photoBtn">Add Label Photo</button>
     <button type="button" class="link" id="photoRemove" hidden>Remove Photo</button>
-    <input type="file" id="photoFile" accept="image/jpeg,image/png,image/heic,image/heif,image/webp" class="sr-only" aria-hidden="true" tabindex="-1">
+    <input type="file" id="photoFile" accept="image/jpeg,image/png,image/webp" class="sr-only" aria-hidden="true" tabindex="-1">
     <span class="hint" id="photoNote" role="status"></span>
   </div>
   <!-- Look Up fills the EMPTY boxes below from what Claude finds, and says
@@ -2727,6 +2727,24 @@ function backupPhotoEntries(raw, st) {
   const ph = raw && raw.photos && typeof raw.photos === 'object' && !Array.isArray(raw.photos) ? raw.photos : {};
   return st.wines.filter((w) => w.photoAt && Object.prototype.hasOwnProperty.call(ph, w.id) && cleanPhoto(ph[w.id]))
     .map((w) => [w.id, ph[w.id], w.photoAt]);
+}
+/* An iPhone photo is HEIC, which Chrome cannot decode at all (Charles,
+   2026-10-24, picking from Photos on the Mac) — and Claude's API takes no
+   HEIC either, so it has to arrive as a JPEG. The file input no longer lists
+   HEIC, which asks the system picker for a compatible copy where it can make
+   one (an iPhone always does); when a HEIC still arrives, the note says
+   exactly what to do instead of "could not be read". Known by its bytes —
+   the `ftyp` box names a HEIF brand — or else its type or name. */
+const HEIC_HELP = 'That is an iPhone HEIC photo, which Chrome can’t open. Add it from your iPhone or from '
+  + 'Safari on the Mac, which can — or export it as a JPEG from Photos first (File → Export).';
+function heicBrand(bytes) {
+  if (!bytes || bytes.length < 12) return false;
+  const tag = (at) => String.fromCharCode(bytes[at], bytes[at + 1], bytes[at + 2], bytes[at + 3]);
+  return tag(4) === 'ftyp' && ['heic', 'heix', 'heim', 'heis', 'hevc', 'hevx', 'mif1', 'msf1'].indexOf(tag(8)) !== -1;
+}
+async function isHeic(file) {
+  try { if (heicBrand(new Uint8Array(await file.slice(0, 16).arrayBuffer()))) return true; } catch (e) { /* unreadable */ }
+  return /hei[cf]/i.test(String(file.type)) || /\.hei[cf]$/i.test(String(file.name));
 }
 /* Two sizes from one picked file: a sharp one for Claude to read, used for
    that lookup only, and a small one to keep. createImageBitmap reads the file
@@ -5383,7 +5401,9 @@ $('photoFile').addEventListener('change', async () => {
   try { got = await shrinkPhoto(file); } catch (e) { got = null; }
   if (seq !== photoSeq || !$('wineDialog').open) return;
   if (!got || !got.keep || !cleanPhoto(got.send, PHOTO_SEND_MAX)) {
-    $('photoNote').textContent = 'That photo could not be read here. Try a JPEG or PNG.';
+    const heic = await isHeic(file);
+    if (seq !== photoSeq) return;
+    $('photoNote').textContent = heic ? HEIC_HELP : 'That photo could not be read here. Try a JPEG or PNG.';
     return;
   }
   photoDraft = got; photoRemoved = false;
@@ -7628,7 +7648,7 @@ window.__wineTestHooks = {
   __photoStore: function (next) { const was = photoStore; photoStore = next; return was; },
   __photoDraft: function (d) { photoDraft = d; photoRemoved = false; },
   cleanPhoto: cleanPhoto, photoIdsGone: photoIdsGone, backupPhotoEntries: backupPhotoEntries,
-  photoContent: photoContent, PHOTO_MAX: PHOTO_MAX, PHOTO_SEND_MAX: PHOTO_SEND_MAX,
+  photoContent: photoContent, heicBrand: heicBrand, isHeic: isHeic, PHOTO_MAX: PHOTO_MAX, PHOTO_SEND_MAX: PHOTO_SEND_MAX,
   SCHEMA: SCHEMA, ID_RE: ID_RE, STORAGE_KEY: STORAGE_KEY, THEME_KEY: THEME_KEY,
   TAB_KEY: TAB_KEY, TABS: TABS, SHARE_FORMAT: SHARE_FORMAT, SHARE_PAYLOAD_V: SHARE_PAYLOAD_V,
   blankState: blankState, normalizeState: normalizeState, defaultSettings: defaultSettings,

@@ -51,7 +51,7 @@
    go MISSING look exactly like tests that pass — a suite that quietly shrank to
    three checks still says "all 3 tests pass". RAISE THIS when you add tests, and
    lower it only when you retire one deliberately. */
-const EXPECTED = 268;
+const EXPECTED = 269;
 
 /* ── It refuses to run anywhere but localhost, and that is load-bearing ──────
    GitHub Pages publishes this page BESIDE the app, where the iframe below would
@@ -2679,6 +2679,17 @@ function define() {
     eq(H.normalizeState({ wines: [{ id: 'p', name: 'x', photoAt: 'yesterday' }] }).wines[0].photoAt, null, 'a stamp is checked');
     const p = H.buildSharePayload(st, { keep: 'all' });
     ok(!('photoAt' in p.wines[0]) && JSON.stringify(p).indexOf('base64') === -1, 'a share link says nothing about photos');
+  });
+  t('an iPhone HEIC photo is recognised, so the note can say what to do', async () => {
+    const box = (brand) => Uint8Array.from([0, 0, 0, 24, ...'ftyp'.split('').map((c) => c.charCodeAt(0)),
+      ...brand.split('').map((c) => c.charCodeAt(0)), 0, 0, 0, 0]);
+    ok(H.heicBrand(box('heic')) && H.heicBrand(box('mif1')), 'by the brand in its first bytes');
+    ok(!H.heicBrand(box('isom')) && !H.heicBrand(Uint8Array.from([0xff, 0xd8, 0xff, 0xe0])), 'an MP4 or a JPEG is not');
+    ok(await H.isHeic(new W.File([box('heic')], 'IMG_1.jpg', { type: '' })), 'whatever it is called');
+    ok(await H.isHeic(new W.File(['x'], 'IMG_2.HEIC', { type: '' })), 'or by its name when the bytes say nothing');
+    ok(!(await H.isHeic(new W.File(['x'], 'label.png', { type: 'image/png' }))), 'a PNG is not');
+    ok(!/image\/hei[cf]/.test(APP_SRC.match(/id="photoFile"[^>]*/)[0]),
+       'the picker does not ask for HEIC, so the system hands over a JPEG where it can');
   });
   t('which wines lost a photo: deleted, or the photo removed — nothing else', () => {
     const at = '2026-10-24T12:00:00.000Z';
