@@ -2735,10 +2735,11 @@ function backupPhotoEntries(raw, st) {
    one (an iPhone always does); when a HEIC still arrives, the note says
    exactly what to do instead of "could not be read". Known by its bytes —
    the `ftyp` box names a HEIF brand — or else its type or name. */
-const HEIC_HELP = 'That is an iPhone HEIC photo, which Chrome can’t open as a file. Select it in Photos, '
-  + 'press ⌘C, then click here and press ⌘V — or add it from your iPhone.';
-const PHOTO_REPICK_HELP = 'Chrome can’t read a photo picked from the Photos library. Instead, select it '
-  + 'in Photos, press ⌘C, then click here and press ⌘V — or drag it onto this window.';
+const HEIC_HELP = 'That is an iPhone HEIC photo, which Chrome can’t open. In Photos, choose File → Export → '
+  + 'Export 1 Photo as JPEG to your Desktop, then drag that file here — or add the photo from your iPhone.';
+const PHOTO_REPICK_HELP = 'Chrome can’t read a photo picked straight from the Photos library. In Photos, '
+  + 'choose File → Export → Export 1 Photo as JPEG to your Desktop, then drag that file here — or add the '
+  + 'photo from your iPhone.';
 /* A picked file to { got } or { problem: what to tell the reader }. It is
    READ before it is decoded, because the two fail for different reasons: a
    photo picked from Photos on the Mac is exported into a temporary folder as
@@ -5415,12 +5416,14 @@ $('photoFile').addEventListener('change', () => {
   input.value = '';                   /* so the same photo can be picked twice */
   if (file) takePhotoFile(file);
 });
-/* Three ways in, one way through: the picker, a paste (⌘C in Photos, ⌘V
-   here) and a drop. Paste and drop exist because the Mac picker's Photos
-   pane cannot feed Chrome at all: it copies the photo out again every time
-   the file is opened, and Chrome refuses a file that changed after the pick
-   (Charles, 2026-10-24, twice). A pasted photo arrives as image data that
-   Chrome has already decoded — so it works for an iPhone HEIC too. */
+/* Three ways in, one way through: the picker, a paste and a drop. What none
+   of them can do in Chrome is bring in a photo straight from the Photos
+   library (Charles, 2026-10-24): the picker's Photos pane copies the photo
+   out again every time the file is opened, so Chrome refuses it; and Photos'
+   ⌘C or a drag hands over the original HEIC FILE, which Chrome cannot decode
+   — and when a file is on the clipboard Chrome ignores any picture beside it
+   (measured: navigator.clipboard.read() came back empty). A JPEG exported
+   from Photos to a real folder works every way in, and so does the iPhone. */
 async function takePhotoFile(file) {
   const seq = ++photoSeq;
   $('photoNote').textContent = 'Reading the photo…';

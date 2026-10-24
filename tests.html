@@ -2696,7 +2696,7 @@ function define() {
       slice: () => ({ arrayBuffer: async () => { throw new W.DOMException('changed', 'NotReadableError'); } }) };
     let shrunk = false;
     const r = await H.readPicked(unreadable, async () => { shrunk = true; return null; });
-    ok(/⌘C/.test(r.problem) && /⌘V/.test(r.problem), 'a file the Photos pane re-copies: paste it instead');
+    ok(/Export 1 Photo as JPEG/.test(r.problem), 'a file the Photos pane re-copies: export it, then bring that in');
     ok(!shrunk, 'and nothing tries to decode what cannot be read');
     const bad = await H.readPicked(new W.File(['not an image'], 'x.jpg', { type: 'image/jpeg' }), async () => { throw new Error('x'); });
     ok(/could not be opened \(image\/jpeg, 0 KB\)/.test(bad.problem), 'a broken file says its type and size, for the next report');

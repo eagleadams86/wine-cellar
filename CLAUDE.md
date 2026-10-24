@@ -80,12 +80,15 @@ the family doesn't.
   before it decodes: the Mac picker's Photos pane exports into a temp `uuid=` folder and RE-EXPORTS
   on every open, and Chrome refuses a file that changed after the pick — so a Photos pick can
   NEVER be read in Chrome, picked once or twice (Charles, 2026-10-24). That gets
-  `PHOTO_REPICK_HELP`, which sends you to **paste (⌘C in Photos, ⌘V in the wine window) or drop**,
-  both wired on `#wineDialog` through `imageFromTransfer()` → `takePhotoFile()`. A paste arrives
-  as image data Chrome already decoded, so it carries an iPhone HEIC too — confirmed with a real
-  ⌘V in headful Playwright Chromium (a HEIC put on the clipboard came through as image/png). A
-  paste into a text box that also carries text is left as a text paste. Synthetic ⌘V in the
-  Browser pane fires no paste event at all — test it in headful Playwright.
+  `PHOTO_REPICK_HELP`. Paste and drop are wired on `#wineDialog` (`imageFromTransfer()` →
+  `takePhotoFile()`), but **Photos' ⌘C and a drag from Photos both hand Chrome the original HEIC
+  FILE** (Charles, 2026-10-24), and with a file URL on the pasteboard Chrome ignores any picture
+  beside it — `navigator.clipboard.read()` came back EMPTY with file-url + TIFF (measured; a
+  clipboard-picture fallback was built and removed). So from the Photos library, Chrome needs a
+  JPEG exported to a real folder (File → Export → Export 1 Photo); both help texts say so. Only
+  pure image data (no file URL) pastes as a PNG. A real decoder (libheif WASM) would need
+  `'wasm-unsafe-eval'` in the CSP — an open question for Charles. Synthetic ⌘V in the Browser pane
+  fires no paste event; test pastes in headful Playwright with a pasteboard built in JXA.
 
 ## Decisions — Don't Undo
 
