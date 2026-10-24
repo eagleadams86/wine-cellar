@@ -1731,14 +1731,14 @@ html[data-booting] footer { visibility: hidden; }
         <div class="field">
           <label id="statusLabel">Status</label>
           <details class="statuspick" id="statusPick">
-            <summary aria-labelledby="statusLabel statusSum"><span id="statusSum">Every status</span>
+            <summary aria-labelledby="statusLabel statusSum"><span id="statusSum">Every Status</span>
               <span class="pickchev" aria-hidden="true">▾</span></summary>
             <div class="pickpanel" role="group" aria-labelledby="statusLabel">
-              <label class="checkline"><input type="checkbox" value="past">Past window</label>
-              <label class="checkline"><input type="checkbox" value="soon">Drink soon</label>
+              <label class="checkline"><input type="checkbox" value="past">Past Window</label>
+              <label class="checkline"><input type="checkbox" value="soon">Drink Soon</label>
               <label class="checkline"><input type="checkbox" value="ready">Ready</label>
               <label class="checkline"><input type="checkbox" value="hold">Hold</label>
-              <label class="checkline"><input type="checkbox" value="none">No window</label>
+              <label class="checkline"><input type="checkbox" value="none">No Window</label>
             </div>
           </details>
         </div>
@@ -2820,12 +2820,14 @@ function fmtValue(w) {
      soon   inside the window, and it closes within `soon` years
      ready  inside the window, with time to spare
      none   no window recorded, so nothing can be said */
+/* Labels are Title Case (Charles, 2026-10-24): they are the pills' words, the
+   tiles', the Status box's and the CSV's. */
 const STATUS = {
-  past:  { label: 'Past window', cls: 'err',  rank: 0 },
-  soon:  { label: 'Drink soon',  cls: 'warn', rank: 1 },
+  past:  { label: 'Past Window', cls: 'err',  rank: 0 },
+  soon:  { label: 'Drink Soon',  cls: 'warn', rank: 1 },
   ready: { label: 'Ready',       cls: 'ok',   rank: 2 },
   hold:  { label: 'Hold',        cls: 'hold', rank: 3 },
-  none:  { label: 'No window',   cls: '',     rank: 4 },
+  none:  { label: 'No Window',   cls: '',     rank: 4 },
 };
 /* Which statuses the Cellar is filtered to; empty is every one. Page-life
    only, like the select it replaced. Declared here, before the first render. */
@@ -5535,7 +5537,7 @@ $('clearOpenedFind').addEventListener('click', () => {
    2026-10-24 — a scroll to the Cellar was tried in the plan and put aside). */
 function statusSummary() {
   const keys = Object.keys(STATUS).filter((k) => statusPick.has(k));
-  return !keys.length ? 'Every status'
+  return !keys.length ? 'Every Status'
     : keys.length <= 2 ? keys.map((k) => STATUS[k].label).join(', ') : keys.length + ' statuses';
 }
 function setStatusPick(keys) {
@@ -5607,7 +5609,7 @@ $('firstRestore').addEventListener('click', () => $('importFile').click());
    One delegated listener, so a dot added by a later render needs no wiring. */
 const HELP = {
   status: ['How a Wine’s Status Is Decided', `<p>Every status is worked out from the wine’s <strong>drinking window</strong> and this year — nothing is typed in, so the cellar stays right as the years go by.</p>
-    <p><strong>Hold</strong> — the window hasn’t opened yet. <strong>Ready</strong> — inside the window, with time to spare. <strong>Drink soon</strong> — inside the window, and it closes within the time set in Settings (a year, to start with). <strong>Past window</strong> — the window closed in an earlier year; it may still be lovely, but it is the one to open next. <strong>No window</strong> — none was recorded, so nothing can be said.</p>
+    <p><strong>Hold</strong> — the window hasn’t opened yet. <strong>Ready</strong> — inside the window, with time to spare. <strong>Drink Soon</strong> — inside the window, and it closes within the time set in Settings (a year, to start with). <strong>Past Window</strong> — the window closed in an earlier year; it may still be lovely, but it is the one to open next. <strong>No Window</strong> — none was recorded, so nothing can be said.</p>
     <p>Press <strong>Past Window</strong>, <strong>Drink Soon</strong>, <strong>Ready</strong> or <strong>Holding</strong> to show just those wines in the Cellar list; press it again to take it off. You can press several, and the Status box in the Cellar ticks the same ones.</p>
     <p>The tiles count <strong>bottles</strong>, not wines, and only bottles you still have. The value is each wine’s value per bottle times its count, shown as a range when the value is one; a wine with no value is left out and the line under the tiles says how many bottles that is.</p>`],
   chart: ['How This Chart Is Drawn', `<p>One bar per year, from this one on: how many of your bottles are <strong>inside their drinking window</strong> that year. A wine counts in every year of its window, so the bars overlap on purpose — the shape shows when the cellar is at its best and when bottles start running out of time.</p>

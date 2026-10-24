@@ -18,7 +18,7 @@ cellar on your other devices.
 - **The status tiles are filters.** Press **Past Window**, **Drink Soon**, **Ready** or
   **Holding** to show just those wines in the Cellar list, and again to take it off; several can
   be on at once, each marked with a ✓. The **Status** box in the Cellar is the same filter as a
-  list of tick boxes in priority order — Past window, Drink soon, Ready, Hold, No window — and
+  list of tick boxes in priority order — Past Window, Drink Soon, Ready, Hold, No Window — and
   **Clear** lets them all go. The page stays where it is when you press a tile.
 - **Paid per bottle** in the wine window records what one bottle actually cost (to the cent).
   Once any wine has one, the Cellar table grows a **Paid** column that says, under each price,
@@ -144,9 +144,9 @@ current year, so the cellar stays right as time passes.
 |---|---|
 | **Hold** | the window hasn't opened yet |
 | **Ready** | inside the window, with time to spare |
-| **Drink soon** | inside the window, and it closes within the time set in Settings (a year by default) |
-| **Past window** | the window closed in an earlier year — the one to open next |
-| **No window** | none recorded |
+| **Drink Soon** | inside the window, and it closes within the time set in Settings (a year by default) |
+| **Past Window** | the window closed in an earlier year — the one to open next |
+| **No Window** | none recorded |
 
 The tiles count **bottles you still have**. Value is per-bottle value × count, shown as a
 range; wines with no value are left out and the page says how many bottles that is.

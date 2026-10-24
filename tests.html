@@ -2204,18 +2204,18 @@ function define() {
     eq(tile('past').getAttribute('aria-pressed'), 'true', 'pressed');
     ok(shownIds().length && shownIds().every((id) => statusOfId(id) === 'past'), 'only past-window wines', shownIds().join());
     ok(box('past').checked, 'and the dropdown ticks the same status');
-    eq(D.getElementById('statusSum').textContent, 'Past window');
+    eq(D.getElementById('statusSum').textContent, 'Past Window');
     tile('ready').click();
     ok(shownIds().every((id) => ['past', 'ready'].indexOf(statusOfId(id)) !== -1) && shownIds().length === 2,
        'a second tile adds its status', shownIds().join());
-    eq(D.getElementById('statusSum').textContent, 'Past window, Ready');
+    eq(D.getElementById('statusSum').textContent, 'Past Window, Ready');
     tile('past').click();
     eq([tile('past').getAttribute('aria-pressed'), box('past').checked], ['false', false], 'pressing again takes it off');
     eq(W.scrollY, y, 'no press moved the page');
     D.getElementById('clearFind').click();
     ok(!D.querySelector('#stats [aria-pressed="true"]') && !D.querySelector('#statusPick input:checked'),
        'Clear lets every tile and box go');
-    eq(D.getElementById('statusSum').textContent, 'Every status');
+    eq(D.getElementById('statusSum').textContent, 'Every Status');
     H.__plant(FIXTURE);
   });
   t('the dropdown lists the statuses in priority order and filters to all it ticks', () => {
