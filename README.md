@@ -46,6 +46,8 @@ cellar on your other devices.
   the Cellar, and the bottle count is left alone.
   Each line also says its **Timing** and **Age** (see below), and **Where** it was opened once any
   line has a place.
+  Point at a line for what the list doesn't show — its drinking window, a hidden Paid or Where,
+  and whether it came from your Cellar or was logged elsewhere.
 - **Log a Bottle** — for a bottle opened at dinner, a winery or a tasting: type the wine, press
   **Look Up with Claude** to fill its region, grape and drinking window, and save. It goes straight
   onto the Opened tab and its dashboard without ever being in the Cellar.

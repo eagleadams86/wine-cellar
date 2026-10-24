@@ -3238,6 +3238,23 @@ function wineFacts(w, shown) {
    screen reader never depend on it. */
 const wineTip = (w, shown) => rowTip('',
   [wineFacts(w, shown), (w.notes || '').trim(), viewOnly ? '' : 'Click to edit'].filter(Boolean).join('\n\n'));
+/* An opened line's hover text, the Cellar's rule: what the list does NOT show
+   — its window always (Timing is the verdict, not the years), and a hidden
+   Paid or Where — then where the line came from, then the hint. */
+function openedFacts(o, shown) {
+  const off = (k) => shown.indexOf(k) === -1;
+  return [
+    off('region') && o.region ? 'Region: ' + o.region : '',
+    off('grape') && o.grape ? 'Grape: ' + o.grape : '',
+    fmtWindow(o) !== '—' ? 'Window: ' + fmtWindow(o) : 'Window: none recorded',
+    off('paid') && o.paid != null ? 'Paid: ' + fmtPaid(o.paid) : '',
+    off('place') && o.place ? 'Where: ' + o.place : '',
+    !o.wineId ? 'Logged without a Cellar wine'
+      : !state.wines.some((w) => w.id === o.wineId) ? 'Its Cellar wine has since been deleted' : 'From your Cellar',
+  ].filter(Boolean).join('\n');
+}
+const openedTip = (o, shown) => rowTip('',
+  [openedFacts(o, shown), viewOnly ? '' : 'Click to edit'].filter(Boolean).join('\n\n'));
 
 
 /* The chart is SVG, so it follows a theme change and the print palette with no
@@ -3594,11 +3611,13 @@ function renderOpened() {
   /* Where follows the same rule: no column until some line has a place. */
   const hasPlace = state.opened.some((o) => o.place);
   const cols = OPENED_COLUMNS.filter((c) => (c.key !== 'paid' || hasPaid) && (c.key !== 'place' || hasPlace));
+  const shown = cols.map((c) => c.key);
   wrap.innerHTML = '<table id="openedTable" class="cards"><thead><tr>'
     + sortHead(cols, openedSortKey, openedSortDir)
     /* No actions column: Remove is in the line's own window (2026-10-24). */
     + '</tr></thead><tbody>'
-    + rows.map((o) => '<tr' + (viewOnly ? '' : ' class="rowlink" data-open-bottle="' + esc(o.id) + '"') + '>'
+    + rows.map((o) => '<tr' + (viewOnly ? '' : ' class="rowlink" data-open-bottle="' + esc(o.id) + '"')
+      + openedTip(o, shown) + '>'
       + '<td data-label="Opened">' + esc(fmtDate(o.date)) + '</td>'
       /* The row opens its editor; the button on the name is what makes that
          reachable without a mouse — the Cellar table's own pattern. */
@@ -7070,7 +7089,7 @@ window.__wineTestHooks = {
   shareWines: shareWines, statusOf: statusOf, STATUS: STATUS, parseWineList: parseWineList,
   sameWine: sameWine, syncDecision: syncDecision, makePushGate: makePushGate,
   UPDATED_KEY: UPDATED_KEY, OPENED_COLUMNS: OPENED_COLUMNS,
-  timingOf: timingOf, ageAtOpening: ageAtOpening, likeGroups: likeGroups, computeOpened: computeOpened, TIMING: TIMING,
+  openedFacts: openedFacts, timingOf: timingOf, ageAtOpening: ageAtOpening, likeGroups: likeGroups, computeOpened: computeOpened, TIMING: TIMING,
   encodeShare: encodeShare, decodeShare: decodeShare, csvWines: csvWines, csvOpened: csvOpened, csvCell: csvCell,
   raisesKeyboard: raisesKeyboard, opensOnFocus: opensOnFocus, esc: esc, todayISO: todayISO, fmtMoney: fmtMoney,
   nextSort: nextSort, COLUMNS: COLUMNS, tableToRows: tableToRows, cellText: cellText,
