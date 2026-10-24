@@ -3419,6 +3419,13 @@ function define() {
       eq(lines(), ['l'], 'Late narrows the list');
       eq(tile('late').getAttribute('aria-pressed'), 'true', 'and says it is pressed');
       ok(/Showing 1 of 3/.test(D.getElementById('openedFindNote').textContent), 'and the line says so');
+      const pick = D.getElementById('timingPickBox');
+      ok(pick.querySelector('input[value="late"]').checked && D.getElementById('timingSum').textContent === 'Late',
+         'the Timing box ticks what the tile pressed');
+      const none = pick.querySelector('input[value="none"]');
+      none.checked = true; none.dispatchEvent(new W.Event('change', { bubbles: true }));
+      eq(D.getElementById('timingSum').textContent, 'Late, No Window', 'and No Window, which has no tile, is in the box');
+      none.checked = false; none.dispatchEvent(new W.Event('change', { bubbles: true }));
       tile('early').click();
       eq(lines().sort(), ['e', 'l'], 'two tiles: either timing');
       D.getElementById('clearOpenedFind').click();

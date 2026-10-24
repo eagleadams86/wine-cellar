@@ -1833,6 +1833,21 @@ html[data-booting] footer { visibility: hidden; }
           <input type="search" id="openedFind" maxlength="60" placeholder="wine, region, grape, note…"
                  autocomplete="off" data-keep-caret>
         </div>
+        <!-- The Cellar's Status box, for timing: the same tick boxes the
+             timing tiles press, plus No Window, which has no tile. -->
+        <div class="field">
+          <label id="timingLabel">Timing</label>
+          <details class="statuspick" id="timingPickBox">
+            <summary aria-labelledby="timingLabel timingSum"><span id="timingSum">Every Timing</span>
+              <span class="pickchev" aria-hidden="true">▾</span></summary>
+            <div class="pickpanel" role="group" aria-labelledby="timingLabel">
+              <label class="checkline"><input type="checkbox" value="early">Early</label>
+              <label class="checkline"><input type="checkbox" value="inwin">In Window</label>
+              <label class="checkline"><input type="checkbox" value="late">Late</label>
+              <label class="checkline"><input type="checkbox" value="none">No Window</label>
+            </div>
+          </details>
+        </div>
         <button type="button" class="link" id="clearOpenedFind">Clear</button>
         <p class="hint" id="openedFindNote" role="status"></p>
       </div>
@@ -5966,8 +5981,16 @@ $('openRemove').addEventListener('click', () => {
 /* Find. Redraws the table only — never the controls, or the caret is lost. */
 $('findBox').addEventListener('input', renderList);
 $('openedFind').addEventListener('input', renderOpened);
+$('timingPickBox').addEventListener('change', (e) => {
+  const box = e.target.closest('input[type="checkbox"]');
+  if (!box) return;
+  const next = new Set(timingPick);
+  next[box.checked ? 'add' : 'delete'](box.value);
+  setTimingPick([...next]);
+});
 $('clearOpenedFind').addEventListener('click', () => {
   $('openedFind').value = '';
+  $('timingPickBox').open = false;
   setTimingPick([]);
   $('openedFind').focus();
 });
@@ -5976,6 +5999,10 @@ $('clearOpenedFind').addEventListener('click', () => {
 function setTimingPick(keys) {
   timingPick.clear();
   keys.forEach((k) => { if (TIMING[k]) timingPick.add(k); });
+  const on = Object.keys(TIMING).filter((k) => timingPick.has(k));
+  $('timingSum').textContent = !on.length ? 'Every Timing'
+    : on.length <= 2 ? on.map((k) => TIMING[k].label).join(', ') : on.length + ' timings';
+  $('timingPickBox').querySelectorAll('input[type="checkbox"]').forEach((b) => { b.checked = timingPick.has(b.value); });
   document.querySelectorAll('#openedStats [data-timing]').forEach((b) =>
     b.setAttribute('aria-pressed', String(timingPick.has(b.dataset.timing))));
   renderOpened();
@@ -6037,14 +6064,17 @@ $('stats').addEventListener('click', (e) => {
   setStatusPick([...next]);
 });
 /* Escape and a press anywhere else close the dropdown, as a select would. */
-$('statusPick').addEventListener('keydown', (e) => {
-  if (e.key !== 'Escape' || !$('statusPick').open) return;
-  e.preventDefault();
-  $('statusPick').open = false;
-  $('statusPick').querySelector('summary').focus();
-});
-document.addEventListener('click', (e) => {
-  if ($('statusPick').open && !$('statusPick').contains(e.target)) $('statusPick').open = false;
+['statusPick', 'timingPickBox'].forEach((id) => {
+  const pick = $(id);
+  pick.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape' || !pick.open) return;
+    e.preventDefault();
+    pick.open = false;
+    pick.querySelector('summary').focus();
+  });
+  document.addEventListener('click', (e) => {
+    if (pick.open && !pick.contains(e.target)) pick.open = false;
+  });
 });
 /* One listener for every export button there will ever be, delegated at <main>
    so a re-render never has to re-wire them. */
@@ -6086,7 +6116,7 @@ const HELP = {
     <p>A window with no end counts in every year shown; a wine with no window is not drawn at all. Bottles are counted as they stand today, so the chart does not know what you will open between now and then. Each bar is a tint with the colour itself on the edge, from the shared palette.</p>`],
   timing: ['How a Bottle’s Timing Is Decided', `<p>Each opened bottle is set against the <strong>drinking window its wine had on the day you opened it</strong> — the year on the date, against the window’s years. Editing the wine later does not change it.</p>
     <p><strong>Early</strong> — opened before the window started. <strong>In Window</strong> — opened inside it. <strong>Late</strong> — opened after it closed. A bottle whose wine had no window is in no timing count, and the line under the tiles says how many.</p>
-    <p>Press <strong>Early</strong>, <strong>In Window</strong> or <strong>Late</strong> to show just those bottles in the list below; press it again to take it off. <strong>Average Age</strong> is the years from vintage to the year it was opened, over every bottle with a vintage. Every figure counts the whole log — Find never changes them.</p>`],
+    <p>Press <strong>Early</strong>, <strong>In Window</strong> or <strong>Late</strong> to show just those bottles in the list below; press it again to take it off. The <strong>Timing</strong> box beside Find ticks the same ones, and has <strong>No Window</strong> too. <strong>Average Age</strong> is the years from vintage to the year it was opened, over every bottle with a vintage. Every figure counts the whole log — Find never changes them.</p>`],
   likes: ['How These Tables Are Worked Out', `<p>Every opened bottle, grouped by its <strong>grape</strong> and, separately, by its <strong>region</strong>, as they were recorded when it was opened. Names are matched ignoring capitals and extra spaces, so “pinot noir” and “Pinot Noir” are one row; a blend such as “Pinot Noir, Chardonnay” is a row of its own.</p>
     <p><strong>Bottles</strong> counts them all. <strong>Rated</strong> is how many you gave stars to, and <strong>Avg ★</strong> is the average of those stars, out of 5 — a bottle you didn’t rate never pulls it down. Best-rated comes first, with the most bottles breaking a tie; press a heading to sort by it instead.</p>`],
 };

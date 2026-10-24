@@ -52,7 +52,8 @@ cellar on your other devices.
 - **Opened at the Right Time** — tiles at the top of the Opened tab count the bottles opened
   **Early** (before the window opened), **In Window** and **Late** (after it closed), set against
   the window the wine had on the day it was opened, plus the **Average Age** from vintage to
-  opening. Press Early, In Window or Late to narrow the list to them; Clear takes them off.
+  opening. Press Early, In Window or Late to narrow the list to them, or tick them — and No
+  Window — in the list's **Timing** box beside Find; Clear takes them off.
 - **What You Like** — your opened bottles grouped by grape and by region, with how many you
   opened, how many you rated and the average stars of those, best-rated first. Press a heading to
   sort. Both cards count the whole log (Find never changes them) and hide until a bottle is opened.
