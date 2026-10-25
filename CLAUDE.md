@@ -119,6 +119,10 @@ the family doesn't.
   The offered name is `labelNameFor(typed, label)`: a label whose words are all in the typed
   name (a front label printing only "Vöcal") RE-SPELLS those words in the typed name; only a
   label with words of its own is offered whole. Never offer the raw label_name over a typed one.
+- **Lookups send Came from** (2026-10-25, Charles: Wine Access listed the 2023 Vöcal at $95
+  while Claude guessed $45–75): `buildLookupRequest` adds "Came from, in the owner's words: …"
+  (never the old "Already in the cellar"), and `LOOKUP_SYSTEM` says to search that shop first.
+  The editor's Look Up passes `f_source`; Check All and paste pass the wine. privacy.html says so.
 - **The thumbnail enlarges** into `#photoView`, a TOP-LEVEL dialog (inside the edit window its
   clicks would trip that window's click-outside and close both). `photoFit` sizes it to the
   photo's own ratio within the opener's width × the screen height. Any click, ✕ or Escape
@@ -327,6 +331,6 @@ was a one-line version of the cellar rule.
 
 ## Tests
 
-`tests.html`, `EXPECTED = 285`. Run it headless (Playwright) rather than in the Browser pane:
+`tests.html`, `EXPECTED = 286`. Run it headless (Playwright) rather than in the Browser pane:
 the pane throttles hidden timers and its focus heuristics turn the 705px keyboard-focus check
 red on untouched code.

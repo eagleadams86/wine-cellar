@@ -113,6 +113,10 @@ the pages it used.
   can take its value and keep your window; a line that already matches says "✓ in the box", and
   **Use all of Claude's answer** takes everything. Nothing is saved until you press Save
   or Add, and a one-line "Looked up…" note records when and on whose word.
+- **It is told where the bottle came from.** What's in **Came from** goes with the question
+  ("Came from, in the owner's words: Wine Access"), and Claude searches that shop first — the
+  shop that sold it usually still lists it, at about what you paid. Leave Came from blank to
+  send nothing.
 - **It says how sure it is of the bottle** — sure of the wine, probably the right wine, or could
   not find it. That badge is only about *which* bottle; how firm the value and window are is on
   their own lines ("est.", "my estimate"), so a wine nobody sells any more can still be "Sure of

@@ -5027,7 +5027,9 @@ const LOOKUP_SYSTEM = [
   '',
   'Value: the current US retail price range for one bottle of THIS vintage, from merchant listings',
   'or a price aggregator such as Wine-Searcher. If this vintage is not listed, use nearby vintages',
-  'or the release price, widen the range, and mark it an estimate. Whole US dollars.',
+  'or the release price, widen the range, and mark it an estimate. Whole US dollars. If "Came from"',
+  'names a shop or winery, search it for this exact bottle first: its listed price is a merchant',
+  'listing like any other.',
   '',
   'Drinking window: prefer a critic\'s published window for this vintage (Wine Spectator, Vinous,',
   'Wine Advocate, Jancis Robinson, Decanter, James Suckling, or the CellarTracker community). If no',
@@ -5084,6 +5086,13 @@ function buildLookupRequest(w, today, tune, names, photo) {
   const known = [
     w.region ? 'Region, as the owner wrote it: ' + cleanLine(w.region, 60) : '',
     w.grape ? 'Grape, as the owner wrote it: ' + cleanLine(w.grape, 60) : '',
+    /* Where the bottle was bought — the shop that sold it usually still lists
+       it, at the price paid (Charles, 2026-10-25: Wine Access had the 2023
+       Vöcal at $95 while Claude priced it at $45–75 from another vineyard). */
+    /* The owner's own words, so it may be a shop, a gift or a trip; the old
+       "Already in the cellar" choice says nothing and stays home. */
+    cleanSource(w.source) && cleanSource(w.source) !== OLD_SOURCES.cellar
+      ? 'Came from, in the owner\'s words: ' + cleanSource(w.source) : '',
     n.regions.length ? '\nRegions already in this cellar: ' + n.regions.join('; ') : '',
     n.grapes.length ? 'Grapes already in this cellar: ' + n.grapes.join('; ') : '',
   ].filter(Boolean).join('\n');
@@ -5935,7 +5944,7 @@ $('lookupBtn').addEventListener('click', async () => {
   const key = lookupKey();
   if (!key) { $('lookupNote').textContent = 'Add your Claude API key in Settings first.'; return; }
   const w = { vintage: cleanYear($('f_vintage').value), name: name,
-              region: $('f_region').value, grape: $('f_grape').value };
+              region: $('f_region').value, grape: $('f_grape').value, source: $('f_source').value };
   const ctl = new AbortController();
   lookupCtl = ctl;
   $('lookupBtn').textContent = 'Stop Looking';

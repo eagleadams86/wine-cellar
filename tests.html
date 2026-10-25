@@ -51,7 +51,7 @@
    go MISSING look exactly like tests that pass — a suite that quietly shrank to
    three checks still says "all 3 tests pass". RAISE THIS when you add tests, and
    lower it only when you retire one deliberately. */
-const EXPECTED = 285;
+const EXPECTED = 286;
 
 /* ── It refuses to run anywhere but localhost, and that is load-bearing ──────
    GitHub Pages publishes this page BESIDE the app, where the iframe below would
@@ -2656,6 +2656,14 @@ function define() {
     ok(/out of credit/.test(H.lookupErrorMessage(400, { error: { message: 'Your credit balance is too low' } })), 'no credit');
   });
   const PHOTO = 'data:image/jpeg;base64,/9j/4AAQSkZJRg==';
+  t('where the bottle came from goes with the question, so Claude can try that shop first', () => {
+    const q = (src) => JSON.stringify(H.buildLookupRequest({ vintage: 2023, name: 'Sample Hill', source: src }, '2026-10-25'));
+    ok(/Came from, in the owner's words: Wine Access/.test(q('Wine Access')), 'a shop is sent');
+    ok(/Came from, in the owner's words: Wine Access/.test(q('wineaccess')), 'and an old stored key as its words');
+    ok(!/Came from, in the owner/.test(q('')) && !/Came from, in the owner/.test(q('cellar')),
+       'nothing when blank, or the old "Already in the cellar"');
+    ok(/search it for this exact bottle first/.test(q('')), 'the prompt says what to do with it');
+  });
   t('a label photo rides BEFORE the question, as a JPEG; without one the question is unchanged', () => {
     const plain = H.buildLookupRequest({ vintage: 2019, name: 'Sample Hill Reserva' }, '2026-10-24');
     eq(typeof plain.messages[0].content, 'string', 'no photo: the same plain string as before photos');
