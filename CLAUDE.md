@@ -340,6 +340,9 @@ the family doesn't.
   button rule's `nowrap` — before that the Wine column alone never wrapped, squeezed every other
   column and pushed the × off the edge. No underline because the whole ROW is the target (it
   hovers and opens as one); keyboard focus keeps the ring. A test pins both.
+- **A shared snapshot shows no History tab** (2026-10-25): `shownTabs()` drops it when
+  `viewOnly`; setTab clamps to it and hides the button, the arrow keys walk it, and a clamped
+  tab is NOT written to `wine-tab`, so the reader's own copy keeps its remembered tab.
 - **Delete Wine is folded under `#wineDeleteZone`** (a `details.danger-zone`, as Start Again
   is in Back Up; 2026-10-25), shut on every open. Hide the ZONE for a new wine, not the button.
   The Opened window's Remove This Bottle is folded the same way, under `#openRemoveZone`.
@@ -364,6 +367,6 @@ was a one-line version of the cellar rule.
 
 ## Tests
 
-`tests.html`, `EXPECTED = 293`. Run it headless (Playwright) rather than in the Browser pane:
+`tests.html`, `EXPECTED = 294`. Run it headless (Playwright) rather than in the Browser pane:
 the pane throttles hidden timers and its focus heuristics turn the 705px keyboard-focus check
 red on untouched code.
