@@ -51,7 +51,7 @@
    go MISSING look exactly like tests that pass — a suite that quietly shrank to
    three checks still says "all 3 tests pass". RAISE THIS when you add tests, and
    lower it only when you retire one deliberately. */
-const EXPECTED = 282;
+const EXPECTED = 284;
 
 /* ── It refuses to run anywhere but localhost, and that is load-bearing ──────
    GitHub Pages publishes this page BESIDE the app, where the iframe below would
@@ -3048,6 +3048,46 @@ function define() {
         eq([D.getElementById('f_name').value, D.getElementById('f_vintage').value], ['My Own Name', '2005']);
       } finally { D.getElementById('wineDialog').close(); }
     });
+  });
+  t('the label’s name and vintage are OFFERED over typed ones, and only Use This takes them', async () => {
+    const D = W.document;
+    const fake = async () => ({ ok: true, status: 200, json: async () => ({ stop_reason: 'tool_use', usage: {},
+      content: [{ type: 'tool_use', name: 'record_wine', id: 't', input: { matched_wine: 'M', label_name: 'Vöcal Wheeler',
+        label_vintage: 2023, confidence: 'high', region: 'Central Coast, California', grape: 'Syrah', sources: [] } }] }) });
+    await withKey(fake, async () => {
+      try {
+        W.openWine(null);
+        D.getElementById('f_name').value = 'Vocal Wheeler';
+        D.getElementById('f_vintage').value = '2022';
+        D.getElementById('f_region').value = 'Mine';
+        D.getElementById('f_grape').value = 'Mine too';
+        H.__photoDraft({ send: PHOTO, keep: PHOTO });
+        D.getElementById('lookupBtn').click();
+        for (let i = 0; i < 50 && D.getElementById('lookupPanel').hidden; i++) await tick();
+        ok(D.querySelector('#lookupPanel [data-use="name"]') && D.querySelector('#lookupPanel [data-use="vintage"]'),
+           'both are offered');
+        D.getElementById('lookupUseAll').click();
+        eq([D.getElementById('f_name').value, D.getElementById('f_vintage').value, D.getElementById('f_grape').value],
+           ['Vocal Wheeler', '2022', 'Syrah'], 'Use All takes the figures but never renames the wine');
+        D.querySelector('#lookupPanel [data-use="name"]').click();
+        eq(D.getElementById('f_name').value, 'Vöcal Wheeler', 'Use This on the name does');
+        ok(/vöcal wheeler/.test(H.__lookupStampKey()), 'and the check stamp follows the new name');
+      } finally { D.getElementById('wineDialog').close(); }
+    });
+  });
+  t('Check All offers the label’s name: the same name re-spelled starts ticked, another name not', () => {
+    const w = { name: 'Vocal Cabernet', vintage: 2023, notes: '' };
+    const r = (x) => H.readLookup(Object.assign({ confidence: 'high', matched_wine: 'x', sources: [] }, x), { name: 'x' });
+    const row = (x, key) => H.lookupDiffs(w, r(x)).find((d) => d.key === key);
+    eq([row({ label_name: 'Vöcal Cabernet' }, 'name').tick, row({ label_name: 'Vöcal Cabernet' }, 'name').claude],
+       [true, 'Vöcal Cabernet'], 'an accent the keyboard could not make');
+    eq(row({ label_name: 'Vöcal Cabernet Sauvignon Wheeler Vineyard' }, 'name').tick, false, 'a longer name is yours to choose');
+    eq(row({ label_name: 'VOCAL CABERNET' }, 'name'), undefined, 'capitals alone are not a difference');
+    eq(row({ label_vintage: 2022 }, 'vintage').tick, false, 'a different year is offered, never pre-ticked');
+    eq(row({}, 'name'), undefined, 'no photo, no name line');
+    const x = Object.assign({}, w);
+    H.applyLookupTo(x, r({ label_name: 'Vöcal Cabernet', label_vintage: 2022 }), ['name']);
+    eq([x.name, x.vintage], ['Vöcal Cabernet', 2023], 'a ticked name renames; the unticked year stays');
   });
   t('a saved wine shows its photo, from the store the suite planted — never the disk', async () => {
     const D = W.document, mem = new Map([['ph-1', { data: PHOTO, at: '2026-10-24T12:00:00.000Z' }]]);

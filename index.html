@@ -4971,7 +4971,8 @@ const LOOKUP_TOOL = {
     properties: {
       matched_wine: { type: 'string', description: 'The bottle your sources describe: producer, wine and vintage.' },
       label_name: { type: 'string', description: 'Only when a label photo is attached: the producer and wine as the '
-        + 'label prints them, without the vintage, accents as printed. Empty when there is no photo or it cannot be read.' },
+        + 'label prints them, without the vintage, accents as printed, in ordinary capitalisation (not all capitals). '
+        + 'Empty when there is no photo or it cannot be read.' },
       label_vintage: { anyOf: [{ type: 'integer' }, { type: 'null' }],
         description: 'Only when a label photo is attached: the vintage printed on it. null otherwise.' },
       confidence: { type: 'string', enum: ['high', 'medium', 'low'],
@@ -5800,7 +5801,16 @@ const LOOKUP_CONF = { high: ['ok', 'Sure of the wine'], medium: ['warn', 'Probab
 const labelPill = (r) => (r.labelName ? ' <span class="pill">Label read</span>' : '');
 const sameText = (a, b) => String(a || '').trim().toLowerCase() === String(b || '').trim().toLowerCase();
 const boxNum = (id) => ($(id).value === '' ? null : Number($(id).value));
+/* The label's name and vintage come first. An EMPTY box is filled straight
+   from the label by the Look Up handler; a typed one is only OFFERED (Charles,
+   2026-10-25: "Vocal" typed for a "Vöcal" label, with no way to key the ö) —
+   never by Use All, because renaming a wine is a choice, not a figure. */
+const LABEL_KEYS = ['name', 'vintage'];
 const LOOKUP_BOXES = [
+  ['name', 'Name', () => false, (r) => { $('f_name').value = r.labelName; },
+   (r) => !!r.labelName, (r) => sameText($('f_name').value, r.labelName)],
+  ['vintage', 'Vintage', () => false, (r) => { $('f_vintage').value = r.labelVintage; },
+   (r) => r.labelVintage != null, (r) => cleanYear($('f_vintage').value) === r.labelVintage],
   ['value', 'Value', () => $('f_low').value === '' && $('f_high').value === '',
    (r) => { $('f_low').value = r.valueLow == null ? '' : r.valueLow;
             $('f_high').value = r.valueHigh == null ? '' : r.valueHigh; $('f_est').checked = r.valueEst; },
@@ -5829,7 +5839,7 @@ function applyLookup(r, all, only) {
   const filled = [], kept = [];
   LOOKUP_BOXES.forEach(([key, label, empty, put, has, same]) => {
     if (!has(r) || same(r)) return;
-    if (only ? only.indexOf(key) !== -1 : (all || empty())) { put(r); filled.push(label); }
+    if (only ? only.indexOf(key) !== -1 : ((all && LABEL_KEYS.indexOf(key) === -1) || empty())) { put(r); filled.push(label); }
     else kept.push(label);
   });
   /* When, and on whose word, goes in the notes — once, and only while there
@@ -5845,6 +5855,7 @@ function renderLookupPanel(r) {
   const panel = $('lookupPanel');
   const conf = LOOKUP_CONF[r.confidence];
   const shown = {
+    name: r.labelName, vintage: r.labelVintage == null ? '' : String(r.labelVintage),
     value: r.valueLow != null ? fmtRange(r.valueLow, r.valueHigh) + (r.valueEst ? ' est.' : '') : '',
     window: r.drinkFrom != null || r.drinkTo != null ? fmtWindow(r) : '',
     region: r.region, subregion: r.subregion, grape: r.grape, color: r.color ? COLOR_LABEL[r.color] : '',
@@ -5857,7 +5868,7 @@ function renderLookupPanel(r) {
     if (!has(r)) return key === 'value' || key === 'window'
       ? '<p>' + esc(label) + ': none found.</p>' : '';
     const isSame = same(r);
-    if (!isSame && r.confidence !== 'low') differ++;
+    if (!isSame && r.confidence !== 'low' && LABEL_KEYS.indexOf(key) === -1) differ++;
     return '<p class="lookline"><span>' + esc(label) + ' <strong>' + esc(shown[key]) + '</strong>'
       + (basis[key] ? ' — ' + esc(basis[key]) : '') + '</span>'
       + (isSame ? '<span class="lookdone">✓ in the box</span>'
@@ -5885,6 +5896,9 @@ $('lookupPanel').addEventListener('click', (e) => {
   const all = e.target.closest('#lookupUseAll');
   if (!lookupLast || (!one && !all)) return;
   const done = applyLookup(lookupLast, !!all, one ? [one.dataset.use] : null);
+  /* Taking the label's name or vintage renames the wine in the form; the
+     check just paid for is still this wine's, so its stamp follows the name. */
+  if (lookupStamp) lookupStamp.key = wineKey({ vintage: cleanYear($('f_vintage').value), name: cleanLine($('f_name').value, 80) });
   renderLookupPanel(lookupLast);
   $('lookupNote').textContent = (done.filled.length ? 'Using Claude’s ' + done.filled.join(', ').toLowerCase()
     + '. ' : '') + 'Nothing is saved until you press Save.';
@@ -6354,6 +6368,12 @@ $('pasteBtn').addEventListener('click', openPaste);
    outside) has not thrown away lookups already paid for — and a wine renamed
    since is looked up again rather than shown someone else's answer. */
 const LOOKUP_FIELDS = [
+  /* The label's name and vintage, offered when they differ from the saved
+     wine's (see LABEL_KEYS). Never "empty": a saved wine always has a name. */
+  ['name', 'Name', () => false, (r) => !!r.labelName, (w, r) => sameText(w.name, r.labelName),
+   (w) => w.name, (w, r) => { w.name = r.labelName; }],
+  ['vintage', 'Vintage', () => false, (r) => r.labelVintage != null, (w, r) => w.vintage === r.labelVintage,
+   (w) => (w.vintage == null ? 'NV' : String(w.vintage)), (w, r) => { w.vintage = r.labelVintage; }],
   /* The same numbers are NOT the same answer when yours is an estimate and
      Claude's comes from real prices — that is the estimate box to clear
      (Charles, 2026-10-24: Les Allies kept "est." after a check found listings). */
@@ -6388,7 +6408,7 @@ function lookupDiffs(w, r) {
   }
   return LOOKUP_FIELDS.filter(([, , , has, same]) => has(r) && !same(w, r))
     .map(([key, label, empty, , , shown]) => Object.assign({ key: key, label: label, yours: shown(w),
-      claude: shown(Object.assign({}, w, r, { color: r.color })) }, empty(w)
+      claude: shown(Object.assign({}, w, r, { color: r.color, name: r.labelName, vintage: r.labelVintage })) }, empty(w)
         ? { tick: true, why: 'your box is empty' } : tickRule(key, w, r)));
 }
 /* ── Which lines start ticked (Charles, 2026-10-24) ────────────────────────
@@ -6421,6 +6441,12 @@ function tickRule(key, w, r) {
       : { tick: false, why: basis != null ? 'both are published; yours kept' : 'yours was entered by hand' };
     return { tick: false, why: yoursGuess ? 'both are estimates' : 'an estimate would replace ' + (basis != null ? 'a published window' : 'yours') };
   }
+  /* The label's own spelling of the SAME name — accents, capitals, an
+     apostrophe — is taken; a different name, or a different year, is the
+     reader's to decide. */
+  if (key === 'name') return searchFold(w.name).replace(/[^a-z0-9]+/g, '') === searchFold(r.labelName).replace(/[^a-z0-9]+/g, '')
+    ? { tick: true, why: 'the same name, spelled as the label prints it' } : { tick: false, why: 'yours kept' };
+  if (key === 'vintage') return { tick: false, why: 'check the bottle' };
   if (key === 'region' || key === 'grape') {
     /* The same place or grape, only written another way: take the house
        spelling. Anything that means something else stays yours. */
@@ -7887,7 +7913,7 @@ window.__wineTestHooks = {
   __photoStore: function (next) { const was = photoStore; photoStore = next; return was; },
   __photoDraft: function (d, which) { (which === 'opened' ? bottlePhoto : winePhoto).setDraft(d); },
   cleanPhoto: cleanPhoto, photoIdsGone: photoIdsGone, backupPhotoEntries: backupPhotoEntries,
-  photoContent: photoContent, imageFromTransfer: imageFromTransfer, photoFit: photoFit, heicBrand: heicBrand, isHeic: isHeic, readPicked: readPicked, PHOTO_MAX: PHOTO_MAX, PHOTO_SEND_MAX: PHOTO_SEND_MAX,
+  __lookupStampKey: () => (lookupStamp ? lookupStamp.key : ''), photoContent: photoContent, imageFromTransfer: imageFromTransfer, photoFit: photoFit, heicBrand: heicBrand, isHeic: isHeic, readPicked: readPicked, PHOTO_MAX: PHOTO_MAX, PHOTO_SEND_MAX: PHOTO_SEND_MAX,
   SCHEMA: SCHEMA, ID_RE: ID_RE, STORAGE_KEY: STORAGE_KEY, THEME_KEY: THEME_KEY,
   TAB_KEY: TAB_KEY, TABS: TABS, SHARE_FORMAT: SHARE_FORMAT, SHARE_PAYLOAD_V: SHARE_PAYLOAD_V,
   blankState: blankState, normalizeState: normalizeState, defaultSettings: defaultSettings,

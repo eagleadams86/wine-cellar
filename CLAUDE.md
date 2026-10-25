@@ -110,6 +110,12 @@ the family doesn't.
   `LOOKUP_CONF` (Sure of the wine / Probably / Could not find) plus `labelPill(r)` — a neutral
   **Label read** when `r.labelName` came back. **Check All sends each wine's kept photo**
   (`loadPhoto(w)`, the ≤800px copy), as the editor's Look Up does; privacy.html says so.
+- **The label's name/vintage are OFFERED** (`LABEL_KEYS`, 2026-10-25, Charles: "Vocal" typed for
+  "Vöcal"): first rows of `LOOKUP_BOXES` and `LOOKUP_FIELDS`. An EMPTY box is still filled by the
+  Look Up handler; a typed one gets Use This only — `applyLookup(all)` skips LABEL_KEYS, and the
+  panel's Use All count ignores them. Taking one moves `lookupStamp.key` to the new name so Save
+  keeps the check stamp. Check All's `tickRule`: name ticks only when equal after `searchFold`
+  minus non-alphanumerics; vintage never ticks. The Opened window's Look Up does not offer them.
 - **The thumbnail enlarges** into `#photoView`, a TOP-LEVEL dialog (inside the edit window its
   clicks would trip that window's click-outside and close both). `photoFit` sizes it to the
   photo's own ratio within the opener's width × the screen height. Any click, ✕ or Escape
@@ -318,6 +324,6 @@ was a one-line version of the cellar rule.
 
 ## Tests
 
-`tests.html`, `EXPECTED = 282`. Run it headless (Playwright) rather than in the Browser pane:
+`tests.html`, `EXPECTED = 284`. Run it headless (Playwright) rather than in the Browser pane:
 the pane throttles hidden timers and its focus heuristics turn the 705px keyboard-focus check
 red on untouched code.

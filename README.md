@@ -163,6 +163,13 @@ photo from the iPhone works directly. The window says which of these happened.
   producer, wine and vintage printed on the label instead of what was typed. A photo alone is
   enough: with the Wine and Vintage boxes empty, Look Up fills them from the label (a name you
   typed is kept), and the panel shows "The label reads …".
+- **The label's name and vintage are offered, never forced.** When what you typed differs from the
+  label — "Vocal" for a "Vöcal" label, say — the panel offers the label's name with its own
+  **Use this** (Use All never renames a wine), and Check All offers it as a line. Check All
+  starts it ticked only when it is the same name spelled the label's way (accents, capitals,
+  an apostrophe); a longer or different name, or a different year, starts unticked. To type an
+  accent yourself on a Mac, hold the letter key and pick it, or press Option-U then the letter
+  for ö.
 - **What it changes, and what it doesn't.** A photo makes *which bottle* surer — fewer typos,
   fewer wrong-wine pages. It does not make the value or the window surer: those still come from
   the web, and a label rarely prints a drinking window.
