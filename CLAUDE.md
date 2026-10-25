@@ -53,14 +53,14 @@ the family doesn't.
   whole, older spellings like "Bordeaux-style red blend" or "other Port varieties" folded in). It is a VIEW, never written back; `wine-like-view` remembers it per device.
 - **SCHEMA 8 / SHARE_PAYLOAD_V 5: `subregion`** on a wine and (snapshot) an opened line. Look Up's
   `appellation` becomes `r.subregion`; it is a LOOKUP_FIELDS/LOOKUP_BOXES row, NOT in the note line
-  any more. A wine with no `subregion` key has the old second part of its Looked up line moved in
+  any more (and since SCHEMA 12 there is no note line). A wine with no `subregion` key has the old second part of its Looked up line moved in
   (`subregionFromNotes`, guarded against window/could-not-find/hosts parts). What You Like's
   Sub-region table is never folded.
 - **Check All's default ticks are `tickRule`** (Charles, 2026-10-24: "an estimate overwriting an
   actual" must not be pre-ticked). Better evidence wins: listings (`!r.valueEst`) tick; a published
   window ticks only over YOUR estimate. "Estimate" is `ESTIMATE_WORDS` on the basis text; yours is
-  read off the Looked up line by `windowBasisOf` — no line means typed by hand, never overwritten
-  unasked. Each line shows its `why`. Don't go back to "only empty boxes start ticked".
+  read off History by `windowBasisOf` (the newest entry whose `c` changed the window: its `wb`, else
+  null) — null means typed by hand, never overwritten unasked. Each line shows its `why`. Don't go back to "only empty boxes start ticked".
 - **SCHEMA 10: `photoAt` on an opened line too** (2026-10-24, Charles: the Opened tab had no
   photo). `photoRow(ids)` is the ONE photo row, made twice — `winePhoto` and `bottlePhoto`
   (`ob_photo*`, in `#openWineBox`, so Opened One's mode hides it). Opened One COPIES its wine's
@@ -128,10 +128,26 @@ the family doesn't.
   no later than that". `LOOKUP_SYSTEM` says an NV window runs from bottling (a bottling date read
   off the photo first). The editor passes the Added box as the form holds it. privacy.html says so.
 - **Lookup text caps** (2026-10-25, Charles: "100 is clearly not enough"): Claude's value/window
-  explanation `BASIS_MAX = 250` (`clipWords`, whole word + "…"), the Looked up line
-  `LOOKUP_LINE_MAX = 300` so a whole explanation always fits after the date (websites give way
-  first), and wine notes `NOTES_MAX = 600` so the line still fits beside the owner's notes. All
-  three are declared up with `clipWords`, ABOVE normalizeState — boot reads them (TDZ).
+  explanation `BASIS_MAX = 250` (`clipWords`, whole word + "…"), wine notes `NOTES_MAX = 600`. Both,
+  and History's `LOG_*` constants, are declared ABOVE normalizeState — boot reads them (TDZ).
+  (`LOOKUP_LINE_MAX` went with the Looked up line in SCHEMA 12.)
+- **SCHEMA 12: History (`w.log`)** (2026-10-25, Charles). A Use This on the NAME rewrote the old
+  "Looked up …" note line with Claude's window explanation beside a window he had KEPT, and
+  `windowBasisOf` trusted that line. So nothing writes notes any more: each wine keeps its last
+  `LOG_CAP = 20` entries `{at, k, c?, x?, cf?, src?, wb?}` (`cleanLogEntry` is the allowlist —
+  optional keys OMITTED, never undefined; `c`/`x` values ≤60 chars, notes/photo carry none). Kinds:
+  add, paste, edit, ai, check, look, open, back, undo, revive. `lookupEntry(r, before, after)` is
+  the ONE reading of an answer: taken = the saved wine now says it (`c`), left = it doesn't (`x`),
+  `wb` ONLY when the window was taken. An answer for a saved wine writes a `look` at once
+  (`stampChecked(id, r)`); the Save after it REPLACES that entry by its `at` (`logLookup`), so one
+  lookup is one entry. Editor Save also writes an `edit` for anything else changed (`handEdits`).
+  `coreOf` ignores `log`; `undoLast` carries the current logs forward and appends `undo`
+  (or `revive` for a wine it brings back). Old Looked up lines are DELETED, not migrated
+  (Charles: "we can't really trust them"), in normalizeState for a save older than 12, after
+  `subregionFromNotes`. Not in share links. **History tab** (`#historyPanel`, third in `TABS`) is
+  `computeHistory` + the Opened tab's machinery: `sortHead`, Find via `foldHas`, page-life
+  `historyPick` (kinds) / `historyFields` sets, a host in `CARD_HOSTS`, rows open the wine.
+  The wine window shows the same list (`renderWineHistory`) under Notes.
 - **The thumbnail enlarges** into `#photoView`, a TOP-LEVEL dialog (inside the edit window its
   clicks would trip that window's click-outside and close both). `photoFit` sizes it to the
   photo's own ratio within the opener's width × the screen height. Any click, ✕ or Escape
@@ -274,10 +290,8 @@ the family doesn't.
   A wine WITH an answer has no pick box at all (`checkSelectable()`), and every Select button and
   the count skip it — a hidden box Select All could tick would re-bill invisibly. A failed lookup
   has no answer, so it keeps its box.
-- **Not found still leaves a note** (2026-10-24): `lookupNoteLine` says "Claude could not find
-  this exact wine" for `low`, with no sources; `putLookupNote()` is the ONE rule (replace an older
-  "Looked up" line, else append, only within NOTES_MAX = 600) for the editor, Check All (a pre-ticked `note`
-  pseudo-line from `lookupDiffs`) and paste.
+- **Not found still leaves a record** (2026-10-24; History since 2026-10-25): a `low` answer is a
+  `look` entry with `cf: 'low'` and nothing else. Check All offers nothing for it.
 - **An installed iPhone draws under the status bar** (black-translucent), so the header pads by
   `env(safe-area-inset-top)`, a fixed `body::before` band in `--surface` keeps scrolled content
   out from under the clock (the header is not sticky on a phone), and a dialog's max-height takes
@@ -340,6 +354,6 @@ was a one-line version of the cellar rule.
 
 ## Tests
 
-`tests.html`, `EXPECTED = 288`. Run it headless (Playwright) rather than in the Browser pane:
+`tests.html`, `EXPECTED = 292`. Run it headless (Playwright) rather than in the Browser pane:
 the pane throttles hidden timers and its focus heuristics turn the 705px keyboard-focus check
 red on untouched code.

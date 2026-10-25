@@ -51,7 +51,7 @@
    go MISSING look exactly like tests that pass — a suite that quietly shrank to
    three checks still says "all 3 tests pass". RAISE THIS when you add tests, and
    lower it only when you retire one deliberately. */
-const EXPECTED = 288;
+const EXPECTED = 292;
 
 /* ── It refuses to run anywhere but localhost, and that is load-bearing ──────
    GitHub Pages publishes this page BESIDE the app, where the iframe below would
@@ -897,7 +897,7 @@ function define() {
   });
   t('the allowlist strips a field nobody declared', () => {
     eq(Object.keys(one({ secret: 'kept?' })).sort(),
-       ['added', 'checkedAt', 'color', 'drinkFrom', 'drinkTo', 'grape', 'id', 'location', 'name', 'notes', 'paid', 'photoAt',
+       ['added', 'checkedAt', 'color', 'drinkFrom', 'drinkTo', 'grape', 'id', 'location', 'log', 'name', 'notes', 'paid', 'photoAt',
         'qty', 'region', 'source', 'subregion', 'valueEst', 'valueHigh', 'valueLow', 'vintage'],
        'a new stored field must be added to normalizeState AND bump SCHEMA');
     const o = H.normalizeState({ opened: [{ id: 'o', secret: 1 }] }).opened[0];
@@ -2366,6 +2366,9 @@ function define() {
       ok(!D.getElementById('undoBtn').hidden, 'and Undo appears');
       D.getElementById('undoBtn').click();
       eq([qty(), H.__state().opened.length], [5, 2], 'one press, one step back — the log line goes with the bottle');
+      const hist = H.__state().wines.find((w) => w.id === 'fx-hold').log;
+      eq(hist.map((e) => e.k + ':' + e.c[0].o + '→' + e.c[0].n), ['open:6→5', 'open:5→4', 'undo:4→5'],
+         'History keeps both openings and says the second was undone');
       W.undoLast();
       eq([qty(), H.__state().opened.length], [6, 1], 'and the next step, not a seesaw');
       ok(D.getElementById('undoBtn').hidden, 'and with nothing left, the button goes');
@@ -2666,9 +2669,8 @@ function define() {
     const huge = (long + ' ').repeat(3);
     const w = H.readLookup({ confidence: 'high', window_basis: huge, sources: [] }).windowBasis;
     ok(w.length <= 250 && /…$/.test(w), 'past 250 it is clipped on a word: ' + w.length);
-    const line = H.lookupNoteLine(H.readLookup({ confidence: 'high', window_basis: huge,
-      sources: [{ title: 'a', url: 'https://www.wineaccess.com/x' }] }), '2026-10-25');
-    ok(line.indexOf(w) !== -1, 'and the Looked up line carries the whole 250, never cut again');
+    eq(H.cleanLogEntry({ at: '2026-10-25T12:00:00.000Z', k: 'ai', wb: w }).wb, w,
+       'and History keeps the whole 250, never cut again');
   });
   t('a non-vintage wine sends when it arrived, so its window runs from bottling', () => {
     const q = (w) => JSON.stringify(H.buildLookupRequest(Object.assign({ name: 'Sample Tawny' }, w), '2026-10-25'));
@@ -2927,8 +2929,9 @@ function define() {
     const src = stripComments(APP_SRC);
     ok(/if \(out\.valueLow == null && r\.valueLow != null\)/.test(src), 'a pasted value is never replaced');
     ok(/if \(!out\.colorKnown && r\.color\) out\.color = r\.color;/.test(src), 'a guessed colour gives way to Claude’s, a given one does not');
-    ok(/r\.confidence === 'low'\)\s*return Object\.assign\(\{\}, row, \{ notes: putLookupNote\(/.test(src),
-       'and a wine Claude could not find changes nothing but the note saying so');
+    ok(/r\.confidence === 'low'\) return Object\.assign\(\{\}, row, \{ ai: ai \}\);/.test(src),
+       'and a wine Claude could not find changes nothing — History says it was looked for');
+    ok(!/putLookupNote|lookupNoteLine/.test(src), 'nothing writes a Looked up line into the notes any more');
   });
   t('each line of a lookup can be taken on its own, and nothing else moves', async () => {
     /* Charles, 2026-10-23: take Claude's value for Snowden without its region
@@ -3218,8 +3221,8 @@ function define() {
     const hold = FIXTURE.wines[0];
     const d2 = H.lookupDiffs(hold, H.readLookup(Object.assign({ matched_wine: 'x' }, CHECK_ANSWERS['Charlie Cabernet'])));
     eq(d2.map((x) => [x.key, x.tick]), [['value', false], ['region', false]], 'a replacement starts unticked');
-    eq(H.lookupDiffs(hold, H.readLookup({ confidence: 'low', value_low: 1 })).map((x) => [x.key, x.tick]), [['note', true]],
-       'a wine Claude could not find offers only its note, ticked');
+    eq(H.lookupDiffs(hold, H.readLookup({ confidence: 'low', value_low: 1 })), [],
+       'a wine Claude could not find offers nothing — its History says it was looked for');
     eq(H.checkWines(H.normalizeState(CHECK_FX)).map((x) => x.id).indexOf('fx-done'), -1, 'a finished wine is not checked');
   });
   t('ticks follow the evidence: real prices and published windows win, a second estimate never does', () => {
@@ -3239,40 +3242,87 @@ function define() {
     const w = { valueLow: 32, valueHigh: 45, valueEst: true, notes: '' };
     H.applyLookupTo(w, r({ value_low: 32, value_high: 45, value_is_estimate: false }), ['value']);
     eq(w.valueEst, false, 'saving it unticks the box');
-    const advocate = { drinkFrom: 2012, drinkTo: 2019,
-      notes: 'Looked up 2026-10-24 · window: Wine Advocate anticipated maturity 2012-2019 (now past window) · klwines.com, winebid.com' };
-    eq(H.windowBasisOf(advocate), 'Wine Advocate anticipated maturity 2012-2019 (now past window)', 'yours is read off the Looked up line');
+    /* Where a window came from is read off History: the newest entry that changed it. */
+    const took = (wb, k) => [{ at: '2026-10-24T00:00:00.000Z', k: k || 'check', c: [{ f: 'window', o: '', n: 'x' }], wb: wb }];
+    const advocate = { drinkFrom: 2012, drinkTo: 2019, log: took('Wine Advocate anticipated maturity 2012-2019 (now past window)') };
+    eq(H.windowBasisOf(advocate), 'Wine Advocate anticipated maturity 2012-2019 (now past window)', 'yours is read off History');
     const snow = row(advocate, { drink_from: 2015, drink_to: 2029, window_basis: 'Start from Wine Enthusiast; end year is my estimate' }, 'window');
     eq([snow.tick, snow.why], [false, 'an estimate would replace a published window'], 'Snowden keeps its critic window');
-    const guess = { drinkFrom: 2018, drinkTo: 2028, notes: 'Looked up 2026-10-24 · window: My estimate from style · wine.com' };
+    const guess = { drinkFrom: 2018, drinkTo: 2028, log: took('My estimate from style') };
     eq(row(guess, { drink_from: 2017, drink_to: 2024, window_basis: 'Wine Spectator: drink now through 2024' }, 'window').tick, true,
        'a published window beats an estimate');
     eq(row(guess, { drink_from: 2017, drink_to: 2027, window_basis: 'Own estimate' }, 'window').why, 'both are estimates');
     eq(row({ drinkFrom: 2020, drinkTo: 2030, notes: '' }, { drink_from: 2021, drink_to: 2031, window_basis: 'Vinous' }, 'window').tick,
        false, 'a window you typed is never overwritten without you');
+    /* Charles, 2026-10-25: Use This on the NAME only, his own 2011–2017 kept. */
+    const kept = { drinkFrom: 2011, drinkTo: 2017, log: [{ at: '2026-10-25T12:43:00.000Z', k: 'ai', c: [{ f: 'name', o: 'a', n: 'b' }],
+      x: [{ f: 'window', o: '2011–2017', n: '2012–2018' }] }] };
+    eq(H.windowBasisOf(kept), null, 'a lookup that LEFT the window says nothing about it');
+    eq(row(kept, { drink_from: 2013, drink_to: 2020, window_basis: 'Wine Spectator 2013-2020' }, 'window').why,
+       'yours was entered by hand', 'so a published window never comes pre-ticked over it');
+    const edited = { drinkFrom: 2018, drinkTo: 2026, log: took('My estimate').concat(
+      [{ at: '2026-10-25T00:00:00.000Z', k: 'edit', c: [{ f: 'window', o: '2018–2028', n: '2018–2026' }] }]) };
+    eq(H.windowBasisOf(edited), null, 'and a window changed by hand since is yours');
     const place = row({ region: 'Stags Leap District, Napa Valley, CA' }, { region: 'Napa Valley, California' }, 'region');
     eq([place.tick, place.why], [true, 'the same region, written the usual way']);
     eq(row({ region: 'Sonoma Coast, California' }, { region: 'Napa Valley, California' }, 'region').tick, false, 'another place stays yours');
     eq(row({ region: 'Sonoma Coast' }, { region: 'Sonoma Coast, California' }, 'region').tick, true, 'the state added is the same place');
   });
-  t('the Looked up line keeps whole words: websites go first, then the basis is cut with …', () => {
+  t('a History entry says what was taken and what was left, and explains only a window it took', () => {
     const src = (h) => ({ title: h, url: 'https://www.' + h + '/x' });
-    const r = (basis, hosts) => H.readLookup({ confidence: 'high', window_basis: basis, sources: hosts.map(src) }, { name: 'x' });
-    const fits = H.lookupNoteLine(r('My estimate; Wine Access merchant note says now–2040, which I shortened for a modest Saint-Émilion',
-      ['wineaccess.com']), '2026-10-24');
-    ok(/ · wineaccess\.com$/.test(fits), 'the whole website, not "wineaccess.c": ' + fits);
-    const long = 'x'.repeat(10) + ' ' + 'word '.repeat(38);
-    const many = ['aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.com', 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.com', 'ccccccccccccccccccccccccccccccccc.com'];
-    const line = H.lookupNoteLine(r(long, many), '2026-10-24');
-    ok(line.length <= 300, line.length);
-    ok(line.indexOf(H.readLookup({ window_basis: long }).windowBasis) !== -1, 'the whole explanation is kept');
-    ok(line.indexOf('ccccc') === -1 && line.endsWith('.com'), 'a website that does not fit is dropped whole: ' + line);
+    const r = H.readLookup({ confidence: 'high', matched_wine: 'x', region: 'Napa Valley, California', drink_from: 2012,
+      drink_to: 2018, window_basis: 'My estimate', value_low: 20, value_high: 40, value_is_estimate: true,
+      sources: ['wine.com', 'a.com', 'b.com', 'c.com'].map(src) }, { name: 'x' });
+    const before = { name: 'x', region: '', drinkFrom: 2011, drinkTo: 2017, valueLow: null, color: 'white' };
+    const after = Object.assign({}, before, { region: 'Napa Valley, California' });
+    const e = H.lookupEntry(r, before, after, 'ai', '2026-10-25T12:00:00.000Z');
+    eq(e.k, 'ai');
+    eq(e.c, [{ f: 'region', o: '', n: 'Napa Valley, California' }], 'the region was taken');
+    eq(e.x.map((d) => [d.f, d.o, d.n]), [['value', '', '$20–$40 est.'], ['window', '2011–2017', '2012–2018']],
+       'the value and window were left, with what Claude said and what you kept');
+    eq(e.wb, undefined, 'and the window explanation is NOT kept for a window you kept');
+    eq(e.src, ['wine.com', 'a.com', 'b.com'], 'three websites at most');
+    const took = H.lookupEntry(r, before, Object.assign({}, after, { drinkFrom: 2012, drinkTo: 2018 }), 'ai');
+    eq(took.wb, 'My estimate', 'it is kept when the window was taken');
+    eq(H.lookupEntry(r, before, before, 'ai').k, 'look', 'nothing taken is a look, not a change');
+    eq(H.lookupEntry(H.readLookup({ confidence: 'low' }), before, before, 'check', 'z'), { at: 'z', k: 'look', cf: 'low' },
+       'could not find: a look, nothing more');
   });
-  t('a newer check replaces the Looked up line rather than stacking a second', () => {
-    const w = { valueLow: null, valueHigh: null, notes: 'Mine.\nLooked up 2020-01-01' };
-    H.applyLookupTo(w, H.readLookup({ confidence: 'high', value_low: 5 }), ['value']);
-    eq(w.notes.split('\n').length, 2);
-    ok(w.notes.indexOf('Looked up 2020') === -1 && /^Mine\.\nLooked up /.test(w.notes), w.notes);
+  t('History is capped, allowlisted, and never undefined', () => {
+    const at = '2026-10-25T12:00:00.000Z';
+    eq(H.cleanLogEntry({ at: at, k: 'edit', c: [{ f: 'window', o: '2011–2017', n: '2012–2018', extra: 1 }], secret: 'x' }),
+       { at: at, k: 'edit', c: [{ f: 'window', o: '2011–2017', n: '2012–2018' }] }, 'unknown keys go');
+    eq(H.cleanLogEntry({ at: at, k: 'hack' }), null, 'an unknown kind is no entry');
+    eq(H.cleanLogEntry({ at: 'yesterday', k: 'edit' }), null, 'nor one with no readable moment');
+    eq(H.cleanLogEntry({ at: at, k: 'edit', c: [{ f: 'notes', o: 'my private words', n: 'more' }] }).c, [{ f: 'notes' }],
+       'notes changes carry no text');
+    eq(H.cleanLogEntry({ at: at, k: 'ai', src: ['wine.com', '"><img src=x>', 'a.com', 'b.com', 'c.com'] }).src,
+       ['wine.com', 'a.com', 'b.com'], 'websites are shape-checked and capped at three');
+    eq(H.cleanLogEntry({ at: at, k: 'edit', c: [{ f: 'name', n: 'x'.repeat(200) }] }).c[0].n.length, 60, 'values are short');
+    ok(!('cf' in H.cleanLogEntry({ at: at, k: 'look', cf: undefined, wb: undefined })), 'an absent key is left out, never undefined');
+    const w = { log: [] };
+    for (let i = 0; i < 25; i++) H.logTo(w, { at: at, k: 'edit', c: [{ f: 'qty', o: String(i), n: String(i + 1) }] });
+    eq(w.log.length, H.LOG_CAP, 'the last 20 are kept');
+    eq(w.log[0].c[0].o, '5', 'the oldest go first');
+    eq(H.normalizeState({ wines: [{ id: 'a', log: Array.from({ length: 30 }, () => ({ at: at, k: 'edit' })) }] }).wines[0].log.length,
+       20, 'and a save arriving with more is trimmed');
+  });
+  t('old Looked up lines are deleted from the notes, once, after the sub-district move', () => {
+    const notes = 'Mine.\nLooked up 2026-10-24 · Stags Leap District · window: Own estimate · wine.com\nAlso mine.';
+    const w = H.normalizeState({ version: 11, wines: [{ id: 'a', notes: notes }] }).wines[0];
+    eq([w.subregion, w.notes], ['Stags Leap District', 'Mine.\nAlso mine.'], 'the sub-district still moves, then the line goes');
+    eq(H.normalizeState({ version: 12, wines: [{ id: 'a', notes: 'Looked up my own words' }] }).wines[0].notes,
+       'Looked up my own words', 'a save from SCHEMA 12 on keeps a note of yours that starts the same way');
+  });
+  t('a saved check turns its look into what was taken, rather than writing a second entry', () => {
+    const at = '2026-10-25T12:00:00.000Z';
+    const r = H.readLookup({ confidence: 'high', value_low: 5, sources: [] });
+    const w = { valueLow: null, valueHigh: null, notes: 'Mine.', log: [H.lookupEntry(r, {}, {}, 'look', at)] };
+    eq(w.log[0].k, 'look');
+    H.applyLookupTo(w, r, ['value'], at);
+    eq(w.log.length, 1, 'still one entry');
+    eq([w.log[0].k, w.log[0].c[0].f], ['check', 'value'], 'now saying the value was taken');
+    eq(w.notes, 'Mine.', 'and the notes are untouched');
   });
   t('confidence is about WHICH bottle, not how firm the price or window is', () => {
     const req = JSON.stringify(H.buildLookupRequest({ name: 'x', vintage: 2012 }, '2026-10-25'));
@@ -3318,8 +3368,9 @@ function define() {
         const box = (k) => D.querySelector('#checkList [data-tick="' + k + '"]');
         eq([box('fx-empty|value').checked, box('fx-empty|window').checked, box('fx-empty|color').checked,
             box('fx-hold|value').checked], [true, true, false, false], 'ticks start where the rule says');
-        eq([...D.querySelectorAll('#checkList [data-tick^="fx-ready|"]')].map((b) => [b.dataset.tick, b.checked]),
-           [['fx-ready|note', true]], 'a wine Claude could not find offers only the note saying so, ticked');
+        eq(D.querySelectorAll('#checkList [data-tick^="fx-ready|"]').length, 0, 'a wine Claude could not find offers nothing');
+        const readyLog = H.__state().wines.find((w) => w.id === 'fx-ready').log;
+        eq(readyLog.map((e) => [e.k, e.cf]), [['look', 'low']], 'but its History says it was looked for');
         ok(/matches what you have/.test(D.querySelector('#checkList [data-check="fx-past"]').textContent), 'a matching wine says so');
         ok(!D.getElementById('checkSave').hidden, 'Save appears once something is ticked');
         ok(D.getElementById('checkStart').disabled, 'and Start cannot be pressed, with nothing left selected');
@@ -3331,7 +3382,7 @@ function define() {
         all.click();
         ok(boxes().every((b) => !b.checked) && D.getElementById('checkSave').hidden, 'Untick All clears them, and Save goes');
         all.click(); all.click();   /* back to none, then put the defaults back by hand */
-        ['fx-empty|value', 'fx-empty|window', 'fx-empty|region', 'fx-empty|grape', 'fx-ready|note'].forEach((k) => box(k).click());
+        ['fx-empty|value', 'fx-empty|window', 'fx-empty|region', 'fx-empty|grape'].forEach((k) => box(k).click());
         box('fx-hold|value').click();
         box('fx-empty|grape').click();   /* untick one */
         D.getElementById('checkSave').click();
@@ -3341,12 +3392,16 @@ function define() {
            'the ticked value went in; the unticked region did not');
         eq([get('fx-empty').valueLow, get('fx-empty').drinkFrom, get('fx-empty').region, get('fx-empty').grape,
             get('fx-empty').color], [20, 2024, 'Loire', '', 'red'], 'the empty boxes filled, the unticked grape and colour kept');
-        ok(/^Mine\.\nLooked up /.test(get('fx-empty').notes), 'and the note line says when');
-        ok(/could not find this exact wine$/.test(get('fx-ready').notes), 'and the wine Claude could not find got its note',
-           get('fx-ready').notes);
+        eq(get('fx-empty').notes, 'Mine.', 'the notes are left alone');
+        const last = (id) => get(id).log[get(id).log.length - 1];
+        eq(get('fx-empty').log.length, 1, 'the look its answer wrote became the check — one entry, not two');
+        eq([last('fx-empty').k, last('fx-empty').c.map((d) => d.f), last('fx-empty').x.map((d) => d.f)],
+           ['check', ['value', 'window', 'region'], ['grape', 'color']], 'History says what was taken and what was left');
         W.undoLast();
         eq([get('fx-hold').valueLow, get('fx-empty').valueLow, get('fx-empty').notes], [60, null, 'Mine.'],
            'one Undo takes the whole check back');
+        eq([last('fx-empty').k, get('fx-empty').log.length], ['undo', 2], 'and History keeps the check, then says it was undone');
+        ok(last('fx-empty').c.some((d) => d.f === 'value'), 'naming what the Undo put back');
       });
     } finally { proto.setItem = realStore; D.getElementById('checkDialog').close(); H.__plant(FIXTURE); }
   });
@@ -3412,12 +3467,10 @@ function define() {
       ok(D.getElementById('undoBtn').hidden, 'and that was the only step — the stamp minted none');
     } finally { proto.setItem = realStore; H.__plant(FIXTURE); }
   });
-  t('the note line has one rule: replace an older one, and only while there is room', () => {
-    eq(H.lookupNoteLine(H.readLookup({ confidence: 'low', sources: [{ title: 'x', url: 'https://other.example/a' }] }), '2026-10-24'),
-       'Looked up 2026-10-24 · Claude could not find this exact wine', 'not found says so, and names no source');
-    eq(H.putLookupNote('Mine.\nLooked up 2020-01-01', 'Looked up 2026'), 'Mine.\nLooked up 2026');
-    eq(H.putLookupNote('', 'Looked up 2026'), 'Looked up 2026');
-    eq(H.putLookupNote('x'.repeat(595), 'Looked up 2026'), 'x'.repeat(595), 'no room, no line');
+  t('a History write is never an Undo step, and is never undone', () => {
+    const e = { at: '2026-10-25T12:00:00.000Z', k: 'look' };
+    eq(H.coreOf({ wines: [{ id: 'a', log: [] }] }), H.coreOf({ wines: [{ id: 'a', log: [e] }] }),
+       'coreOf ignores the log, as it ignores checkedAt');
   });
   t('the Check window selects the wines not checked lately, and checks only those', async () => {
     const D = W.document, asked = [], proto = W.Storage.prototype, realStore = proto.setItem;
@@ -3507,10 +3560,85 @@ function define() {
         W.openWine('fx-ready');   /* Alpha Pinot: Claude cannot find it */
         D.getElementById('lookupBtn').click();
         for (let i = 0; i < 50 && !/Look Up/.test(D.getElementById('lookupBtn').textContent); i++) await tick();
-        ok(/could not find this exact wine$/.test(D.getElementById('f_notes').value), 'a wine not found gets its note line',
-           D.getElementById('f_notes').value);
+        eq(D.getElementById('f_notes').value, H.__state().wines.find((w) => w.id === 'fx-ready').notes,
+           'a wine not found leaves the notes alone');
+        const log = H.__state().wines.find((w) => w.id === 'fx-ready').log;
+        eq(log.map((e) => [e.k, e.cf]), [['look', 'low']], 'and its History says it was looked for');
       });
     } finally { proto.setItem = realStore; D.getElementById('wineDialog').close(); H.__plant(FIXTURE); }
+  });
+  t('Use This on the name alone: History records the name, says the window was LEFT, and explains nothing about it', async () => {
+    /* Charles, 2026-10-25: the old note line put Claude's window explanation
+       beside a window he had kept. Driven through the real buttons. */
+    const D = W.document, proto = W.Storage.prototype, realGet = proto.getItem, realStore = proto.setItem, realFetch = W.fetch;
+    proto.getItem = function (k) { return k === H.LOOKUP_KEY_STORE ? 'sk-ant-test' : realGet.call(this, k); };
+    proto.setItem = function () {};
+    W.fetch = async () => ({ ok: true, status: 200, json: async () => ({ stop_reason: 'tool_use', usage: {},
+      content: [{ type: 'tool_use', name: 'record_wine', id: 't', input: { matched_wine: 'Charlie Cabernet 2021',
+        label_name: 'Chärlie Cabernet', confidence: 'high', color: 'red', region: 'Napa Valley', grape: 'Cabernet Sauvignon',
+        value_low: 60, value_high: 75, value_is_estimate: false, drink_from: 2012, drink_to: 2018,
+        window_basis: 'My estimate for a mid-priced Napa red', sources: [{ title: 'w', url: 'https://www.wine.com/x' }] } }] }) });
+    try {
+      H.__plant(FIXTURE);
+      W.openWine('fx-hold');
+      D.getElementById('lookupBtn').click();
+      for (let i = 0; i < 50 && D.getElementById('lookupPanel').hidden; i++) await tick();
+      eq([...D.querySelectorAll('#lookupPanel [data-use]')].map((b) => b.dataset.use), ['name', 'window'], 'name and window offered');
+      D.querySelector('#lookupPanel [data-use="name"]').click();
+      D.getElementById('f_location').value = 'Rack C';
+      D.getElementById('wineSave').click();
+      const w = H.__state().wines.find((x) => x.id === 'fx-hold');
+      eq([w.name, w.drinkFrom, w.drinkTo, w.notes], ['Chärlie Cabernet', 2099, 2110, ''], 'the name changed; the window and notes did not');
+      eq(w.log.map((e) => e.k), ['ai', 'edit'], 'one entry for Claude (the look it wrote became it), one for the hand edit');
+      eq(w.log[0].c, [{ f: 'name', o: 'Charlie Cabernet', n: 'Chärlie Cabernet' }], 'the name was taken');
+      eq(w.log[0].x, [{ f: 'window', o: '2099–2110', n: '2012–2018' }], 'the window was left');
+      eq(w.log[0].wb, undefined, 'and no explanation was kept for a window that is not Claude’s');
+      eq(w.log[1].c, [{ f: 'location', o: 'Rack B', n: 'Rack C' }], 'the hand edit is its own entry');
+      eq(H.windowBasisOf(w), null, 'so the window still reads as yours');
+      W.openWine('fx-hold');
+      ok(!D.getElementById('wineHistory').hidden, 'the window shows its History');
+      eq(D.querySelectorAll('#wineHistoryList li').length, 2, 'newest first, one line an entry');
+      ok(/^.*Changed by hand — Where it is: Rack B → Rack C/.test(D.querySelector('#wineHistoryList li').textContent),
+         D.querySelector('#wineHistoryList li').textContent);
+      D.getElementById('wineDialog').close();
+    } finally {
+      proto.getItem = realGet; proto.setItem = realStore; W.fetch = realFetch;
+      D.getElementById('wineDialog').close();
+      H.__plant(FIXTURE);
+    }
+  });
+  t('the History tab lists every entry, sorts, finds, filters and escapes', () => {
+    const D = W.document, at = (m) => '2026-10-2' + m + 'T12:00:00.000Z';
+    const fx = JSON.parse(JSON.stringify(FIXTURE));
+    fx.wines[0].log = [{ at: at(3), k: 'add' }, { at: at(5), k: 'ai', cf: 'high', src: ['wine.com'],
+      c: [{ f: 'name', o: 'Vocal', n: 'Vöcal' }], x: [{ f: 'window', o: '2011–2017', n: '2012–2018' }] }];
+    fx.wines[1].name = '<img src=x onerror=alert(1)>';
+    fx.wines[1].log = [{ at: at(4), k: 'open', c: [{ f: 'qty', o: '3', n: '2' }] }];
+    H.__plant(fx);
+    const rows = () => [...D.querySelectorAll('#historyTable tbody tr')];
+    eq(rows().length, 3, 'one line an entry, across wines');
+    eq(rows()[0].querySelector('[data-label="What"]').textContent, 'Claude: taken · Sure of the wine', 'newest on top');
+    ok(!D.querySelector('#historyTable img'), 'a name is text, never markup');
+    ok(rows().every((r) => [...r.children].every((c) => c.tagName === 'TH' || c.dataset.label)), 'every cell has its card label');
+    D.querySelector('#historyTable [data-sort="when"]').click();
+    D.querySelector('#historyTable [data-sort="when"]').click();
+    eq(rows()[0].querySelector('[data-label="What"]').textContent, 'Added', 'When turns round to oldest-first');
+    D.getElementById('historyFind').value = 'vocal';
+    D.getElementById('historyFind').dispatchEvent(new W.Event('input'));
+    eq(rows().length, 1, 'Find folds accents: "vocal" finds Vöcal');
+    D.getElementById('clearHistoryFind').click();
+    eq(rows().length, 3, 'Clear brings everything back');
+    const pick = (box, v) => { const b = D.querySelector('#' + box + ' input[value="' + v + '"]'); b.checked = true;
+      b.dispatchEvent(new W.Event('change', { bubbles: true })); };
+    pick('historyKindBox', 'opened');
+    eq(rows().length, 1, 'the What filter narrows to bottles opened');
+    D.getElementById('clearHistoryFind').click();
+    pick('historyFieldBox', 'window');
+    eq(rows().length, 1, 'the Field filter finds the entry that left the window');
+    pick('historyKindBox', 'left');
+    eq(D.getElementById('historyKindSum').textContent, 'Offers Left', 'the box says what it shows');
+    D.getElementById('clearHistoryFind').click();
+    H.__plant(FIXTURE);
   });
   t('a wine name wraps like every other column, with no underline', () => {
     H.__plant(FIXTURE);
@@ -4074,7 +4202,6 @@ function define() {
     const r = H.readLookup({ confidence: 'high', region: 'Napa Valley, California', appellation: 'Stags Leap District',
                              window_basis: 'critic', sources: [] }, { name: 'X' });
     eq(r.subregion, 'Stags Leap District', 'the sub-district comes back as the Sub-region');
-    ok(!/Stags Leap/.test(H.lookupNoteLine(r, '2026-10-24')), 'and no longer rides in the note');
     const d = H.lookupDiffs({ region: 'Napa Valley, California', subregion: '' }, r).find((x) => x.key === 'subregion');
     ok(d && d.tick, 'Check All offers it, ticked, into an empty box');
   });
@@ -4088,10 +4215,10 @@ function define() {
       { id: 'e', name: 'E', subregion: '', notes: 'Looked up 2026-10-24 · Dundee Hills · window: x' }],
       opened: [{ id: 'o', wineId: 'a', date: '2026-10-01', label: 'A' }] });
     const w = (id) => st.wines.find((x) => x.id === id);
-    eq([w('a').subregion, w('a').notes], ['Stags Leap District',
-      'Mine.\nLooked up 2026-10-24 · window: Own estimate · cellartracker.com, winebid.com'], 'moved, and the note keeps the rest');
+    eq([w('a').subregion, w('a').notes], ['Stags Leap District', 'Mine.'],
+      'moved, then the line itself deleted (SCHEMA 12)');
     eq([w('b').subregion, w('c').subregion, w('d').subregion], ['', '', ''], 'a window, the could-not-find words or websites are never taken for one');
-    eq([w('e').subregion, /Dundee Hills/.test(w('e').notes)], ['', true], 'a wine that already has the field is left alone');
+    eq(w('e').subregion, '', 'a wine that already has the field is left alone');
     eq(st.opened[0].subregion, 'Stags Leap District', 'an opened bottle copies it from its wine');
   });
   t('What You Like counts sub-regions in a table of their own', () => {
@@ -4103,8 +4230,8 @@ function define() {
     eq(c.subregions.blank, 1, 'a bottle with none is counted aloud');
   });
   t('removing a log line puts the bottle back', () => {
-    ok(/if \(w\) w\.qty = Math\.min\(999, w\.qty \+ 1\)/.test(stripComments(APP_SRC)),
-       'removing a line is how a mistaken Opened One is undone');
+    ok(/w\.qty = Math\.min\(999, w\.qty \+ 1\);\s*logTo\(w, \{ at: nowStamp\(\), k: 'back'/.test(stripComments(APP_SRC)),
+       'removing a line is how a mistaken Opened One is undone — and History says so');
   });
 
   group('cloud sync is Golf Handicap’s, and its two rules hold');

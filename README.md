@@ -49,6 +49,18 @@ cellar on your other devices.
   line has a place.
   Point at a line for what the list doesn't show — its drinking window, a hidden Paid or Where,
   and whether it came from your Cellar or was logged elsewhere.
+- **History tab** — what happened to every wine, newest first: added, added from a list, changed
+  by hand, looked up by Claude (what you **took** and what you **left**, with Claude's confidence
+  and websites), opened, put back and undone. Each line says what changed from what to what;
+  Claude's explanation of a drinking window is kept only when you took that window. **Find**
+  searches the wine, the fields and the values (accents folded, so "vocal" finds Vöcal); **What**
+  narrows to a kind — Added, Changed by Hand, Claude, Claude's Offers Left, Opened or Put Back,
+  Undone — and **Field** to entries touching, say, Window. Every heading sorts, Copy and CSV
+  export it, and pressing a line opens its wine. The same list is under **History** at the foot
+  of each wine's window. Each wine keeps its **last 20 entries** — the whole cellar syncs as one
+  document capped at 1 MB, so History is kept small and never holds the text of your notes. An
+  Undo never erases History: it adds an "Undone" entry saying what it put back. A deleted wine's
+  History goes with it.
 - **Log a Bottle** — for a bottle opened at dinner, a winery or a tasting: type the wine, press
   **Look Up with Claude** to fill its region, grape and drinking window, and save. It goes straight
   onto the Opened tab and its dashboard without ever being in the Cellar.
@@ -112,7 +124,8 @@ the pages it used.
   line of Claude's answer — value, window, region, grape, colour — has its own **Use this**, so you
   can take its value and keep your window; a line that already matches says "✓ in the box", and
   **Use all of Claude's answer** takes everything. Nothing is saved until you press Save
-  or Add, and a one-line "Looked up…" note records when and on whose word.
+  or Add, and the wine's **History** records what you took and what you left. Your notes are
+  never written to.
 - **It is told where the bottle came from.** What's in **Came from** goes with the question
   ("Came from, in the owner's words: Wine Access"), and Claude searches that shop first — the
   shop that sold it usually still lists it, at about what you paid. Leave Came from blank to
@@ -125,8 +138,7 @@ the pages it used.
   not find it. That badge is only about *which* bottle; how firm the value and window are is on
   their own lines ("est.", "my estimate"), so a wine nobody sells any more can still be "Sure of
   the wine". A **Label read** badge beside it means a label photo went along and Claude read it.
-  When it can't find the wine it fills nothing rather than guess, and only adds a "Looked up… ·
-  Claude could not find this exact wine" note, so you can see it was tried.
+  When it can't find the wine it fills nothing rather than guess; its History says it was tried.
 - **It remembers when.** Each wine keeps the time Claude last answered for it — from this window
   or Check All Wines — saved the moment the answer arrives, even if you change nothing. The wine
   window shows it beside the button ("Checked 12 days ago"). It syncs and backs up with the wine,
@@ -229,9 +241,9 @@ more for each such wine; the cost shown up front doesn't count it).
     replacing another; a window you typed yourself; a region or grape that means something else.
     Colour is never pre-ticked.
   Any line can still be ticked or unticked by hand. **Tick All** ticks every line on offer and then becomes **Untick All**. A wine
-  Claude could not find offers only its "could not find" note line, ticked, and one that already matches says so.
+  Claude could not find offers nothing (its History says it was looked for), and one that already matches says so.
 - **Save Ticked Changes** appears once something is ticked, and saves it all at once, so one **Undo** takes the whole check back. Each
-  changed wine's "Looked up…" note line is replaced with today's, not stacked.
+  checked wine's History says what was taken and what was left — one entry per check.
 - **Closing the window ends the check** — Save, Cancel, Escape or a click outside. The lookups
   stop, and the answers and anything ticked but not saved go with them, so reopening starts fresh.
   That never re-bills a wine by itself: each one checked today opens unselected. A key Claude
