@@ -175,6 +175,11 @@ the family doesn't.
   `readLookup()` is the boundary (http(s)-only sources). `pause_turn` resumes with no added
   message; a silent finish is nudged once. Lookups fill EMPTY boxes only. Measured on Charles's 20
   wines: $0.144 a wine, ~36 s; Sonnet 5.5 was $0.065 and nearly as good — Charles chose Opus.
+  **Prompt caching** (2026-10-25, after Anthropic's low-hit-rate email): `system` is one marked
+  block (shared by every wine) plus top-level automatic `cache_control`. Web search re-reads its
+  results inside one call; cached, those reads are 5% price. Measured on 4 real wines, same
+  answers: $0.137 uncached → $0.056 system mark only → **$0.046 both**. `LOOKUP_COST`/`LOOKUP_SECS`
+  drive Check All's estimate; `lookupWine` usage counts `cacheRead`/`cacheWrite` apart from input.
   0 of 20 windows came from a named critic, so the note line says "estimate". The terminal test
   harness bridges fetch to Node so the key (`~/.config/anthropic_winecellar_key`) never enters the
   page. privacy.html says what is sent; keep it true if the request changes. **Closing either

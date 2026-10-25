@@ -4909,8 +4909,10 @@ function sameWine(a, b) {
 const LOOKUP_KEY_STORE = 'wine-claude-key';
 const LOOKUP_MODEL = 'claude-opus-5-5';
 /* Most of a lookup's cost is READING search results — every page Claude pulls
-   in is billed as input — so the search cap is the price lever: measured
-   2026-10-23, six searches on Opus at medium effort cost $0.26 for one wine. */
+   in is billed as input — so the search cap is a price lever: measured
+   2026-10-23, six searches on Opus at medium effort cost $0.26 for one wine.
+   The other is prompt caching (buildLookupRequest), which cut a wine from
+   $0.137 to $0.046 on 2026-10-25. */
 const LOOKUP_EFFORT = 'low';
 const LOOKUP_SEARCHES = 3;
 const LOOKUP_URL = 'https://api.anthropic.com/v1/messages';
@@ -5054,7 +5056,15 @@ function buildLookupRequest(w, today, tune, names, photo) {
     /* If a safety check ever declines a request, the API retries it on another
        model instead of returning nothing (the "default" routing). */
     fallbacks: 'default',
-    system: LOOKUP_SYSTEM,
+    /* Prompt caching (2026-10-25, after Anthropic's "cache hit rate is low"
+       email). One mark on the system prompt — the instructions and tools every
+       wine shares, so a Check All or a paste reuses them — and automatic
+       caching for the rest. Web search re-reads its own results inside one
+       call; cached, those re-reads cost 5% of the input price. Measured on four
+       of Charles's wines, same answers: $0.137 a wine uncached, $0.056 with
+       the system mark alone, $0.046 with both. */
+    system: [{ type: 'text', text: LOOKUP_SYSTEM, cache_control: { type: 'ephemeral' } }],
+    cache_control: { type: 'ephemeral' },
     tools: [{ type: 'web_search_20260209', name: 'web_search', max_uses: t.maxSearches || LOOKUP_SEARCHES },
             LOOKUP_TOOL],
     tool_choice: { type: 'auto' },
@@ -5101,7 +5111,7 @@ function lookupErrorMessage(status, data) {
 async function lookupWine(w, key, opts) {
   const o = opts || {};
   const body = buildLookupRequest(w, todayISO(), o.tune, o.names || knownNames(state), o.photo);
-  const usage = { input: 0, output: 0, searches: 0, rounds: 0 };
+  const usage = { input: 0, cacheRead: 0, cacheWrite: 0, output: 0, searches: 0, rounds: 0 };
   let nudged = false;
   for (let round = 0; round < LOOKUP_MAX_ROUNDS; round++) {
     usage.rounds++;
@@ -5118,6 +5128,8 @@ async function lookupWine(w, key, opts) {
     if (!res.ok || !data) throw new Error(lookupErrorMessage(res.status, data));
     const u = data.usage || {};
     usage.input += Number(u.input_tokens) || 0;
+    usage.cacheRead += Number(u.cache_read_input_tokens) || 0;
+    usage.cacheWrite += Number(u.cache_creation_input_tokens) || 0;
     usage.output += Number(u.output_tokens) || 0;
     usage.searches += Number(u.server_tool_use && u.server_tool_use.web_search_requests) || 0;
     if (data.stop_reason === 'refusal') throw new Error('Claude declined to look this one up.');
@@ -6457,14 +6469,19 @@ function checkBlock(w) {
     }).join('')
     + (hosts.length ? '<p>Sources: ' + hosts.join(', ') + '</p>' : '') + droppedLine(r);
 }
+/* What one lookup costs and takes, for the estimate Check All gives before
+   it spends anything. Measured 2026-10-25 on four real wines with prompt
+   caching on: $0.040–0.053 and 14–17 s each; rounded up, so the estimate is
+   never the low one. */
+const LOOKUP_COST = 0.06, LOOKUP_SECS = 20;
 function renderCheckIntro() {
   const wines = checkWines(state);
   const todo = checkPicked().length;
-  const mins = Math.max(1, Math.ceil(todo * 36 / LOOKUP_PARALLEL / 60));
+  const mins = Math.max(1, Math.ceil(todo * LOOKUP_SECS / LOOKUP_PARALLEL / 60));
   const since = $('checkSince').selectedOptions[0].textContent;
   $('checkIntro').textContent = !wines.length ? 'There are no wines with bottles left to check.'
     : todo ? 'Claude looks up the ' + plural(todo, 'wine') + ' selected below — about $'
-      + (todo * 0.14).toFixed(2) + ' from your API account and ' + plural(mins, 'minute')
+      + (todo * LOOKUP_COST).toFixed(2) + ' from your API account and ' + plural(mins, 'minute')
       + ', three at a time. Lines start ticked when Claude’s answer is better evidence — an empty box, '
       + 'current prices over an estimate, a published window over an estimate — and each says why; '
       + 'change any of them. Nothing changes until you save.'

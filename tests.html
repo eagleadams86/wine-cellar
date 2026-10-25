@@ -2627,6 +2627,9 @@ function define() {
     ok(/2019 Sample Hill Reserva/.test(b.messages[0].content) && /2026-10-23/.test(b.messages[0].content),
        'the bottle and today’s date are in the question');
     ok(!/sk-ant|x-api-key/i.test(JSON.stringify(b)), 'the key is never in the body');
+    eq(b.cache_control, { type: 'ephemeral' }, 'automatic prompt caching is on — it cut a lookup from $0.137 to $0.046');
+    eq(b.system.length, 1, 'the system prompt is one block…');
+    eq(b.system[0].cache_control, { type: 'ephemeral' }, '…marked, so every wine in a Check All reuses it');
   });
   t('a paused search is resumed, a silent finish is asked once, and the answer is the tool’s input', async () => {
     const replies = [
@@ -2645,6 +2648,7 @@ function define() {
     eq(sent[1].messages.length, 2, 'the resumption sends the paused turn back with NO extra message');
     eq(sent[2].messages[sent[2].messages.length - 1].role, 'user', 'the nudge asks once for the answer');
     eq([got.usage.searches, got.usage.input], [2, 160], 'and the cost is counted');
+    eq([got.usage.cacheRead, got.usage.cacheWrite], [0, 0], 'cache tokens are counted too, apart from fresh input');
   });
   t('a failure says what to do, in plain words', () => {
     ok(/did not accept the API key/.test(H.lookupErrorMessage(401, null)), '401');
@@ -3911,7 +3915,7 @@ function define() {
     ok(/Area, State or Country/.test(p.region.description) && /No percentages/.test(p.grape.description), 'the formats are in the schema');
     ok(/"Bordeaux blend"/.test(p.grape.description) && /75% or more/.test(p.grape.description), 'with the classic blend names and the 75% rule');
     ok(b.tools.find((t) => t.name === 'record_wine').input_schema.required.indexOf('appellation') !== -1, 'strict: every property required');
-    ok(/letter for letter/.test(b.system), 'and the system prompt says to reuse a fitting name');
+    ok(/letter for letter/.test(b.system[0].text), 'and the system prompt says to reuse a fitting name');
     const r = H.readLookup({ confidence: 'high', region: 'Napa Valley, California', appellation: 'Stags Leap District',
                              window_basis: 'critic', sources: [] }, { name: 'X' });
     eq(r.subregion, 'Stags Leap District', 'the sub-district comes back as the Sub-region');

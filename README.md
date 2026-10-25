@@ -133,9 +133,11 @@ the pages it used.
   browser — never synced, backed up or shared — in a password field so a password manager can
   carry it. Every page on `eagleadams86.github.io` can read this browser's storage, so use a key
   made just for this app with a low monthly spend limit in the Claude Console.
-- **Cost: about $0.14 a wine** (measured on 20 wines, 2026-10-23: about 36 seconds each, mostly
-  tokens for reading search results, plus $0.01 per search). It is capped at 3 searches and low
-  effort per wine; the paste window runs three lookups at a time. **Closing the window stops
+- **Cost: about $0.05 a wine** with prompt caching (measured on four wines, 2026-10-25: $0.040–0.053
+  and 14–17 seconds each; it was $0.137 uncached). Most of a lookup is Claude reading search results,
+  and the search tool re-reads them inside one call — cached, a re-read costs 5% of the normal
+  input price. The instructions every wine shares are cached too, so Check All and a pasted list
+  reuse them. It is capped at 3 searches and low effort per wine; the paste window runs three lookups at a time. **Closing the window stops
   them** — Cancel, Escape or a click outside — so nothing keeps running (or billing) behind it.
   A key Claude rejects stops the whole paste at once and says why.
 
@@ -157,8 +159,8 @@ photo from the iPhone works directly. The window says which of these happened.
   fewer wrong-wine pages. It does not make the value or the window surer: those still come from
   the web, and a label rarely prints a drinking window.
 - **Cost: about a cent more a lookup.** The photo is shrunk to 1568 px on the device first —
-  about 1,600 input tokens, roughly $0.006 on Opus 5.5 — and is sent again if Claude pauses a
-  long search, so a lookup goes from about $0.14 to about $0.15–0.16. Searching is still most of it.
+  about 1,600 input tokens, roughly $0.006 on Opus 5.5 at full price (less once cached), so it adds
+  about a cent to a lookup at most.
 - **A small copy is kept with the wine** (800 px, up to about 200 KB) and shown in its window,
   with Replace and Remove. It lives in this browser's IndexedDB — not localStorage, which every
   app on this site shares — and, when signed in, in its own Firestore document beside the cellar
