@@ -3715,10 +3715,20 @@ function define() {
     eq(D.querySelector('#cellarTable thead tr').children.length, D.querySelector('#cellarTable tbody tr').children.length,
        'and no empty actions heading is left behind');
     W.openWine(null);
-    ok(D.getElementById('wineDrink').hidden && D.getElementById('wineDelete').hidden, 'a NEW wine has neither');
+    const zone = D.getElementById('wineDeleteZone');
+    ok(D.getElementById('wineDrink').hidden && zone.hidden, 'a NEW wine has neither');
     D.getElementById('wineDialog').close();
     W.openWine('fx-hold');
-    ok(!D.getElementById('wineDrink').hidden && !D.getElementById('wineDelete').hidden, 'a saved wine has both');
+    ok(!D.getElementById('wineDrink').hidden && !zone.hidden, 'a saved wine has both');
+    ok(zone.tagName === 'DETAILS' && zone.contains(D.getElementById('wineDelete')) && !zone.open,
+       'Delete is folded away under its own heading, never beside Save');
+    zone.open = true;
+    D.getElementById('wineDialog').close();
+    W.openWine('fx-hold');
+    ok(!zone.open, 'and it is folded again the next time the window opens');
+    const end = D.getElementById('wineSave').parentElement;
+    ok(end.classList.contains('act-end') && end.contains(D.getElementById('wineCancel')),
+       'Cancel and Save are one unit, so a narrow row never strands Save on a line alone');
     D.getElementById('wineDialog').close();
   });
   t('Delete in the wine’s window asks, then deletes and closes', () => {

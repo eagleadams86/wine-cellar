@@ -97,7 +97,8 @@ cellar on your other devices.
 - **Closing a wine's window keeps your place** — Save, Cancel, Opened One or a tap outside
   leaves the cellar where it was, so you can work down a long list on a phone. Every window
   opens at its top.
-- **Opened One** and **Delete Wine** are in the wine's own window (press its row): Opened One
+- **Opened One** and **Delete Wine** are in the wine's own window (press its row) — Delete
+  folded away under **Delete This Wine**, so it is never one slip from Save: Opened One
   takes a bottle off the count and writes a line in that log, asking first if you had changed
   something in the window without saving. Press a line on the Opened tab to change its date,
   rating or note, or to **Remove This Bottle** — which puts the bottle back on the count, so a

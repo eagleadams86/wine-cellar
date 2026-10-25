@@ -340,6 +340,10 @@ the family doesn't.
   button rule's `nowrap` — before that the Wine column alone never wrapped, squeezed every other
   column and pushed the × off the edge. No underline because the whole ROW is the target (it
   hovers and opens as one); keyboard focus keeps the ring. A test pins both.
+- **Delete Wine is folded under `#wineDeleteZone`** (a `details.danger-zone`, as Start Again
+  is in Back Up; 2026-10-25), shut on every open. Hide the ZONE for a new wine, not the button.
+  In every dialog row with a left-hand action, Cancel + the primary button sit in one
+  `.act-end` span pushed right, so a narrow row wraps the pair whole — never Save alone.
 - **Windows open at their top; the record windows keep the page's place** (2026-10-25):
   `openModal` sets `scrollTop = 0` (iOS Safari keeps a closed dialog's scroll, so every wine
   after the first opened at Save), and takes `placeY` for `KEEPS_PLACE` (wine + opened

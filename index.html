@@ -1261,6 +1261,13 @@
   .row-actions { display: flex; flex-wrap: wrap; gap: var(--sp-4);
                  justify-content: flex-end; margin-top: var(--sp-6); }
   .row-actions .spacer { flex: 1 1 auto; }
+  /* Cancel and the window's own button are ONE unit, pushed right: on a phone
+     the row wrapped a button at a time and left Save alone on a line of its
+     own, under Cancel's neighbours (Charles, 2026-10-25). Now the pair wraps
+     whole, and stays at the right edge. */
+  .row-actions .act-end { display: flex; gap: var(--sp-4); margin-left: auto; }
+  details.danger-zone > p { margin: 10px 0 12px; }
+  #wineDeleteZone { margin-top: var(--sp-6); }
   /* "Start again" is folded into the Back up dialog in every app in this family,
      and the header button stays "Back Up". Offering a destructive action without
      the thing that makes it safe — a backup you can take at the moment of
@@ -2122,13 +2129,21 @@ html[data-booting] footer { visibility: hidden; }
   </details>
   <p class="warn-line" id="wineWarn" role="status"></p>
   <!-- A saved wine's two other actions live here, not on its row (Charles,
-       2026-10-24): the row is one target that opens this window. -->
+       2026-10-24): the row is one target that opens this window. Delete is
+       folded away, as Start Again is in Back Up (Charles, 2026-10-25): beside
+       Save it was one slip from the button pressed most. -->
+  <details class="danger-zone" id="wineDeleteZone" hidden>
+    <summary>Delete This Wine</summary>
+    <p>Takes it out of the cellar. Bottles you already opened stay in the Opened list, and
+      Undo (↩ in the header) brings it back until you reload.</p>
+    <button type="button" class="danger" id="wineDelete">Delete Wine</button>
+  </details>
   <div class="row-actions">
     <button type="button" id="wineDrink" hidden>Opened One</button>
-    <button type="button" class="danger" id="wineDelete" hidden>Delete Wine</button>
-    <span class="spacer"></span>
-    <button type="button" id="wineCancel">Cancel</button>
-    <button type="button" class="primary" id="wineSave">Save</button>
+    <span class="act-end">
+      <button type="button" id="wineCancel">Cancel</button>
+      <button type="button" class="primary" id="wineSave">Save</button>
+    </span>
   </div>
 </dialog>
 
@@ -2235,9 +2250,10 @@ html[data-booting] footer { visibility: hidden; }
   <p class="warn-line" id="openWarn" role="status"></p>
   <div class="row-actions">
     <button type="button" class="danger" id="openRemove" hidden>Remove This Bottle</button>
-    <span class="spacer"></span>
-    <button type="button" id="openCancel">Cancel</button>
-    <button type="button" class="primary" id="openSave">Take One Off the Count</button>
+    <span class="act-end">
+      <button type="button" id="openCancel">Cancel</button>
+      <button type="button" class="primary" id="openSave">Take One Off the Count</button>
+    </span>
   </div>
 </dialog>
 
@@ -2275,9 +2291,10 @@ html[data-booting] footer { visibility: hidden; }
   <p class="hint" id="pasteNote" role="status"></p>
   <div class="row-actions">
     <button type="button" id="pasteLookup" disabled><span aria-hidden="true">✦</span> Look Up with Claude</button>
-    <span class="spacer"></span>
-    <button type="button" id="pasteCancel">Cancel</button>
-    <button type="button" class="primary" id="pasteAdd" disabled>Add Wines</button>
+    <span class="act-end">
+      <button type="button" id="pasteCancel">Cancel</button>
+      <button type="button" class="primary" id="pasteAdd" disabled>Add Wines</button>
+    </span>
   </div>
 </dialog>
 
@@ -2303,9 +2320,10 @@ html[data-booting] footer { visibility: hidden; }
   <div class="row-actions">
     <button type="button" id="checkStart"><span aria-hidden="true">✦</span> Start Checking</button>
     <button type="button" id="checkAll" hidden>Tick All</button>
-    <span class="spacer"></span>
-    <button type="button" id="checkCancel">Cancel</button>
-    <button type="button" class="primary" id="checkSave" hidden>Save Ticked Changes</button>
+    <span class="act-end">
+      <button type="button" id="checkCancel">Cancel</button>
+      <button type="button" class="primary" id="checkSave" hidden>Save Ticked Changes</button>
+    </span>
   </div>
 </dialog>
 
@@ -5829,7 +5847,8 @@ function openWine(id) {
   showLookupWhen(it ? it.checkedAt : null);
   /* Opened One and Delete are for a SAVED wine; a finished one has nothing
      left to open. */
-  $('wineDrink').hidden = $('wineDelete').hidden = !it;
+  $('wineDrink').hidden = $('wineDeleteZone').hidden = !it;
+  $('wineDeleteZone').open = false;
   $('wineDrink').disabled = !(it && it.qty);
   $('lookupNote').textContent = '';
   $('lookupPanel').hidden = true;
