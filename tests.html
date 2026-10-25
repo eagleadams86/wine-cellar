@@ -51,7 +51,7 @@
    go MISSING look exactly like tests that pass — a suite that quietly shrank to
    three checks still says "all 3 tests pass". RAISE THIS when you add tests, and
    lower it only when you retire one deliberately. */
-const EXPECTED = 299;
+const EXPECTED = 300;
 
 /* ── It refuses to run anywhere but localhost, and that is load-bearing ──────
    GitHub Pages publishes this page BESIDE the app, where the iframe below would
@@ -4023,6 +4023,20 @@ function define() {
       W.openBottleEdit(line.id); D.getElementById('o_note').value = 'Lovely'; D.getElementById('openSave').click();
       eq(H.__state().opened.find((o) => o.id === line.id).region, 'Napa Valley', 'a snapshot, like the name');
     } finally { proto.setItem = realStore; D.getElementById('openDialog').close(); H.__plant(FIXTURE); }
+  });
+  t('What You Like\'s view buttons redraw only What You Like', () => {
+    const D = W.document;
+    try {
+      H.__plant(FIXTURE); W.setTab('opened');
+      /* Replacing the timing tiles while they sat half above the screen made
+         iPhone Safari drop the page ~700px (Charles, 2026-10-25). */
+      const tile = D.querySelector('#openedStats > *');
+      D.querySelector('[data-like-view="written"]').click();
+      ok(D.querySelector('#openedStats > *') === tile, 'As written leaves the tiles alone');
+      D.querySelector('[data-like-view="grouped"]').click();
+      ok(D.querySelector('#openedStats > *') === tile, 'and so does Grouped');
+      eq(D.querySelector('[data-like-view="grouped"]').getAttribute('aria-pressed'), 'true', 'the view still switches');
+    } finally { W.setTab('cellar'); H.__plant(FIXTURE); }
   });
   t('Load Sample Data shows only while the cellar holds nothing of your own', () => {
     const D = W.document, btn = () => D.getElementById('sampleBtn').hidden;

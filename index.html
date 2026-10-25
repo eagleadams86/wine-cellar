@@ -4193,7 +4193,11 @@ function renderOpenedDash(c) {
     ['Late', String(t.late), 'after the window closed', 'late'],
     ['Average Age', c.age.avg == null ? '—' : (Math.round(c.age.avg * 10) / 10) + ' yrs', 'vintage to opening'],
   ];
-  document.getElementById('openedStats').innerHTML = tiles.map((x) => {
+  /* Written only when it CHANGED. Replacing the tiles while they sit
+     half above the screen made iPhone Safari drop the page ~700px — What You
+     Like's Grouped / As written and its sort headings redrew them on every
+     press (Charles, 2026-10-25; WebKit only). */
+  const statsHtml = tiles.map((x) => {
     const inner = '<div class="label">' + esc(x[0]) + '</div>'
       + '<div class="v">' + esc(x[1]) + '<span class="sub">' + esc(x[2]) + '</span></div>';
     return x[3]
@@ -4201,13 +4205,19 @@ function renderOpenedDash(c) {
         + timingPick.has(x[3]) + '">' + inner + '</button>'
       : '<div class="stat">' + inner + '</div>';
   }).join('');
+  const statsBox = document.getElementById('openedStats');
+  if (statsBox.innerHTML !== statsHtml) statsBox.innerHTML = statsHtml;
   const notes = [];
   if (t.none) notes.push(plural(t.none, 'bottle') + ' with no drinking window '
     + (t.none === 1 ? 'is' : 'are') + ' in no timing count but Opened.');
   if (c.age.unaged) notes.push(plural(c.age.unaged, 'bottle') + ' with no vintage '
     + (c.age.unaged === 1 ? 'is' : 'are') + ' left out of the average age.');
   document.getElementById('timingWarn').textContent = notes.join(' ');
-
+  renderLikeTables(c);
+}
+/* What You Like alone — what its view buttons and sort headings change, so
+   they redraw nothing else. */
+function renderLikeTables(c) {
   document.querySelectorAll('[data-like-view]').forEach((b) =>
     b.setAttribute('aria-pressed', String((b.dataset.likeView === 'grouped') === likeGrouped)));
   renderLike('grape', c.grapes, 'Grape');
@@ -7448,8 +7458,8 @@ $('likeCard').addEventListener('click', (e) => {
   if (view) {
     likeGrouped = view.dataset.likeView === 'grouped';
     try { localStorage.setItem(LIKE_VIEW_KEY, likeGrouped ? 'grouped' : 'written'); } catch (err) { /* page-life only */ }
-    renderOpenedDash(computeOpened(state, likeGrouped));
-    view.focus();
+    renderLikeTables(computeOpened(state, likeGrouped));
+    view.focus({ preventScroll: true });
     return;
   }
   const sort = e.target.closest('[data-sort]');
@@ -7457,9 +7467,9 @@ $('likeCard').addEventListener('click', (e) => {
   if (!table) return;
   const field = table.dataset.like, cur = likeSort[field];
   likeSort[field] = nextSort(cur.key, cur.dir, sort.dataset.sort, !!sort.dataset.desc);
-  renderOpenedDash(computeOpened(state, likeGrouped));
+  renderLikeTables(computeOpened(state, likeGrouped));
   const again = $('likeCard').querySelector('[data-like="' + field + '"] [data-sort="' + sort.dataset.sort + '"]');
-  if (again) again.focus();
+  if (again) again.focus({ preventScroll: true });
 });
 /* The status filter: ONE set, pressed from the dropdown's tick boxes and from
    the status tiles, and drawn back onto both by setStatusPick — so they can

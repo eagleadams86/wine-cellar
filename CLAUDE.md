@@ -232,7 +232,13 @@ the family doesn't.
   List's preview got its first width probed the Cellar behind the window as a table, the page got
   shorter for a moment, and iPhone Safari (no scroll anchoring) clamped it to the foot. Measured in
   Playwright WebKit with `devices['iPhone 13']` + `touchscreen.tap` — Chromium never showed it, and
-  moving focus around was a red herring. Each `<td>` carries `data-label` (the card shows it via `::before`,
+  moving focus around was a red herring.
+- **Redraw only what a press changed — iPhone Safari jumps otherwise** (2026-10-25). What You
+  Like's Grouped / As written and its sort headings called `renderOpenedDash`, which rewrote the
+  timing tiles; with the tiles half above the screen WebKit dropped the page ~700px (a final-layout
+  effect: any forced layout in between hid it, so checkpointing scrollY "fixed" it). They now call
+  `renderLikeTables`, and the tiles are written only when their HTML changed. Reproduce such jumps
+  in Playwright WebKit + `devices['iPhone 13']` + `touchscreen.tap`; Chromium never shows them. Each `<td>` carries `data-label` (the card shows it via `::before`,
   so exports never see it) — a new column needs one, and a test checks every cell. The name
   `<th>` leads (`order: -2`), the Status pill rides its line (`order: -1`), sortable headings
   become Sort-by chips.
