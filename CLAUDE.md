@@ -116,6 +116,9 @@ the family doesn't.
   panel's Use All count ignores them. Taking one moves `lookupStamp.key` to the new name so Save
   keeps the check stamp. Check All's `tickRule`: name ticks only when equal after `searchFold`
   minus non-alphanumerics; vintage never ticks. The Opened window's Look Up does not offer them.
+  The offered name is `labelNameFor(typed, label)`: a label whose words are all in the typed
+  name (a front label printing only "Vöcal") RE-SPELLS those words in the typed name; only a
+  label with words of its own is offered whole. Never offer the raw label_name over a typed one.
 - **The thumbnail enlarges** into `#photoView`, a TOP-LEVEL dialog (inside the edit window its
   clicks would trip that window's click-outside and close both). `photoFit` sizes it to the
   photo's own ratio within the opener's width × the screen height. Any click, ✕ or Escape
@@ -324,6 +327,6 @@ was a one-line version of the cellar rule.
 
 ## Tests
 
-`tests.html`, `EXPECTED = 284`. Run it headless (Playwright) rather than in the Browser pane:
+`tests.html`, `EXPECTED = 285`. Run it headless (Playwright) rather than in the Browser pane:
 the pane throttles hidden timers and its focus heuristics turn the 705px keyboard-focus check
 red on untouched code.

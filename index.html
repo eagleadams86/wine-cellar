@@ -5806,9 +5806,27 @@ const boxNum = (id) => ($(id).value === '' ? null : Number($(id).value));
    2026-10-25: "Vocal" typed for a "Vöcal" label, with no way to key the ö) —
    never by Use All, because renaming a wine is a choice, not a figure. */
 const LABEL_KEYS = ['name', 'vintage'];
+/* The name to offer from the label. A front label often prints only the
+   producer — "Vöcal" for a wine typed "Vocal Cabernet Wheeler Vineyard"
+   (Charles, 2026-10-25) — and offering that alone would throw the rest of the
+   name away. So when every word on the label is already in the typed name
+   (ignoring accents and capitals), the offer is the TYPED name with those
+   words spelled the label's way; only a label with words the typed name
+   lacks is offered whole. Pure and pinned. */
+function labelNameFor(typed, label) {
+  if (!label) return '';
+  const t = String(typed || '').trim();
+  if (!t) return label;
+  const fw = (x) => searchFold(x).replace(/[^a-z0-9]+/g, '');
+  const lw = label.split(/\s+/).filter((x) => fw(x));
+  const tw = t.split(/\s+/);
+  if (!lw.every((x) => tw.some((y) => fw(y) === fw(x)))) return label;
+  const spelt = new Map(lw.map((x) => [fw(x), x]));
+  return tw.map((y) => spelt.get(fw(y)) || y).join(' ');
+}
 const LOOKUP_BOXES = [
-  ['name', 'Name', () => false, (r) => { $('f_name').value = r.labelName; },
-   (r) => !!r.labelName, (r) => sameText($('f_name').value, r.labelName)],
+  ['name', 'Name', () => false, (r) => { $('f_name').value = labelNameFor($('f_name').value, r.labelName); },
+   (r) => !!r.labelName, (r) => sameText($('f_name').value, labelNameFor($('f_name').value, r.labelName))],
   ['vintage', 'Vintage', () => false, (r) => { $('f_vintage').value = r.labelVintage; },
    (r) => r.labelVintage != null, (r) => cleanYear($('f_vintage').value) === r.labelVintage],
   ['value', 'Value', () => $('f_low').value === '' && $('f_high').value === '',
@@ -5855,7 +5873,7 @@ function renderLookupPanel(r) {
   const panel = $('lookupPanel');
   const conf = LOOKUP_CONF[r.confidence];
   const shown = {
-    name: r.labelName, vintage: r.labelVintage == null ? '' : String(r.labelVintage),
+    name: labelNameFor($('f_name').value, r.labelName), vintage: r.labelVintage == null ? '' : String(r.labelVintage),
     value: r.valueLow != null ? fmtRange(r.valueLow, r.valueHigh) + (r.valueEst ? ' est.' : '') : '',
     window: r.drinkFrom != null || r.drinkTo != null ? fmtWindow(r) : '',
     region: r.region, subregion: r.subregion, grape: r.grape, color: r.color ? COLOR_LABEL[r.color] : '',
@@ -6370,8 +6388,8 @@ $('pasteBtn').addEventListener('click', openPaste);
 const LOOKUP_FIELDS = [
   /* The label's name and vintage, offered when they differ from the saved
      wine's (see LABEL_KEYS). Never "empty": a saved wine always has a name. */
-  ['name', 'Name', () => false, (r) => !!r.labelName, (w, r) => sameText(w.name, r.labelName),
-   (w) => w.name, (w, r) => { w.name = r.labelName; }],
+  ['name', 'Name', () => false, (r) => !!r.labelName, (w, r) => sameText(w.name, labelNameFor(w.name, r.labelName)),
+   (w) => w.name, (w, r) => { w.name = labelNameFor(w.name, r.labelName); }],
   ['vintage', 'Vintage', () => false, (r) => r.labelVintage != null, (w, r) => w.vintage === r.labelVintage,
    (w) => (w.vintage == null ? 'NV' : String(w.vintage)), (w, r) => { w.vintage = r.labelVintage; }],
   /* The same numbers are NOT the same answer when yours is an estimate and
@@ -6408,7 +6426,8 @@ function lookupDiffs(w, r) {
   }
   return LOOKUP_FIELDS.filter(([, , , has, same]) => has(r) && !same(w, r))
     .map(([key, label, empty, , , shown]) => Object.assign({ key: key, label: label, yours: shown(w),
-      claude: shown(Object.assign({}, w, r, { color: r.color, name: r.labelName, vintage: r.labelVintage })) }, empty(w)
+      claude: shown(Object.assign({}, w, r, { color: r.color, name: labelNameFor(w.name, r.labelName),
+        vintage: r.labelVintage })) }, empty(w)
         ? { tick: true, why: 'your box is empty' } : tickRule(key, w, r)));
 }
 /* ── Which lines start ticked (Charles, 2026-10-24) ────────────────────────
@@ -6444,7 +6463,8 @@ function tickRule(key, w, r) {
   /* The label's own spelling of the SAME name — accents, capitals, an
      apostrophe — is taken; a different name, or a different year, is the
      reader's to decide. */
-  if (key === 'name') return searchFold(w.name).replace(/[^a-z0-9]+/g, '') === searchFold(r.labelName).replace(/[^a-z0-9]+/g, '')
+  if (key === 'name') return searchFold(w.name).replace(/[^a-z0-9]+/g, '')
+      === searchFold(labelNameFor(w.name, r.labelName)).replace(/[^a-z0-9]+/g, '')
     ? { tick: true, why: 'the same name, spelled as the label prints it' } : { tick: false, why: 'yours kept' };
   if (key === 'vintage') return { tick: false, why: 'check the bottle' };
   if (key === 'region' || key === 'grape') {
@@ -7913,7 +7933,7 @@ window.__wineTestHooks = {
   __photoStore: function (next) { const was = photoStore; photoStore = next; return was; },
   __photoDraft: function (d, which) { (which === 'opened' ? bottlePhoto : winePhoto).setDraft(d); },
   cleanPhoto: cleanPhoto, photoIdsGone: photoIdsGone, backupPhotoEntries: backupPhotoEntries,
-  __lookupStampKey: () => (lookupStamp ? lookupStamp.key : ''), photoContent: photoContent, imageFromTransfer: imageFromTransfer, photoFit: photoFit, heicBrand: heicBrand, isHeic: isHeic, readPicked: readPicked, PHOTO_MAX: PHOTO_MAX, PHOTO_SEND_MAX: PHOTO_SEND_MAX,
+  __lookupStampKey: () => (lookupStamp ? lookupStamp.key : ''), photoContent: photoContent, imageFromTransfer: imageFromTransfer, photoFit: photoFit, labelNameFor: labelNameFor, heicBrand: heicBrand, isHeic: isHeic, readPicked: readPicked, PHOTO_MAX: PHOTO_MAX, PHOTO_SEND_MAX: PHOTO_SEND_MAX,
   SCHEMA: SCHEMA, ID_RE: ID_RE, STORAGE_KEY: STORAGE_KEY, THEME_KEY: THEME_KEY,
   TAB_KEY: TAB_KEY, TABS: TABS, SHARE_FORMAT: SHARE_FORMAT, SHARE_PAYLOAD_V: SHARE_PAYLOAD_V,
   blankState: blankState, normalizeState: normalizeState, defaultSettings: defaultSettings,

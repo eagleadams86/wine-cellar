@@ -164,10 +164,13 @@ photo from the iPhone works directly. The window says which of these happened.
   enough: with the Wine and Vintage boxes empty, Look Up fills them from the label (a name you
   typed is kept), and the panel shows "The label reads …".
 - **The label's name and vintage are offered, never forced.** When what you typed differs from the
-  label — "Vocal" for a "Vöcal" label, say — the panel offers the label's name with its own
+  label — "Vocal" for a "Vöcal" label, say — the panel offers the name with its own
   **Use this** (Use All never renames a wine), and Check All offers it as a line. Check All
-  starts it ticked only when it is the same name spelled the label's way (accents, capitals,
-  an apostrophe); a longer or different name, or a different year, starts unticked. To type an
+  starts it ticked only when it is the same name spelled the label's way. A front label that
+  prints only the producer re-spells that word in YOUR name ("Vöcal Cabernet Wheeler Vineyard"),
+  rather than cutting the name down to "Vöcal"; a label with words yours lacks is offered whole.
+  "The same name" ignores accents, capitals and apostrophes; a longer or different name, or a
+  different year, starts unticked. To type an
   accent yourself on a Mac, hold the letter key and pick it, or press Option-U then the letter
   for ö.
 - **What it changes, and what it doesn't.** A photo makes *which bottle* surer — fewer typos,

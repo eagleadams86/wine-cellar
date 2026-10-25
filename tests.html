@@ -51,7 +51,7 @@
    go MISSING look exactly like tests that pass — a suite that quietly shrank to
    three checks still says "all 3 tests pass". RAISE THIS when you add tests, and
    lower it only when you retire one deliberately. */
-const EXPECTED = 284;
+const EXPECTED = 285;
 
 /* ── It refuses to run anywhere but localhost, and that is load-bearing ──────
    GitHub Pages publishes this page BESIDE the app, where the iframe below would
@@ -3075,6 +3075,13 @@ function define() {
       } finally { D.getElementById('wineDialog').close(); }
     });
   });
+  t('the label re-spells the words it shares with a typed name, and is offered whole only with words of its own', () => {
+    eq(H.labelNameFor('Vocal Cabernet Wheeler Vineyard', 'Vöcal'), 'Vöcal Cabernet Wheeler Vineyard');
+    eq(H.labelNameFor('Resonance Decouverte Pinot', 'Résonance Découverte'), 'Résonance Découverte Pinot');
+    eq(H.labelNameFor('Snowden Cabernet', 'Snowden The Ranch Cabernet Sauvignon'), 'Snowden The Ranch Cabernet Sauvignon');
+    eq(H.labelNameFor('', 'Vöcal'), 'Vöcal', 'an empty box takes the label');
+    eq(H.labelNameFor('Vocal', ''), '', 'no label, no offer');
+  });
   t('Check All offers the label’s name: the same name re-spelled starts ticked, another name not', () => {
     const w = { name: 'Vocal Cabernet', vintage: 2023, notes: '' };
     const r = (x) => H.readLookup(Object.assign({ confidence: 'high', matched_wine: 'x', sources: [] }, x), { name: 'x' });
@@ -3085,6 +3092,8 @@ function define() {
     eq(row({ label_name: 'VOCAL CABERNET' }, 'name'), undefined, 'capitals alone are not a difference');
     eq(row({ label_vintage: 2022 }, 'vintage').tick, false, 'a different year is offered, never pre-ticked');
     eq(row({}, 'name'), undefined, 'no photo, no name line');
+    eq([row({ label_name: 'Vöcal' }, 'name').claude, row({ label_name: 'Vöcal' }, 'name').tick], ['Vöcal Cabernet', true],
+       'a front label naming only the producer re-spells that word and keeps the rest of yours');
     const x = Object.assign({}, w);
     H.applyLookupTo(x, r({ label_name: 'Vöcal Cabernet', label_vintage: 2022 }), ['name']);
     eq([x.name, x.vintage], ['Vöcal Cabernet', 2023], 'a ticked name renames; the unticked year stays');
