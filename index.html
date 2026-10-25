@@ -1267,7 +1267,7 @@
      whole, and stays at the right edge. */
   .row-actions .act-end { display: flex; gap: var(--sp-4); margin-left: auto; }
   details.danger-zone > p { margin: 10px 0 12px; }
-  #wineDeleteZone { margin-top: var(--sp-6); }
+  #wineDeleteZone, #openRemoveZone { margin-top: var(--sp-6); }
   /* "Start again" is folded into the Back up dialog in every app in this family,
      and the header button stays "Back Up". Offering a destructive action without
      the thing that makes it safe — a backup you can take at the moment of
@@ -2248,8 +2248,14 @@ html[data-booting] footer { visibility: hidden; }
               placeholder="Who with, what you ate, what you’d do differently…"></textarea>
   </div>
   <p class="warn-line" id="openWarn" role="status"></p>
+  <!-- Folded away like the wine window's Delete (Charles, 2026-10-25). -->
+  <details class="danger-zone" id="openRemoveZone" hidden>
+    <summary>Remove This Bottle</summary>
+    <p>Takes this line out of the Opened list and puts the bottle back on its wine’s count —
+      for a bottle logged by mistake.</p>
+    <button type="button" class="danger" id="openRemove">Remove This Bottle</button>
+  </details>
   <div class="row-actions">
-    <button type="button" class="danger" id="openRemove" hidden>Remove This Bottle</button>
     <span class="act-end">
       <button type="button" id="openCancel">Cancel</button>
       <button type="button" class="primary" id="openSave">Take One Off the Count</button>
@@ -6403,7 +6409,8 @@ function dressOpenDialog(mode) {
   $('openWineBox').hidden = mode === 'drink';
   $('openBody').hidden = mode !== 'drink';
   /* Only a line that exists can be removed. */
-  $('openRemove').hidden = mode !== 'edit';
+  $('openRemoveZone').hidden = mode !== 'edit';
+  $('openRemoveZone').open = false;
   obLookupStop();
   obLookupLast = null;
   $('obLookupNote').textContent = '';

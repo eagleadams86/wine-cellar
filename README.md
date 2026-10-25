@@ -101,7 +101,7 @@ cellar on your other devices.
   folded away under **Delete This Wine**, so it is never one slip from Save: Opened One
   takes a bottle off the count and writes a line in that log, asking first if you had changed
   something in the window without saving. Press a line on the Opened tab to change its date,
-  rating or note, or to **Remove This Bottle** — which puts the bottle back on the count, so a
+  rating or note, or to **Remove This Bottle** (folded away at the bottom of the window) — which puts the bottle back on the count, so a
   mistaken press is easy to undo.
 - **Paste a List** reads the table Claude writes when you ask it to look wines up — see below.
 - **✦ Check All Wines** looks every wine with bottles left up with Claude at once — see below.

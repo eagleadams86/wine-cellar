@@ -3905,12 +3905,15 @@ function define() {
       W.setTab('opened');
       ok(!D.querySelector('#openedTable button:not([data-sort]):not([data-edit-bottle])'), 'a log row carries no × any more');
       W.openDrink('fx-hold');
-      ok(D.getElementById('openRemove').hidden, 'a bottle being opened has nothing to remove');
+      ok(D.getElementById('openRemoveZone').hidden, 'a bottle being opened has nothing to remove');
       D.getElementById('openDialog').close();
       const qty = () => H.__state().wines.find((w) => w.id === 'fx-ready').qty;
       const before = qty();
       W.openBottleEdit('fx-o1');
-      ok(!D.getElementById('openRemove').hidden, 'a logged line has Remove');
+      const zone = D.getElementById('openRemoveZone');
+      ok(!zone.hidden, 'a logged line has Remove');
+      ok(zone.tagName === 'DETAILS' && zone.contains(D.getElementById('openRemove')) && !zone.open,
+         'folded away under its own heading, never beside Save');
       W.confirm = (m) => { asked = m; return false; };
       D.getElementById('openRemove').click();
       ok(/Remove the bottle of “2019 Alpha Pinot”/.test(asked) && /back on the count/.test(asked), 'it names the bottle and says what happens', asked);
@@ -4104,7 +4107,7 @@ function define() {
       const counts = JSON.stringify(H.__state().wines.map((w) => w.qty));
       D.getElementById('logBtn').click();
       eq(D.getElementById('openTitle').textContent, 'Log a Bottle');
-      ok(D.getElementById('openRemove').hidden, 'nothing to remove yet');
+      ok(D.getElementById('openRemoveZone').hidden, 'nothing to remove yet');
       D.getElementById('openSave').click();
       ok(D.getElementById('openDialog').open, 'no name, no line');
       D.getElementById('ob_name').value = 'Dinner Malbec'; D.getElementById('ob_vintage').value = '';

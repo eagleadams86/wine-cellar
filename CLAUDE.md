@@ -342,6 +342,7 @@ the family doesn't.
   hovers and opens as one); keyboard focus keeps the ring. A test pins both.
 - **Delete Wine is folded under `#wineDeleteZone`** (a `details.danger-zone`, as Start Again
   is in Back Up; 2026-10-25), shut on every open. Hide the ZONE for a new wine, not the button.
+  The Opened window's Remove This Bottle is folded the same way, under `#openRemoveZone`.
   In every dialog row with a left-hand action, Cancel + the primary button sit in one
   `.act-end` span pushed right, so a narrow row wraps the pair whole — never Save alone.
 - **Windows open at their top; the record windows keep the page's place** (2026-10-25):
