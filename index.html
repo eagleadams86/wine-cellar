@@ -2243,8 +2243,9 @@ html[data-booting] footer { visibility: hidden; }
     <label for="o_note">Note</label>
     <!-- A textarea, like the wine's Notes (Charles, 2026-10-24), so a long note
          can be read whole while it is written. Still one line when saved:
-         cleanLine turns a line break into a space, as the list shows it. -->
-    <textarea id="o_note" maxlength="140" rows="3" data-keep-caret
+         cleanLine turns a line break into a space, as the list shows it. Capped
+         at NOTES_MAX, the wine's own 600 (Charles, 2026-10-25: it was 140). -->
+    <textarea id="o_note" maxlength="600" rows="3" data-keep-caret
               placeholder="Who with, what you ate, what you’d do differently…"></textarea>
   </div>
   <p class="warn-line" id="openWarn" role="status"></p>
@@ -3124,7 +3125,7 @@ function normalizeState(raw) {
         wineId: it.wineId == null || it.wineId === '' ? null : fixId(it.wineId),
         date: DATE_RE.test(String(it.date || '')) ? it.date : todayISO(),
         rating: it.rating != null && Number.isInteger(r) && r >= 1 && r <= 5 ? r : null,
-        note: cleanLine(it.note, 140),
+        note: cleanLine(it.note, NOTES_MAX),
         /* The wine's name as it was when the bottle was opened, so the log still
            reads after the wine itself is deleted. */
         label: cleanLine(it.label, 100) || 'A deleted wine',
@@ -6506,7 +6507,7 @@ $('openSave').addEventListener('click', () => {
   if (!DATE_RE.test(date)) { $('openWarn').textContent = 'Pick the day you opened it.'; $('o_date').focus(); return; }
   const r = Number($('o_rating').value);
   const told = { date: date, rating: r >= 1 && r <= 5 ? r : null,
-                 note: cleanLine($('o_note').value, 140), place: cleanLine($('o_place').value, 40) };
+                 note: cleanLine($('o_note').value, NOTES_MAX), place: cleanLine($('o_place').value, 40) };
   if (editingBottleId || loggingBottle) {
     const wine = readOpenWineBoxes();
     if (!wine.name) { $('openWarn').textContent = 'Type the wine’s name.'; $('ob_name').focus(); return; }
@@ -6559,7 +6560,7 @@ $('openSave').addEventListener('click', () => {
    The wine window's lookup (lookupWine + readLookup), filling only what a line
    keeps: region, grape and window. A box already filled is kept, and the line
    says Claude differs and offers its answer. Value and colour are not stored on
-   a line; nothing is written into the note (140 characters is no room for it). */
+   a line; nothing is written into the note, which is the reader's own. */
 let obLookupCtl = null;
 let obLookupLast = null;
 function obLookupStop() {

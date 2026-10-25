@@ -166,7 +166,7 @@ the family doesn't.
   stay on record, hidden unless Settings → *Show wines with no bottles left*, and are never in
   a figure.
 - **Free-text notes are allowed here** — this is a personal app, not one of the two work apps
-  — but capped (600 / 140; NOTES_MAX) and single-line where the field is single-line.
+  — but capped (600 for a wine's notes and an opened bottle's, NOTES_MAX) and single-line where the field is single-line.
 - **Wine Access's descriptions are their copyrighted text.** Notes seeded from them are short
   summaries in our own words, never pasted copy.
 - **Charles's real bottles are never committed** — the repo is public. They go in

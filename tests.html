@@ -923,6 +923,12 @@ function define() {
     eq(one({ name: 'x'.repeat(500) }).name.length, 80, 'a paste ignores the attribute');
     eq(one({ notes: 'x'.repeat(900) }).notes.length, 600);
     eq(one({ name: 'two\tparts\nhere' }).name, 'two parts here', 'a single-line field loses its tabs and breaks');
+    /* An opened bottle's note was 140 while its box had grown to three lines
+       (Charles, 2026-10-25): it is the wine's 600 now, in the box and in code. */
+    const line = H.normalizeState({ wines: [], opened: [{ id: 'n1', date: '2026-10-25', label: 'X',
+      note: 'y'.repeat(900) }], settings: {} }).opened[0];
+    eq(line.note.length, 600, 'an opened bottle\u2019s note keeps 600 characters');
+    eq(W.document.getElementById('o_note').maxLength, 600, 'and its box lets you type them');
   });
   t('ABSENT is not zero: a missing value or window stays missing', () => {
     const w = one({});

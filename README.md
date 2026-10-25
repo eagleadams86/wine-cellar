@@ -343,7 +343,7 @@ every page on `eagleadams86.github.io`, it ships a Content-Security-Policy and l
 third-party script except Google's sync code, which is fetched only for sync. Every field is
 type-checked and capped at the data boundary (`normalizeState`), so a backup, a share link
 or the cloud can never plant anything the app did not expect. Notes are capped at 600
-characters, opened-bottle notes at 140.
+characters, opened-bottle notes too.
 
 ## Files
 
