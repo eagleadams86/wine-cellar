@@ -3153,7 +3153,7 @@ function define() {
       await withKey(checkFetch(asked), async () => {
         H.__plant(CHECK_FX);
         D.getElementById('checkBtn').click();
-        ok(/4 wines/.test(D.getElementById('checkIntro').textContent) && /\$0\.56/.test(D.getElementById('checkIntro').textContent),
+        ok(/4 wines/.test(D.getElementById('checkIntro').textContent) && /\$0\.24/.test(D.getElementById('checkIntro').textContent),
            'it says how many and what it will cost before spending anything', D.getElementById('checkIntro').textContent);
         eq(asked.length, 0, 'and opening the window looks nothing up');
         ok(D.getElementById('checkSave').hidden, 'with nothing ticked yet, there is no Save to press');
@@ -3279,7 +3279,7 @@ function define() {
         eq(['fx-hold', 'fx-past', 'fx-ready', 'fx-empty'].map((id) => pick(id).checked), [false, true, true, true],
            'checked 10 days ago is left out under 90 days');
         eq(D.getElementById('checkPickCount').textContent, '3 of 4 selected');
-        ok(/Check 3 Wines/.test(D.getElementById('checkStart').textContent) && /\$0\.42/.test(D.getElementById('checkIntro').textContent),
+        ok(/Check 3 Wines/.test(D.getElementById('checkStart').textContent) && /\$0\.18/.test(D.getElementById('checkIntro').textContent),
            'Start and the cost count the selection', D.getElementById('checkIntro').textContent);
         ok(/Checked 10 days ago/.test(D.querySelector('#checkList [data-check="fx-hold"]').textContent), 'each wine says when');
         const since = D.getElementById('checkSince');
