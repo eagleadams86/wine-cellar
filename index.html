@@ -4212,7 +4212,7 @@ function renderOpened() {
       + (hasPaid ? '<td class="num nowrap" data-label="Paid">' + esc(fmtPaid(o.paid)) + '</td>' : '')
       /* The stars are decoration over a number: aria-hidden, so a screen reader
          and the CSV both get "4/5" rather than a row of glyphs. */
-      + '<td class="num" data-label="Rating">' + (o.rating ? '<span aria-hidden="true" class="stars">'
+      + '<td class="num nowrap" data-label="Rating">' + (o.rating ? '<span aria-hidden="true" class="stars">'
           + '★'.repeat(o.rating) + '</span> ' + o.rating + '/5' : '—')
       + '</td>'
       + '<td data-label="Timing">' + timingPill(timingOf(o)) + '</td>'

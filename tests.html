@@ -3987,6 +3987,9 @@ function define() {
       H.__plant(fx);
       W.setTab('opened');
       eq(heads(), ['Opened', 'Wine', 'Region', 'Grape', 'Rating', 'Timing', 'Age', 'Note'], 'no price anywhere: no Paid column');
+      /* Charles, 2026-10-25: four stars and "4/5" split over two lines. */
+      ok([...D.querySelectorAll('#openedTable tbody td[data-label="Rating"]')].every((c) => W.getComputedStyle(c).whiteSpace === 'nowrap'),
+         'a rating never wraps — the stars and the score stay on one line');
       fx.opened[1].paid = 24; H.__plant(fx);
       eq(heads(), ['Opened', 'Wine', 'Region', 'Grape', 'Paid', 'Rating', 'Timing', 'Age', 'Note'], 'one price: Paid appears');
       D.querySelector('#openedTable [data-sort="region"]').click();
