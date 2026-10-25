@@ -127,6 +127,11 @@ the family doesn't.
   when `!w.vintage` and `added` is a day or bare year — "in the owner's cellar since X, so bottled
   no later than that". `LOOKUP_SYSTEM` says an NV window runs from bottling (a bottling date read
   off the photo first). The editor passes the Added box as the form holds it. privacy.html says so.
+- **Lookup text caps** (2026-10-25, Charles: "100 is clearly not enough"): Claude's value/window
+  explanation `BASIS_MAX = 250` (`clipWords`, whole word + "…"), the Looked up line
+  `LOOKUP_LINE_MAX = 300` so a whole explanation always fits after the date (websites give way
+  first), and wine notes `NOTES_MAX = 600` so the line still fits beside the owner's notes. All
+  three are declared up with `clipWords`, ABOVE normalizeState — boot reads them (TDZ).
 - **The thumbnail enlarges** into `#photoView`, a TOP-LEVEL dialog (inside the edit window its
   clicks would trip that window's click-outside and close both). `photoFit` sizes it to the
   photo's own ratio within the opener's width × the screen height. Any click, ✕ or Escape
@@ -145,7 +150,7 @@ the family doesn't.
   stay on record, hidden unless Settings → *Show wines with no bottles left*, and are never in
   a figure.
 - **Free-text notes are allowed here** — this is a personal app, not one of the two work apps
-  — but capped (300 / 140) and single-line where the field is single-line.
+  — but capped (600 / 140; NOTES_MAX) and single-line where the field is single-line.
 - **Wine Access's descriptions are their copyrighted text.** Notes seeded from them are short
   summaries in our own words, never pasted copy.
 - **Charles's real bottles are never committed** — the repo is public. They go in
@@ -271,7 +276,7 @@ the family doesn't.
   has no answer, so it keeps its box.
 - **Not found still leaves a note** (2026-10-24): `lookupNoteLine` says "Claude could not find
   this exact wine" for `low`, with no sources; `putLookupNote()` is the ONE rule (replace an older
-  "Looked up" line, else append, only within 300) for the editor, Check All (a pre-ticked `note`
+  "Looked up" line, else append, only within NOTES_MAX = 600) for the editor, Check All (a pre-ticked `note`
   pseudo-line from `lookupDiffs`) and paste.
 - **An installed iPhone draws under the status bar** (black-translucent), so the header pads by
   `env(safe-area-inset-top)`, a fixed `body::before` band in `--surface` keeps scrolled content

@@ -906,7 +906,7 @@ function define() {
   });
   t('text is capped in code, not only by maxlength', () => {
     eq(one({ name: 'x'.repeat(500) }).name.length, 80, 'a paste ignores the attribute');
-    eq(one({ notes: 'x'.repeat(900) }).notes.length, 300);
+    eq(one({ notes: 'x'.repeat(900) }).notes.length, 600);
     eq(one({ name: 'two\tparts\nhere' }).name, 'two parts here', 'a single-line field loses its tabs and breaks');
   });
   t('ABSENT is not zero: a missing value or window stays missing', () => {
@@ -2662,7 +2662,13 @@ function define() {
     ok(c.length <= 100 && /…$/.test(c), c);
     ok(/date\.?…$|2010 cellar…$|cellar date…$/.test(c), 'it stops after a whole word: ' + c);
     eq(H.clipWords('Short one.', 100), 'Short one.', 'a short one is untouched');
-    eq(H.readLookup({ confidence: 'high', window_basis: long, sources: [] }).windowBasis, c, 'readLookup uses it');
+    eq(H.readLookup({ confidence: 'high', window_basis: long, sources: [] }).windowBasis, long, 'a 105-character one is kept whole');
+    const huge = (long + ' ').repeat(3);
+    const w = H.readLookup({ confidence: 'high', window_basis: huge, sources: [] }).windowBasis;
+    ok(w.length <= 250 && /…$/.test(w), 'past 250 it is clipped on a word: ' + w.length);
+    const line = H.lookupNoteLine(H.readLookup({ confidence: 'high', window_basis: huge,
+      sources: [{ title: 'a', url: 'https://www.wineaccess.com/x' }] }), '2026-10-25');
+    ok(line.indexOf(w) !== -1, 'and the Looked up line carries the whole 250, never cut again');
   });
   t('a non-vintage wine sends when it arrived, so its window runs from bottling', () => {
     const q = (w) => JSON.stringify(H.buildLookupRequest(Object.assign({ name: 'Sample Tawny' }, w), '2026-10-25'));
@@ -3255,10 +3261,11 @@ function define() {
     const fits = H.lookupNoteLine(r('My estimate; Wine Access merchant note says now–2040, which I shortened for a modest Saint-Émilion',
       ['wineaccess.com']), '2026-10-24');
     ok(/ · wineaccess\.com$/.test(fits), 'the whole website, not "wineaccess.c": ' + fits);
-    const long = 'x'.repeat(10) + ' ' + 'word '.repeat(19);
+    const long = 'x'.repeat(10) + ' ' + 'word '.repeat(38);
     const many = ['aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.com', 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.com', 'ccccccccccccccccccccccccccccccccc.com'];
     const line = H.lookupNoteLine(r(long, many), '2026-10-24');
-    ok(line.length <= 200, line.length);
+    ok(line.length <= 300, line.length);
+    ok(line.indexOf(H.readLookup({ window_basis: long }).windowBasis) !== -1, 'the whole explanation is kept');
     ok(line.indexOf('ccccc') === -1 && line.endsWith('.com'), 'a website that does not fit is dropped whole: ' + line);
   });
   t('a newer check replaces the Looked up line rather than stacking a second', () => {
@@ -3410,7 +3417,7 @@ function define() {
        'Looked up 2026-10-24 · Claude could not find this exact wine', 'not found says so, and names no source');
     eq(H.putLookupNote('Mine.\nLooked up 2020-01-01', 'Looked up 2026'), 'Mine.\nLooked up 2026');
     eq(H.putLookupNote('', 'Looked up 2026'), 'Looked up 2026');
-    eq(H.putLookupNote('x'.repeat(295), 'Looked up 2026'), 'x'.repeat(295), 'no room, no line');
+    eq(H.putLookupNote('x'.repeat(595), 'Looked up 2026'), 'x'.repeat(595), 'no room, no line');
   });
   t('the Check window selects the wines not checked lately, and checks only those', async () => {
     const D = W.document, asked = [], proto = W.Storage.prototype, realStore = proto.setItem;

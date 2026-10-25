@@ -2047,7 +2047,7 @@ html[data-booting] footer { visibility: hidden; }
   </div>
   <div class="field">
     <label for="f_notes">Notes</label>
-    <textarea id="f_notes" maxlength="300" rows="3"
+    <textarea id="f_notes" maxlength="600" rows="3"
               placeholder="What it tastes like, why you bought it…"></textarea>
   </div>
   <p class="warn-line" id="wineWarn" role="status"></p>
@@ -2628,6 +2628,14 @@ const fmtAdded = (a) => (DATE_RE.test(a || '') ? fmtDate(a) : ADDED_YEAR_RE.test
 function cleanLine(v, cap) {
   return String(v == null ? '' : v).replace(/[\u0000-\u001f\u007f]+/g, ' ').trim().slice(0, cap);
 }
+/* 250 for Claude's explanation of a value or window (Charles, 2026-10-25:
+   "100 is clearly not enough" — it was cut at 100). The Looked up line is
+   300, so a whole explanation always fits after the date and only the
+   websites give way; and the notes hold 600, so that line still fits beside
+   notes of your own. */
+const BASIS_MAX = 250;
+const LOOKUP_LINE_MAX = 300;
+const NOTES_MAX = 600;
 /* cleanLine, but a line too long ends on a whole WORD with "…" — Claude's
    explanation of a value or window was cut at 100 mid-word ("the ow",
    Charles, 2026-10-25), as the Looked up line once was at 160. */
@@ -2917,7 +2925,7 @@ function normalizeState(raw) {
         location: cleanLine(it.location, 40),
         source: cleanSource(it.source),
         added: cleanAdded(it.added),
-        notes: cleanNote(it.notes, 300),
+        notes: cleanNote(it.notes, NOTES_MAX),
         checkedAt: cleanChecked(it.checkedAt),
         /* The narrower place inside the region — "Stags Leap District" inside
            "Napa Valley, California" (SCHEMA 8, 2026-10-24). */
@@ -4914,7 +4922,7 @@ function parseWineList(text, yr) {
                 drinkFrom: cleanYear(win.from), drinkTo: cleanYear(win.to),
                 region: cleanLine(at('region'), 60), grape: grape,
                 color: guessColor(at('color'), grape, name), colorKnown: !!at('color'),
-                location: cleanLine(at('location'), 40), notes: cleanNote(at('notes'), 300),
+                location: cleanLine(at('location'), 40), notes: cleanNote(at('notes'), NOTES_MAX),
                 line: i + 1 });
   });
   return { rows: rows, skipped: skipped };
@@ -5007,10 +5015,10 @@ const LOOKUP_TOOL = {
       value_low: NUM_OR_NULL,
       value_high: NUM_OR_NULL,
       value_is_estimate: { type: 'boolean', description: 'true unless the range comes from current retail listings for this vintage.' },
-      value_basis: { type: 'string', description: 'One short phrase, under 90 characters: where the value came from.' },
+      value_basis: { type: 'string', description: 'One phrase, under 200 characters: where the value came from.' },
       drink_from: INT_OR_NULL,
       drink_to: INT_OR_NULL,
-      window_basis: { type: 'string', description: 'One short phrase, under 90 characters: whose window this is, or that it '
+      window_basis: { type: 'string', description: 'One phrase, under 200 characters: whose window this is, or that it '
         + 'is your estimate.' },
       sources: {
         type: 'array',
@@ -5279,10 +5287,10 @@ function readLookup(found, asked) {
     valueLow: low,
     valueHigh: high == null || high === low ? null : high,
     valueEst: f.value_is_estimate !== false,
-    valueBasis: clipWords(f.value_basis, 100),
+    valueBasis: clipWords(f.value_basis, BASIS_MAX),
     drinkFrom: from,
     drinkTo: to,
-    windowBasis: clipWords(f.window_basis, 100),
+    windowBasis: clipWords(f.window_basis, BASIS_MAX),
     sources: sources,
     /* How many sources were left out for naming a different wine — said on
        screen, because Claude may have taken a figure from one of them. */
@@ -5297,7 +5305,7 @@ function lookupNoteLine(r, today) {
      that it was looked for — but no sources: those were about some other wine. */
   if (r.confidence === 'low') return 'Looked up ' + today + ' · Claude could not find this exact wine';
   const hosts = [...new Set(r.sources.map((s) => new URL(s.url).hostname.replace(/^www\./, '')))].slice(0, 3);
-  /* 200 holds the date, a whole window basis (capped at 100 when read) and
+  /* LOOKUP_LINE_MAX holds the date, a whole window basis (BASIS_MAX when read) and
      three websites. Past it, websites go first, then the basis is cut at a
      WORD with "…" — never mid-word ("wineaccess.c", Charles, 2026-10-24). */
   const head = 'Looked up ' + today;
@@ -5307,10 +5315,9 @@ function lookupNoteLine(r, today) {
   basis = basis.slice(0, LOOKUP_LINE_MAX - head.length - 1).replace(/\s+\S*$/, '') + '…';
   return head + basis;
 }
-const LOOKUP_LINE_MAX = 200;
 /* The ONE rule for putting that line into notes, for the editor, Check All and
    paste alike: a newer line REPLACES the older one rather than stacking a
-   second, and nothing is written unless the notes still fit in 300. Returns
+   second, and nothing is written unless the notes still fit in NOTES_MAX. Returns
    the notes as they should now read (unchanged when there was no room). */
 function putLookupNote(notes, line) {
   const was = String(notes || '');
@@ -5318,7 +5325,7 @@ function putLookupNote(notes, line) {
   const at = lines.findIndex((l) => l.indexOf('Looked up ') === 0);
   if (at !== -1) lines[at] = line; else lines.push(line);
   const out = lines.join('\n');
-  return out.length <= 300 ? out : was;
+  return out.length <= NOTES_MAX ? out : was;
 }
 
 /* ── When Claude last checked a wine ──────────────────────────────────────
@@ -5750,7 +5757,7 @@ $('wineSave').addEventListener('click', () => {
     qty: qty, location: cleanLine($('f_location').value, 40),
     valueLow: low != null ? low : high, valueHigh: low != null ? high : null,
     valueEst: $('f_est').checked, paid: paid, drinkFrom: from, drinkTo: to,
-    source: cleanSource($('f_source').value), added: added, notes: cleanNote($('f_notes').value, 300),
+    source: cleanSource($('f_source').value), added: added, notes: cleanNote($('f_notes').value, NOTES_MAX),
   };
   if (editingId) {
     /* Re-found by id at the moment of saving: another tab or device may have
