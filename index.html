@@ -2022,7 +2022,10 @@ html[data-booting] footer { visibility: hidden; }
     </div>
     <div class="field">
       <label for="f_color">Colour</label>
+      <!-- No colour until one is chosen or Look Up finds it (Charles, 2026-10-25):
+           a new wine used to start as Red, and a white saved in a hurry stayed red. -->
       <select id="f_color">
+        <option value="">Not set</option>
         <option value="red">Red</option>
         <option value="white">White</option>
         <option value="rose">Rosé</option>
@@ -2610,8 +2613,9 @@ const TABS        = ['cellar', 'opened', 'history'];
    for a wine already in the cellar; version-1 code turned both into today.
    3 (2026-10-23): `paid`, what one bottle actually cost. 4 (2026-10-24):
    `checkedAt`, when Claude last answered for the wine. 5 (2026-10-24): an
-   opened line's `region`, `grape` and `paid`, copied from its wine. */
-const SCHEMA = 12;
+   opened line's `region`, `grape` and `paid`, copied from its wine.
+   13 (2026-10-25): a wine's `color` may be '' — not set; 12 turned it red. */
+const SCHEMA = 13;
 
 /* ── Ids from outside are not trusted ──────────────────────────────────────
    Ids reach `data-id` attributes and <option value>s in a dozen places, so an
@@ -3062,7 +3066,8 @@ function normalizeState(raw) {
         id: fixId(it.id),
         vintage: cleanYear(it.vintage),
         name: cleanLine(it.name, 80) || 'Unnamed wine',
-        color: COLORS.indexOf(it.color) === -1 ? 'red' : it.color,
+        /* '' is "not set" (SCHEMA 13): never guessed as red at the boundary. */
+        color: COLORS.indexOf(it.color) === -1 ? '' : it.color,
         region: cleanLine(it.region, 60),
         grape: cleanLine(it.grape, 60),
         /* Absent means one bottle — a wine nobody counted is still a bottle
@@ -5835,7 +5840,7 @@ function openWine(id) {
   $('wineTitle').textContent = it ? 'Edit Wine' : 'Add a Wine';
   $('wineIntro').hidden = !!it;
   $('f_vintage').value = it && it.vintage != null ? it.vintage : '';
-  $('f_color').value = it ? it.color : 'red';
+  $('f_color').value = it ? it.color : '';
   $('f_name').value = it ? it.name : '';
   $('f_region').value = it ? it.region : '';
   $('f_subregion').value = it ? it.subregion || '' : '';
@@ -6271,9 +6276,9 @@ const LOOKUP_BOXES = [
    (r) => !!r.subregion, (r) => sameText($('f_subregion').value, r.subregion)],
   ['grape', 'Grape', () => !$('f_grape').value.trim(), (r) => { $('f_grape').value = r.grape; },
    (r) => !!r.grape, (r) => sameText($('f_grape').value, r.grape)],
-  /* Colour has no empty state — a new wine starts as red — so a lookup sets
-     it on a NEW wine and only offers it on one already saved. */
-  ['color', 'Colour', () => !editingId, (r) => { $('f_color').value = r.color; },
+  /* A colour not set yet is filled like any empty box; a chosen one is only
+     offered. A NEW wine is filled either way, as it was when it started red. */
+  ['color', 'Colour', () => !editingId || !$('f_color').value, (r) => { $('f_color').value = r.color; },
    (r) => !!r.color, (r) => $('f_color').value === r.color],
 ];
 /* Puts Claude's answer into the boxes: the empty ones (a lookup's first
@@ -6842,7 +6847,7 @@ const LOOKUP_FIELDS = [
    (w, r) => sameText(w.subregion, r.subregion), (w) => w.subregion, (w, r) => { w.subregion = r.subregion; }],
   ['grape', 'Grape', (w) => !String(w.grape || '').trim(), (r) => !!r.grape,
    (w, r) => sameText(w.grape, r.grape), (w) => w.grape, (w, r) => { w.grape = r.grape; }],
-  ['color', 'Colour', () => false, (r) => !!r.color,
+  ['color', 'Colour', (w) => !w.color, (r) => !!r.color,
    (w, r) => w.color === r.color, (w) => COLOR_LABEL[w.color] || '', (w, r) => { w.color = r.color; }],
 ];
 /* What Claude says differently about a SAVED wine, one entry per field — and
@@ -7536,7 +7541,7 @@ function csvWines(st) {
   const rows = [['Vintage', 'Wine', 'Colour', 'Region', 'Sub-region', 'Grape', 'Bottles', 'Value low', 'Value high',
                  'Estimate', 'Paid', 'Drink from', 'Drink by', 'Status', 'Where', 'Came from', 'Added', 'Notes']]
     .concat(st.wines.slice().sort((a, b) => wineLabel(a).localeCompare(wineLabel(b))).map((w) => [
-      w.vintage == null ? 'NV' : w.vintage, w.name, COLOR_LABEL[w.color], w.region, w.subregion, w.grape, w.qty,
+      w.vintage == null ? 'NV' : w.vintage, w.name, COLOR_LABEL[w.color] || '', w.region, w.subregion, w.grape, w.qty,
       w.valueLow == null ? '' : w.valueLow, w.valueHigh == null ? (w.valueLow == null ? '' : w.valueLow) : w.valueHigh,
       w.valueEst ? 'yes' : '', w.paid == null ? '' : w.paid, w.drinkFrom == null ? '' : w.drinkFrom, w.drinkTo == null ? '' : w.drinkTo,
       w.qty ? STATUS[statusOf(w, yr, st.settings.soonYears)].label : 'Finished', w.location,

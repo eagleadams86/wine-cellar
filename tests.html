@@ -51,7 +51,7 @@
    go MISSING look exactly like tests that pass — a suite that quietly shrank to
    three checks still says "all 3 tests pass". RAISE THIS when you add tests, and
    lower it only when you retire one deliberately. */
-const EXPECTED = 295;
+const EXPECTED = 296;
 
 /* ── It refuses to run anywhere but localhost, and that is load-bearing ──────
    GitHub Pages publishes this page BESIDE the app, where the iframe below would
@@ -918,6 +918,33 @@ function define() {
     const o = H.normalizeState({ opened: [{ id: 'o', secret: 1 }] }).opened[0];
     eq(Object.keys(o).sort(), ['date', 'drinkFrom', 'drinkTo', 'grape', 'id', 'label', 'note', 'paid', 'photoAt', 'place',
        'rating', 'region', 'subregion', 'vintage', 'wineId'], 'an opened bottle too');
+  });
+  t('a new wine has no colour until one is chosen or looked up', () => {
+    /* Charles, 2026-10-25: Colour defaulted to Red, so a wine saved without
+       touching it was recorded as red whatever it was. */
+    const D = W.document, sel = D.getElementById('f_color'), realSave = W.save;
+    W.save = () => {};
+    try {
+      H.__plant(FIXTURE);
+      W.openWine(null);
+      eq(sel.value, '', 'the window opens on Not set');
+      eq(sel.options[sel.selectedIndex].textContent, 'Not set', 'and says so');
+      D.getElementById('f_name').value = 'Colourless Test';
+      D.getElementById('wineSave').click();
+      const w = H.__state().wines.find((x) => x.name === 'Colourless Test');
+      eq(w && w.color, '', 'saved with no colour, not as red');
+      eq(one({ color: '' }).color, '', 'the boundary keeps "not set"');
+      eq(one({}).color, '', 'and never guesses one');
+      eq(one({ color: 'white' }).color, 'white', 'a real colour is kept');
+      W.openWine(w.id);
+      eq(sel.value, '', 'reopened, it is still Not set');
+      D.getElementById('wineDialog').close();
+      const src = stripComments(APP_SRC);
+      ok(/\['color', 'Colour', \(\) => !editingId \|\| !\$\('f_color'\)\.value,/.test(src),
+         'Look Up fills a colour that is not set, as it fills an empty box');
+      ok(/\['color', 'Colour', \(w\) => !w\.color,/.test(src), 'and Check All counts it as empty');
+      eq(H.SCHEMA >= 13, true, 'SCHEMA moved on, so older code halts rather than turn it red');
+    } finally { W.save = realSave; if (D.getElementById('wineDialog').open) D.getElementById('wineDialog').close(); H.__plant(FIXTURE); }
   });
   t('a backup includes the label photos unless you untick them', () => {
     /* Charles, 2026-10-25: a backup without its photos is the surprise, not the size. */

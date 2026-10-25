@@ -94,6 +94,8 @@ cellar on your other devices.
   text column about two words a line, so it never scrolls sideways or squeezes into tall rows.
   This covers the Cellar, the Opened log and the paste preview. The column headings
   become a row of **Sort by** buttons. It is layout only: Copy and CSV still export the full table.
+- **Colour starts as Not set** — a new wine has no colour until you pick one or Look Up finds
+  it, so a white saved in a hurry isn't recorded as red.
 - **Closing a wine's window keeps your place** — Save, Cancel, Opened One or a tap outside
   leaves the cellar where it was, so you can work down a long list on a phone. Every window
   opens at its top.
@@ -244,7 +246,7 @@ more for each such wine; the cost shown up front doesn't count it).
     California").
   - **Left unticked:** an estimate replacing real prices or a published window; one estimate
     replacing another; a window you typed yourself; a region or grape that means something else.
-    Colour is never pre-ticked.
+    A colour you chose is never pre-ticked; one not set yet is filled like an empty box.
   Any line can still be ticked or unticked by hand. **Tick All** ticks every line on offer and then becomes **Untick All**. A wine
   Claude could not find offers nothing (its History says it was looked for), and one that already matches says so.
 - **Save Ticked Changes** appears once something is ticked, and saves it all at once, so one **Undo** takes the whole check back. Each

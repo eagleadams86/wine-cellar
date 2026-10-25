@@ -131,6 +131,10 @@ the family doesn't.
   explanation `BASIS_MAX = 250` (`clipWords`, whole word + "…"), wine notes `NOTES_MAX = 600`. Both,
   and History's `LOG_*` constants, are declared ABOVE normalizeState — boot reads them (TDZ).
   (`LOOKUP_LINE_MAX` went with the Looked up line in SCHEMA 12.)
+- **SCHEMA 13: `color` may be `''`, "Not set"** (2026-10-25, Charles). The Add window starts
+  there instead of Red; normalizeState keeps it (and no longer guesses red for a missing one);
+  Look Up fills it like an empty box and Check All counts it as empty. The paste list's guess
+  from grape and name still ends in red — that is a parse of what was pasted, not a default.
 - **SCHEMA 12: History (`w.log`)** (2026-10-25, Charles). A Use This on the NAME rewrote the old
   "Looked up …" note line with Claude's window explanation beside a window he had KEPT, and
   `windowBasisOf` trusted that line. So nothing writes notes any more: each wine keeps its last
@@ -367,6 +371,6 @@ was a one-line version of the cellar rule.
 
 ## Tests
 
-`tests.html`, `EXPECTED = 295`. Run it headless (Playwright) rather than in the Browser pane:
+`tests.html`, `EXPECTED = 296`. Run it headless (Playwright) rather than in the Browser pane:
 the pane throttles hidden timers and its focus heuristics turn the 705px keyboard-focus check
 red on untouched code.
