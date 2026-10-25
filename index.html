@@ -948,6 +948,24 @@
               margin: 0 0 var(--sp-4); }
   .photothumb { width: 4rem; height: 4rem; object-fit: cover; flex: none;
                 border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface-alt); }
+  /* The thumbnail is a button that enlarges it, with a ⤢ in its corner so it
+     reads as one — a picture alone gives no hint it can be pressed. */
+  button.photozoom { position: relative; flex: none; padding: 0; min-height: 0; border: 0;
+                     background: none; border-radius: var(--radius-sm); line-height: 0; cursor: zoom-in; }
+  button.photozoom::after { content: '⤢'; position: absolute; right: 3px; bottom: 3px;
+                            width: 1.25rem; height: 1.25rem; line-height: 1.25rem; text-align: center;
+                            font-size: var(--fs-xs); color: var(--text-primary); background: var(--surface);
+                            border: 1px solid var(--border-strong); border-radius: var(--radius-sm); }
+  button.photozoom:hover .photothumb { border-color: var(--text-muted); }
+  /* The enlarged photo: sized by script to the photo's own shape, as large as
+     the window it came from allows (photoFit), so a tall label, a square and a
+     wide one all fill it without empty bands. The ✕ sits on the photo. */
+  #photoView { padding: 0; width: fit-content; height: fit-content; max-width: none; max-height: none; overflow: hidden;
+               background: var(--surface-alt); cursor: zoom-out; }
+  #photoViewImg { display: block; }
+  button.photoview-x { position: absolute; top: var(--sp-3); right: var(--sp-3);
+                       min-width: 2.25rem; min-height: 2.25rem; padding: 0 var(--sp-3);
+                       background: var(--surface); border-color: var(--border-strong); }
   /* What Claude found, under the bar: a quiet panel of the same family as the
      form panels, with its sources as ordinary links. */
   .lookup-panel { border: 1px solid var(--border); border-radius: var(--radius-sm);
@@ -1944,7 +1962,8 @@ html[data-booting] footer { visibility: hidden; }
   <!-- A label photo: Look Up reads it, and a small copy is kept with the wine
        (on this device and in your own account — never in a share link). -->
   <div class="photobar no-print">
-    <img id="photoImg" class="photothumb" alt="The label photo kept with this wine" hidden>
+    <button type="button" class="photozoom" id="photoZoom" aria-label="Enlarge the label photo" hidden>
+      <img id="photoImg" class="photothumb" alt="The label photo kept with this wine" hidden></button>
     <button type="button" id="photoBtn">Add Label Photo</button>
     <button type="button" class="link" id="photoRemove" hidden>Remove Photo</button>
     <input type="file" id="photoFile" accept="image/jpeg,image/png,image/webp" class="sr-only" aria-hidden="true" tabindex="-1">
@@ -2073,7 +2092,8 @@ html[data-booting] footer { visibility: hidden; }
     <!-- The line's own label photo, as on a wine. Opened One copies its
          wine's photo instead, so this row is in the box that mode hides. -->
     <div class="photobar no-print">
-      <img id="ob_photoImg" class="photothumb" alt="The label photo kept with this bottle" hidden>
+      <button type="button" class="photozoom" id="ob_photoZoom" aria-label="Enlarge the label photo" hidden>
+        <img id="ob_photoImg" class="photothumb" alt="The label photo kept with this bottle" hidden></button>
       <button type="button" id="ob_photoBtn">Add Label Photo</button>
       <button type="button" class="link" id="ob_photoRemove" hidden>Remove Photo</button>
       <input type="file" id="ob_photoFile" accept="image/jpeg,image/png,image/webp" class="sr-only" aria-hidden="true" tabindex="-1">
@@ -2435,6 +2455,16 @@ html[data-booting] footer { visibility: hidden; }
   <div class="row-actions">
     <button type="button" class="primary" id="helpCloseBtn">Got It</button>
   </div>
+</dialog>
+
+<!-- The label photo, enlarged over the window it came from. Its OWN top-level
+     dialog, never inside that window: a click here would bubble into the
+     window's click-outside check and close it as well. Any click, the ✕ or
+     Escape puts it away, and the window under it is untouched. -->
+<dialog id="photoView" aria-labelledby="photoViewTitle">
+  <h2 id="photoViewTitle" class="sr-only">Label Photo</h2>
+  <img id="photoViewImg" alt="The label photo, enlarged">
+  <button type="button" class="photoview-x" id="photoViewClose" aria-label="Close the photo">✕</button>
 </dialog>
 
 <!-- Escape is deliberately blocked on this one: either answer replaces one of the
@@ -5441,6 +5471,54 @@ function imageFromTransfer(dt, intoText) {
 }
 const isTextBox = (el) => !!el && (el.tagName === 'TEXTAREA'
   || (el.tagName === 'INPUT' && ['text', 'search', 'number', 'date', 'url', 'email'].indexOf(el.type) !== -1));
+/* ── The label photo, enlarged ───────────────────────────────────────────
+   The thumbnail opens #photoView over the window it sits in. Photos come in
+   every shape — a tall bottle, a square label, a wide shelf, one on its side
+   (Charles, 2026-10-25) — so the view takes the photo's OWN proportions and
+   grows until it meets the room's width or its height, whichever comes first.
+   The room is the window's width by the screen's height: a short Opened Bottle
+   window shouldn't shrink a tall label. Pure and pinned. */
+function photoFit(nw, nh, roomW, roomH) {
+  if (!(nw > 0 && nh > 0 && roomW > 0 && roomH > 0)) return { w: 0, h: 0 };
+  const k = Math.min(roomW / nw, roomH / nh);
+  return { w: Math.max(1, Math.floor(nw * k)), h: Math.max(1, Math.floor(nh * k)) };
+}
+const PHOTO_VIEW_MARGIN = 32;
+let photoViewFrom = null;     /* { dialog, button } it was opened from, while up */
+function sizePhotoView() {
+  const img = $('photoViewImg');
+  if (!photoViewFrom || !img.naturalWidth) return;
+  const vw = document.documentElement.clientWidth, vh = document.documentElement.clientHeight;
+  const r = photoViewFrom.dialog.getBoundingClientRect();
+  const roomW = Math.min(r.width || vw, vw) - PHOTO_VIEW_MARGIN;
+  const fit = photoFit(img.naturalWidth, img.naturalHeight, roomW, vh - 2 * PHOTO_VIEW_MARGIN);
+  img.style.width = fit.w + 'px';
+  img.style.height = fit.h + 'px';
+}
+function openPhotoView(thumb, fromDialog, button) {
+  const src = thumb.getAttribute('src');
+  if (!src || $('photoView').open) return;
+  const img = $('photoViewImg');
+  photoViewFrom = { dialog: fromDialog, button: button };
+  img.style.width = img.style.height = '';
+  img.onload = sizePhotoView;
+  img.src = src;
+  openModal($('photoView'));
+  $('photoViewClose').focus();
+  if (img.complete) sizePhotoView();
+}
+function closePhotoView() {
+  const from = photoViewFrom;
+  photoViewFrom = null;
+  if ($('photoView').open) $('photoView').close();
+  if (from && from.button && !from.button.hidden) from.button.focus();
+}
+/* Any click on it — the photo, the ✕ or outside — puts it away; so does Escape,
+   which closes only this, the topmost window. */
+$('photoView').addEventListener('click', closePhotoView);
+$('photoView').addEventListener('cancel', (e) => { e.preventDefault(); closePhotoView(); });
+window.addEventListener('resize', sizePhotoView);
+
 /* ── The label photo, in a window ─────────────────────────────────────────
    ONE photo row, made twice: the wine window's and the opened-bottle window's
    (Charles, 2026-10-24: the Opened tab had none). `draft` is a photo picked in
@@ -5452,6 +5530,7 @@ function photoRow(ids) {
   const row = { draft: null, removed: false, shown: null, seq: 0 };
   const show = (data) => {
     el('img').hidden = !data;
+    el('zoom').hidden = !data;
     if (data) el('img').src = data; else el('img').removeAttribute('src');
     el('remove').hidden = !data;
     el('btn').textContent = data ? 'Replace Photo' : 'Add Label Photo';
@@ -5509,6 +5588,7 @@ function photoRow(ids) {
     row.draft = null; row.removed = false;
   };
   el('btn').addEventListener('click', () => el('file').click());
+  el('zoom').addEventListener('click', () => openPhotoView(el('img'), el('dialog'), el('zoom')));
   el('file').addEventListener('change', () => {
     const input = el('file');
     const file = input.files && input.files[0];
@@ -5542,7 +5622,7 @@ function photoRow(ids) {
   return row;
 }
 const winePhoto = photoRow({ dialog: 'wineDialog', img: 'photoImg', btn: 'photoBtn', remove: 'photoRemove',
-                             file: 'photoFile', note: 'photoNote' });
+                             file: 'photoFile', note: 'photoNote', zoom: 'photoZoom' });
 /* The window's boxes as they stood when it opened, so leaving it for Opened
    One can ask before throwing away what was typed (or what Look Up filled). */
 let wineFormAtOpen = '';
@@ -5865,7 +5945,7 @@ let drinkingId = null;
 let editingBottleId = null;
 let loggingBottle = false;
 const bottlePhoto = photoRow({ dialog: 'openDialog', img: 'ob_photoImg', btn: 'ob_photoBtn', remove: 'ob_photoRemove',
-                               file: 'ob_photoFile', note: 'ob_photoNote' });
+                               file: 'ob_photoFile', note: 'ob_photoNote', zoom: 'ob_photoZoom' });
 function dressOpenDialog(mode) {
   $('openTitle').textContent = { edit: 'Edit an Opened Bottle', log: 'Log a Bottle' }[mode] || 'Opened a Bottle';
   $('openSave').textContent = mode === 'drink' ? 'Take One Off the Count' : 'Save';
@@ -7786,7 +7866,7 @@ window.__wineTestHooks = {
   __photoStore: function (next) { const was = photoStore; photoStore = next; return was; },
   __photoDraft: function (d, which) { (which === 'opened' ? bottlePhoto : winePhoto).setDraft(d); },
   cleanPhoto: cleanPhoto, photoIdsGone: photoIdsGone, backupPhotoEntries: backupPhotoEntries,
-  photoContent: photoContent, imageFromTransfer: imageFromTransfer, heicBrand: heicBrand, isHeic: isHeic, readPicked: readPicked, PHOTO_MAX: PHOTO_MAX, PHOTO_SEND_MAX: PHOTO_SEND_MAX,
+  photoContent: photoContent, imageFromTransfer: imageFromTransfer, photoFit: photoFit, heicBrand: heicBrand, isHeic: isHeic, readPicked: readPicked, PHOTO_MAX: PHOTO_MAX, PHOTO_SEND_MAX: PHOTO_SEND_MAX,
   SCHEMA: SCHEMA, ID_RE: ID_RE, STORAGE_KEY: STORAGE_KEY, THEME_KEY: THEME_KEY,
   TAB_KEY: TAB_KEY, TABS: TABS, SHARE_FORMAT: SHARE_FORMAT, SHARE_PAYLOAD_V: SHARE_PAYLOAD_V,
   blankState: blankState, normalizeState: normalizeState, defaultSettings: defaultSettings,

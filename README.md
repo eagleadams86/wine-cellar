@@ -151,6 +151,11 @@ picker's Photos pane copies it out again each time it is opened, which Chrome re
 a drag from Photos hands over the iPhone's HEIC original, which Chrome can't open. Adding the
 photo from the iPhone works directly. The window says which of these happened.
 
+- **Press the thumbnail to see it large.** The photo opens over the window, as big as that
+  window allows while keeping the photo's own shape — a tall bottle fills the height, a wide
+  shelf the width. Press anywhere, the ✕, or Escape to put it away; the window under it, and
+  anything typed there, is untouched. The kept copy is about 800 px on its long side, so on a
+  big screen it can look a little soft.
 - **Look Up reads it.** The photo goes to Claude with the question, so it matches the exact
   producer, wine and vintage printed on the label instead of what was typed. A photo alone is
   enough: with the Wine and Vintage boxes empty, Look Up fills them from the label (a name you

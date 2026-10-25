@@ -51,7 +51,7 @@
    go MISSING look exactly like tests that pass — a suite that quietly shrank to
    three checks still says "all 3 tests pass". RAISE THIS when you add tests, and
    lower it only when you retire one deliberately. */
-const EXPECTED = 278;
+const EXPECTED = 280;
 
 /* ── It refuses to run anywhere but localhost, and that is load-bearing ──────
    GitHub Pages publishes this page BESIDE the app, where the iframe below would
@@ -2802,6 +2802,49 @@ function define() {
       eq(D.getElementById('ob_photoImg').getAttribute('src'), PHOTO);
       eq(D.getElementById('ob_photoBtn').textContent, 'Replace Photo');
     } finally { D.getElementById('openDialog').close(); H.__photoStore(was); H.__plant(FIXTURE); }
+  });
+  t('an enlarged photo keeps its own shape and fits the room, tall, square or wide', () => {
+    const fits = (nw, nh, rw, rh) => {
+      const f = H.photoFit(nw, nh, rw, rh);
+      ok(f.w <= rw && f.h <= rh, nw + '×' + nh + ' stays inside ' + rw + '×' + rh);
+      ok(f.w === Math.floor(rw) || f.h === Math.floor(rh), nw + '×' + nh + ' meets an edge of the room');
+      ok(Math.abs(f.w / f.h - nw / nh) < 0.02, nw + '×' + nh + ' keeps its ratio');
+    };
+    fits(200, 800, 668, 900);  /* a tall bottle: the height decides */
+    fits(800, 800, 668, 900);  /* square: the width decides here */
+    fits(800, 200, 668, 900);  /* a wide shelf: the width decides */
+    fits(800, 600, 1000, 300); /* a short screen */
+    eq(H.photoFit(0, 0, 600, 600), { w: 0, h: 0 }, 'an unread photo is no size, not NaN');
+  });
+  t('the thumbnail opens the photo over its window, and every way out leaves that window open', async () => {
+    const D = W.document, at = '2026-10-24T12:00:00.000Z';
+    const cv = D.createElement('canvas'); cv.width = 400; cv.height = 100;
+    const wide = cv.toDataURL('image/jpeg', 0.5);
+    const mem = new Map([['ol-1', { data: wide, at: at }]]);
+    const was = H.__photoStore({ get: async (id) => mem.get(id) || null, put: async () => true,
+                                 del: async () => null, keys: async () => [...mem.keys()] });
+    const view = D.getElementById('photoView'), dlg = D.getElementById('openDialog');
+    try {
+      H.__plant({ wines: [], opened: [{ id: 'ol-1', label: '2018 Photo Line', date: '2026-10-01', photoAt: at }] });
+      W.openBottleEdit('ol-1');
+      for (let i = 0; i < 20 && D.getElementById('ob_photoZoom').hidden; i++) await tick();
+      ok(!D.getElementById('ob_photoZoom').hidden, 'the thumbnail is a button once there is a photo');
+      const ways = [['the ✕', () => D.getElementById('photoViewClose').click()],
+                    ['a click on the photo', () => D.getElementById('photoViewImg').click()],
+                    ['Escape', () => view.dispatchEvent(new W.Event('cancel', { cancelable: true }))]];
+      for (const [how, shut] of ways) {
+        D.getElementById('ob_photoZoom').click();
+        for (let i = 0; i < 20 && !D.getElementById('photoViewImg').style.width; i++) await tick();
+        ok(view.open, how + ': it opens');
+        eq(D.getElementById('photoViewImg').getAttribute('src'), wide, 'the same photo');
+        const img = D.getElementById('photoViewImg');
+        const w = parseFloat(img.style.width), h = parseFloat(img.style.height);
+        ok(w > 64 && Math.abs(w / h - 4) < 0.1, 'wide, at its own 4:1, and bigger than the thumbnail (' + w + '×' + h + ')');
+        shut();
+        ok(!view.open && dlg.open, how + ' closes the photo and only the photo');
+        eq(D.activeElement && D.activeElement.id, 'ob_photoZoom', 'and the focus is back on the thumbnail');
+      }
+    } finally { if (view.open) view.close(); dlg.close(); H.__photoStore(was); H.__plant(FIXTURE); }
   });
   t('a backup’s photos come back only for wines that claim one, and only valid ones', () => {
     const at = '2026-10-24T12:00:00.000Z';
