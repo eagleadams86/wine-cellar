@@ -117,6 +117,10 @@ the pages it used.
   ("Came from, in the owner's words: Wine Access"), and Claude searches that shop first — the
   shop that sold it usually still lists it, at about what you paid. Leave Came from blank to
   send nothing.
+- **A non-vintage wine is dated from its bottling.** For an NV wine the **Added** date goes too,
+  as "bottled no later than", and Claude counts the drinking window from bottling rather than
+  from today — a tawny Port is ready the day it is bottled and does not improve after. A bottling
+  date visible in the label photo wins. Enter just the year if that is all you know.
 - **It says how sure it is of the bottle** — sure of the wine, probably the right wine, or could
   not find it. That badge is only about *which* bottle; how firm the value and window are is on
   their own lines ("est.", "my estimate"), so a wine nobody sells any more can still be "Sure of

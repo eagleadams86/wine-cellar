@@ -123,6 +123,10 @@ the family doesn't.
   while Claude guessed $45–75): `buildLookupRequest` adds "Came from, in the owner's words: …"
   (never the old "Already in the cellar"), and `LOOKUP_SYSTEM` says to search that shop first.
   The editor's Look Up passes `f_source`; Check All and paste pass the wine. privacy.html says so.
+- **A non-vintage lookup sends Added** (2026-10-25, Charles's decade-old 30-year tawnies): only
+  when `!w.vintage` and `added` is a day or bare year — "in the owner's cellar since X, so bottled
+  no later than that". `LOOKUP_SYSTEM` says an NV window runs from bottling (a bottling date read
+  off the photo first). The editor passes the Added box as the form holds it. privacy.html says so.
 - **The thumbnail enlarges** into `#photoView`, a TOP-LEVEL dialog (inside the edit window its
   clicks would trip that window's click-outside and close both). `photoFit` sizes it to the
   photo's own ratio within the opener's width × the screen height. Any click, ✕ or Escape
@@ -331,6 +335,6 @@ was a one-line version of the cellar rule.
 
 ## Tests
 
-`tests.html`, `EXPECTED = 286`. Run it headless (Playwright) rather than in the Browser pane:
+`tests.html`, `EXPECTED = 287`. Run it headless (Playwright) rather than in the Browser pane:
 the pane throttles hidden timers and its focus heuristics turn the 705px keyboard-focus check
 red on untouched code.

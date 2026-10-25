@@ -5034,7 +5034,10 @@ const LOOKUP_SYSTEM = [
   'Drinking window: prefer a critic\'s published window for this vintage (Wine Spectator, Vinous,',
   'Wine Advocate, Jancis Robinson, Decanter, James Suckling, or the CellarTracker community). If no',
   'one has published one, estimate from the wine\'s style, structure and vintage, and say in',
-  'window_basis that it is your estimate. Years only.',
+  'window_basis that it is your estimate. Years only. A NON-VINTAGE wine\'s window runs from its',
+  'bottling, not from today: use a bottling date printed on the label photo if one is visible, else',
+  'the date the owner says it was in their cellar by, and say which in window_basis. A style that is',
+  'ready when bottled, such as tawny Port, starts its window at bottling.',
   '',
   'Names: region and grape follow the formats in record_wine exactly, whatever the sources or the',
   'owner wrote, so one place or grape is always spelled one way and the owner can group by it. If one',
@@ -5093,6 +5096,11 @@ function buildLookupRequest(w, today, tune, names, photo) {
        "Already in the cellar" choice says nothing and stays home. */
     cleanSource(w.source) && cleanSource(w.source) !== OLD_SOURCES.cellar
       ? 'Came from, in the owner\'s words: ' + cleanSource(w.source) : '',
+    /* A non-vintage wine is dated by its BOTTLING, not by today: a 30-year
+       tawny is ready the day it is bottled (Charles, 2026-10-25, on two ports
+       a decade in the cellar). When it arrived is the latest it was bottled. */
+    !w.vintage && (DATE_RE.test(w.added || '') || ADDED_YEAR_RE.test(w.added || ''))
+      ? 'Non-vintage; in the owner\'s cellar since ' + w.added + ', so bottled no later than that.' : '',
     n.regions.length ? '\nRegions already in this cellar: ' + n.regions.join('; ') : '',
     n.grapes.length ? 'Grapes already in this cellar: ' + n.grapes.join('; ') : '',
   ].filter(Boolean).join('\n');
@@ -5944,7 +5952,8 @@ $('lookupBtn').addEventListener('click', async () => {
   const key = lookupKey();
   if (!key) { $('lookupNote').textContent = 'Add your Claude API key in Settings first.'; return; }
   const w = { vintage: cleanYear($('f_vintage').value), name: name,
-              region: $('f_region').value, grape: $('f_grape').value, source: $('f_source').value };
+              region: $('f_region').value, grape: $('f_grape').value, source: $('f_source').value,
+              added: $('f_yearOnly').checked ? $('f_addedYear').value.trim() : $('f_added').value };
   const ctl = new AbortController();
   lookupCtl = ctl;
   $('lookupBtn').textContent = 'Stop Looking';
