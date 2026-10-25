@@ -20,6 +20,9 @@ cellar on your other devices.
   be on at once, each marked with a ✓. The **Status** box in the Cellar is the same filter as a
   list of tick boxes in priority order — Past Window, Drink Soon, Ready, Hold, No Window — and
   **Clear** lets them all go. The page stays where it is when you press a tile.
+- **Load Sample Data** fills the cellar with invented wines to try the app on, and adds to anything
+  already there rather than replacing it. The button goes away once a wine or bottle of your own is in
+  the cellar.
 - **Paid per bottle** in the wine window records what one bottle actually cost (to the cent).
   Once any wine has one, the Cellar table grows a **Paid** column that says, under each price,
   whether you paid **under value**, **in range** or **over value** against the Value Each range —

@@ -51,7 +51,7 @@
    go MISSING look exactly like tests that pass — a suite that quietly shrank to
    three checks still says "all 3 tests pass". RAISE THIS when you add tests, and
    lower it only when you retire one deliberately. */
-const EXPECTED = 297;
+const EXPECTED = 299;
 
 /* ── It refuses to run anywhere but localhost, and that is load-bearing ──────
    GitHub Pages publishes this page BESIDE the app, where the iframe below would
@@ -4023,6 +4023,32 @@ function define() {
       W.openBottleEdit(line.id); D.getElementById('o_note').value = 'Lovely'; D.getElementById('openSave').click();
       eq(H.__state().opened.find((o) => o.id === line.id).region, 'Napa Valley', 'a snapshot, like the name');
     } finally { proto.setItem = realStore; D.getElementById('openDialog').close(); H.__plant(FIXTURE); }
+  });
+  t('Load Sample Data shows only while the cellar holds nothing of your own', () => {
+    const D = W.document, btn = () => D.getElementById('sampleBtn').hidden;
+    try {
+      H.__plant(Object.assign({}, FIXTURE, { wines: [{ id: 'demo-soon', name: 'Demo', qty: 1 }], opened: [] }));
+      eq(btn(), false, 'demo rows alone: still offered');
+      H.__plant(Object.assign({}, FIXTURE, { wines: [{ id: 'demo-soon', name: 'Demo', qty: 1 }],
+        opened: [{ id: 'mine-1', wineId: null, date: '2026-01-02', label: 'NV Mine' }] }));
+      eq(btn(), true, 'one bottle of your own: gone');
+      H.__plant(FIXTURE);
+      eq(btn(), true, 'a cellar of your own: gone');
+    } finally { H.__plant(FIXTURE); }
+  });
+  t('refitting one card list leaves the others, and the page, where they are', () => {
+    const D = W.document;
+    H.__plant(FIXTURE); W.setTab('cellar');
+    const t = D.getElementById('cellarTable'), seen = [];
+    const mo = new W.MutationObserver((r) => seen.push(...r));
+    mo.observe(t, { attributes: true, attributeFilter: ['class'] });
+    /* Paste a List's preview getting its first width as the window opens: the
+       Cellar behind must not be laid out again — that shortened the page for a
+       moment and iPhone Safari dropped the reader at its foot (2026-10-25). */
+    W.fitCards(new Set([D.getElementById('pastePreview')]));
+    const touched = mo.takeRecords().length + seen.length;
+    mo.disconnect();
+    eq(touched, 0, 'the Cellar table is not probed');
   });
   t('an opened bottle keeps its own History: an edit, a logged bottle, Undo, and the History tab', () => {
     const D = W.document, proto = W.Storage.prototype, realStore = proto.setItem;

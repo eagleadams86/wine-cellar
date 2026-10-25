@@ -227,7 +227,12 @@ the family doesn't.
   name, or sits under it at 2 columns; Region, Changed, Left span 2; Note spans all. An empty td
   keeps its cell (`visibility: hidden`) unless nothing after it is filled. The paste preview keeps
   the flex line (an inline-size container inside a content-sized dialog sizes to 0). The phone test
-  checks `drift` — fields with more than one left edge — is empty. Each `<td>` carries `data-label` (the card shows it via `::before`,
+  checks `drift` — fields with more than one left edge — is empty. **`fitCards(only)` refits only the hosts an
+  observer saw change, and puts `scrollY` back** (2026-10-25): refitting every host when Paste a
+  List's preview got its first width probed the Cellar behind the window as a table, the page got
+  shorter for a moment, and iPhone Safari (no scroll anchoring) clamped it to the foot. Measured in
+  Playwright WebKit with `devices['iPhone 13']` + `touchscreen.tap` — Chromium never showed it, and
+  moving focus around was a red herring. Each `<td>` carries `data-label` (the card shows it via `::before`,
   so exports never see it) — a new column needs one, and a test checks every cell. The name
   `<th>` leads (`order: -2`), the Status pill rides its line (`order: -1`), sortable headings
   become Sort-by chips.

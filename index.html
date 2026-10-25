@@ -3715,6 +3715,12 @@ function renderWelcome() {
   document.documentElement.toggleAttribute('data-welcome', virgin);
   /* Nothing loaded, nothing to search. */
   document.getElementById('findBtn').hidden = virgin;
+  /* Load Sample Data is for trying the app out: once anything of your own is
+     here (a wine or a bottle that is not one of the demo's `demo-` rows), it
+     goes (Charles, 2026-10-25). Delete All Data brings it back with the
+     welcome card. */
+  const own = (x) => x.id.indexOf('demo-') !== 0;
+  document.getElementById('sampleBtn').hidden = viewOnly || state.wines.some(own) || state.opened.some(own);
   return virgin;
 }
 
@@ -8428,10 +8434,18 @@ window.wcAdopt = (incoming, updatedAt) => {
    A box with no width (a hidden tab, a closed window) is left to be decided
    when it shows. */
 const CARD_HOSTS = ['listWrap', 'openedWrap', 'historyWrap', 'pastePreview'];
-function fitCards() {
+/* `only`: the hosts to refit — those an observer saw change. Refitting EVERY
+   list because one box changed width probed the Cellar behind a window that
+   had just opened: laid out as a table for a moment, the page was shorter,
+   and iPhone Safari (no scroll anchoring) clamped the page to its foot —
+   Paste a List, whose preview box gets its first width as it opens, dropped
+   the reader at the bottom of the cellar every time (Charles, 2026-10-25).
+   And whatever is refitted, the page keeps its place. */
+function fitCards(only) {
+  const pageY = window.scrollY;
   CARD_HOSTS.forEach((id) => {
     const host = document.getElementById(id);
-    if (!host) return;
+    if (!host || (only && !only.has(host))) return;
     host.querySelectorAll('table.cards').forEach((t) => {
       const box = t.parentElement;
       if (!box.clientWidth) return;
@@ -8442,27 +8456,38 @@ function fitCards() {
       t.classList.toggle('cardview', over);
     });
   });
+  if (window.scrollY !== pageY) window.scrollTo(0, pageY);
 }
 (function wireCards() {
   const widths = new WeakMap();
+  const pending = new Set();
   let queued = false;
-  const later = () => {
+  const later = (host) => {
+    if (host) pending.add(host);
     if (queued) return;
     queued = true;
-    requestAnimationFrame(() => { queued = false; fitCards(); });
+    requestAnimationFrame(() => {
+      queued = false;
+      const hosts = pending.size ? new Set(pending) : null;
+      pending.clear();
+      fitCards(hosts);
+    });
   };
   const ro = typeof ResizeObserver === 'function' ? new ResizeObserver((entries) => {
-    if (entries.some((e) => widths.get(e.target) !== e.contentRect.width
-      && (widths.set(e.target, e.contentRect.width), true))) later();
+    entries.forEach((e) => {
+      if (widths.get(e.target) === e.contentRect.width) return;
+      widths.set(e.target, e.contentRect.width);
+      later(e.target);
+    });
   }) : null;
-  const mo = new MutationObserver(fitCards);
+  const mo = new MutationObserver((records) => fitCards(new Set(records.map((r) => r.target))));
   CARD_HOSTS.forEach((id) => {
     const host = document.getElementById(id);
     if (!host) return;
     mo.observe(host, { childList: true });
     if (ro) ro.observe(host);
   });
-  if (!ro) window.addEventListener('resize', later);
+  if (!ro) window.addEventListener('resize', () => later());
 })();
 
 async function boot() {
