@@ -113,9 +113,12 @@ the pages it used.
   can take its value and keep your window; a line that already matches says "✓ in the box", and
   **Use all of Claude's answer** takes everything. Nothing is saved until you press Save
   or Add, and a one-line "Looked up…" note records when and on whose word.
-- **It says how sure it is** — sure of the match, probably the right wine, or could not find it
-  (then it fills nothing rather than guess, and only adds a "Looked up… · Claude could not find
-  this exact wine" note, so you can see it was tried).
+- **It says how sure it is of the bottle** — sure of the wine, probably the right wine, or could
+  not find it. That badge is only about *which* bottle; how firm the value and window are is on
+  their own lines ("est.", "my estimate"), so a wine nobody sells any more can still be "Sure of
+  the wine". A **Label read** badge beside it means a label photo went along and Claude read it.
+  When it can't find the wine it fills nothing rather than guess, and only adds a "Looked up… ·
+  Claude could not find this exact wine" note, so you can see it was tried.
 - **It remembers when.** Each wine keeps the time Claude last answered for it — from this window
   or Check All Wines — saved the moment the answer arrives, even if you change nothing. The wine
   window shows it beside the button ("Checked 12 days ago"). It syncs and backs up with the wine,

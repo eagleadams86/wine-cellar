@@ -51,7 +51,7 @@
    go MISSING look exactly like tests that pass — a suite that quietly shrank to
    three checks still says "all 3 tests pass". RAISE THIS when you add tests, and
    lower it only when you retire one deliberately. */
-const EXPECTED = 281;
+const EXPECTED = 282;
 
 /* ── It refuses to run anywhere but localhost, and that is load-bearing ──────
    GitHub Pages publishes this page BESIDE the app, where the iframe below would
@@ -3124,10 +3124,11 @@ function define() {
     const q = Array.isArray(c) ? c.filter((x) => x.type === 'text').map((x) => x.text).join('') : c;
     const name = Object.keys(CHECK_ANSWERS).find((n) => q.indexOf(n) !== -1);
     asked.push(name);
-    if (photos && Array.isArray(c) && c.some((x) => x.type === 'image')) photos.push(name);
+    const seen = Array.isArray(c) && c.some((x) => x.type === 'image');
+    if (photos && seen) photos.push(name);
     return { ok: true, status: 200, json: async () => ({ stop_reason: 'tool_use', usage: {},
       content: [{ type: 'tool_use', name: 'record_wine', id: 't', input: Object.assign({ matched_wine: name,
-        sources: [] }, CHECK_ANSWERS[name]) }] }) };
+        sources: [] }, seen ? { label_name: name } : {}, CHECK_ANSWERS[name]) }] }) };
   };
   t('a check offers only what differs: empty boxes ticked, your own entries not, colour never', () => {
     const w = CHECK_FX.wines.find((x) => x.id === 'fx-empty');
@@ -3192,6 +3193,11 @@ function define() {
     eq(w.notes.split('\n').length, 2);
     ok(w.notes.indexOf('Looked up 2020') === -1 && /^Mine\.\nLooked up /.test(w.notes), w.notes);
   });
+  t('confidence is about WHICH bottle, not how firm the price or window is', () => {
+    const req = JSON.stringify(H.buildLookupRequest({ name: 'x', vintage: 2012 }, '2026-10-25'));
+    ok(/WHICH bottle/.test(req) && /value_is_estimate and window_basis/.test(req), 'the schema says so');
+    ok(/Confidence is about WHICH bottle only/.test(req), 'and so does the prompt');
+  });
   t('Check All sends a wine’s kept label photo, and asks about the rest by name', async () => {
     const D = W.document, asked = [], photos = [], at = '2026-10-24T12:00:00.000Z';
     const mem = new Map([['fx-empty', { data: PHOTO, at: at }]]);
@@ -3208,6 +3214,9 @@ function define() {
         for (let i = 0; i < 50 && !/checked/.test(D.getElementById('checkNote').textContent); i++) await tick();
         eq(asked.slice().sort(), ['Alpha Pinot', 'Bravo Bianco', 'Charlie Cabernet', 'Delta Blanc'], 'every wine still asked about');
         eq(photos, ['Delta Blanc'], 'and only the one with a photo sent it');
+        const pills = (id) => [...D.querySelectorAll('#checkList [data-check="' + id + '"] .pill')].map((x) => x.textContent);
+        eq(pills('fx-empty'), ['Probably the right wine', 'Label read'], 'its answer says the label was read');
+        eq(pills('fx-hold'), ['Sure of the wine'], 'one asked by name does not');
       });
     } finally { proto.setItem = realStore; D.getElementById('checkDialog').close(); H.__photoStore(was); H.__plant(FIXTURE); }
   });

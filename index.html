@@ -4975,7 +4975,10 @@ const LOOKUP_TOOL = {
       label_vintage: { anyOf: [{ type: 'integer' }, { type: 'null' }],
         description: 'Only when a label photo is attached: the vintage printed on it. null otherwise.' },
       confidence: { type: 'string', enum: ['high', 'medium', 'low'],
-        description: 'high: sources name this exact wine and vintage. medium: right wine, nearby vintages or thin sources. low: could not find it.' },
+        description: 'WHICH bottle this is, and nothing else - not how good the price or window evidence is '
+          + '(value_is_estimate and window_basis say that). high: the producer, wine and vintage are certain, read from '
+          + 'the attached label or named by a source. medium: probably this wine, but the exact bottling or vintage is '
+          + 'unsure. low: could not identify it or find anything about it.' },
       color: { type: 'string', enum: ['red', 'white', 'rose', 'sparkling', 'dessert'] },
       region: { type: 'string', description: 'Exactly two parts, "Area, State or Country": the wine area a drinker '
         + 'would group by, then the US state or the country, spelled out. E.g. "Napa Valley, California", '
@@ -5034,6 +5037,10 @@ const LOOKUP_SYSTEM = [
   'owner wrote, so one place or grape is always spelled one way and the owner can group by it. If one',
   'of the owner\'s names listed with the bottle already fits the format and means the same place or',
   'grape, use it letter for letter.',
+  '',
+  'Confidence is about WHICH bottle only. A legible label photo, or a source naming this exact wine',
+  'and vintage, makes it "high" even when no merchant lists this vintage today - the estimate flags',
+  'and window_basis already say how firm the figures are.',
   '',
   'List the pages you actually used in sources. If you cannot find the wine, say so with',
   'confidence "low" and null values - a wrong number is worse than none.',
@@ -5781,8 +5788,16 @@ function lookupStop() {
 }
 /* One row per thing a lookup can fill: [key, label, is the box empty, put
    Claude's answer in, did Claude find one, does the box already say it]. */
-const LOOKUP_CONF = { high: ['ok', 'Sure of the match'], medium: ['warn', 'Probably the right wine'],
+/* The badge answers ONE question: is this the right bottle? How firm the
+   price and window are is said on their own lines ("est.", "my estimate").
+   Until 2026-10-25 one word did both jobs, and "Probably the right wine"
+   came back for a bottle whose label Claude had just read, only because no
+   merchant listed that vintage (Charles, on a Check All of 21 wines). */
+const LOOKUP_CONF = { high: ['ok', 'Sure of the wine'], medium: ['warn', 'Probably the right wine'],
                       low: ['err', 'Could not find this exact wine'] };
+/* A second, quiet badge when a label photo went with the question and Claude
+   read it — so a photo's part in the answer can be seen at a glance. */
+const labelPill = (r) => (r.labelName ? ' <span class="pill">Label read</span>' : '');
 const sameText = (a, b) => String(a || '').trim().toLowerCase() === String(b || '').trim().toLowerCase();
 const boxNum = (id) => ($(id).value === '' ? null : Number($(id).value));
 const LOOKUP_BOXES = [
@@ -5850,7 +5865,7 @@ function renderLookupPanel(r) {
         : '<button type="button" class="link" data-use="' + key + '">Use this</button>') + '</p>';
   }).join('');
   panel.innerHTML = '<p><strong>' + esc(r.matched || 'No match') + '</strong> '
-    + '<span class="pill ' + conf[0] + '">' + esc(conf[1]) + '</span></p>'
+    + '<span class="pill ' + conf[0] + '">' + esc(conf[1]) + '</span>' + labelPill(r) + '</p>'
     + (r.labelName ? '<p>The label reads <strong>' + esc((r.labelVintage ? r.labelVintage + ' ' : '') + r.labelName)
       + '</strong></p>' : '')
     + lines
@@ -6532,7 +6547,7 @@ function checkBlock(w) {
   const diffs = lookupDiffs(w, r);
   const hosts = r.sources.map((x) => '<a href="' + esc(x.url) + '" target="_blank" rel="noopener noreferrer">'
     + esc(new URL(x.url).hostname.replace(/^www\./, '')) + '</a>');
-  return head + '<span class="pill ' + conf[0] + '">' + esc(conf[1]) + '</span>'
+  return head + '<span class="pill ' + conf[0] + '">' + esc(conf[1]) + '</span>' + labelPill(r)
     + (r.matched && r.confidence !== 'low' ? ' <span class="lookdone">' + esc(r.matched) + '</span>' : '') + when + '</p>'
     + (r.confidence === 'low' ? '<p>Nothing else to change — Claude did not guess.</p>'
       : !diffs.length ? '<p>✓ Claude’s answer matches what you have.</p>' : '')

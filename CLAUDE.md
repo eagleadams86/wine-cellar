@@ -103,6 +103,19 @@ the family doesn't.
 
 ## Decisions — Don't Undo
 
+- **Lookup `confidence` is WHICH bottle, nothing else** (2026-10-25, Charles). The schema and
+  `LOOKUP_SYSTEM` both say so; how firm the value/window are lives in `value_is_estimate` and
+  `window_basis` on their own lines. Before, one word did both, and a label Claude had just read
+  came back "Probably the right wine" only because no merchant listed that vintage. Badges:
+  `LOOKUP_CONF` (Sure of the wine / Probably / Could not find) plus `labelPill(r)` — a neutral
+  **Label read** when `r.labelName` came back. **Check All sends each wine's kept photo**
+  (`loadPhoto(w)`, the ≤800px copy), as the editor's Look Up does; privacy.html says so.
+- **The thumbnail enlarges** into `#photoView`, a TOP-LEVEL dialog (inside the edit window its
+  clicks would trip that window's click-outside and close both). `photoFit` sizes it to the
+  photo's own ratio within the opener's width × the screen height. Any click, ✕ or Escape
+  closes it. A scripted `.click()` opens it with no user activation, and Chrome's close watchers
+  then group it with the window under it — one Escape closes BOTH; a real click doesn't.
+
 - **Every Find folds text through `searchFold()`** (2026-10-24, Charles: "resonance" must find
   Résonance) — NFD minus marks, lower case, `FOLD_LETTERS` (œ æ ß ø ł đ ð þ ı) spelled out, curly
   apostrophes straightened, applied to the query AND each field via `foldHas`. The Cellar's Find,
@@ -305,6 +318,6 @@ was a one-line version of the cellar rule.
 
 ## Tests
 
-`tests.html`, `EXPECTED = 278`. Run it headless (Playwright) rather than in the Browser pane:
+`tests.html`, `EXPECTED = 282`. Run it headless (Playwright) rather than in the Browser pane:
 the pane throttles hidden timers and its focus heuristics turn the 705px keyboard-focus check
 red on untouched code.
