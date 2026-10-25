@@ -80,7 +80,7 @@ the family doesn't.
   wine that lost its photo on `wine-photo-gone`, and only the list as it stood at boot
   (`photoGoneAtBoot`) is deleted — Undo can bring a wine back until a reload. `sweepPhotos()` runs
   after the reveal, never in a shared view or the harness (`inTests()`). Not in share links
-  (whitelist); in a backup only with **Include label photos** (`photos` map, restored by
+  (whitelist); in a backup with **Include label photos**, ticked by default since 2026-10-25 (`photos` map, restored by
   `backupPhotoEntries`). Tests swap the store with `__photoStore` — the suite never writes the disk.
   `accept` on the file input lists types: `image/*` opened a "comment" for the tests' comment
   stripper and failed three source tests. It leaves HEIC OUT on purpose: Chrome cannot decode
@@ -367,6 +367,6 @@ was a one-line version of the cellar rule.
 
 ## Tests
 
-`tests.html`, `EXPECTED = 294`. Run it headless (Playwright) rather than in the Browser pane:
+`tests.html`, `EXPECTED = 295`. Run it headless (Playwright) rather than in the Browser pane:
 the pane throttles hidden timers and its focus heuristics turn the 705px keyboard-focus check
 red on untouched code.
