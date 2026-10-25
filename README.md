@@ -93,8 +93,9 @@ cellar on your other devices.
   (press the heading band, as in Money Map). Which ones you folded is remembered on this device.
 - **When a list doesn't fit as a table** — on a phone, or a half-screen window — it turns into
   a stack of cards, one to a line so it still reads in its sort order: the wine and its status
-  pill on top, the labelled fields below, each at its own width and as many to a line as
-  fit, so a long region or grape gets room instead of wrapping. It switches whenever the table could not give each
+  pill on top, the labelled fields below in columns, so on the Cellar, Opened and History lists
+  every field sits in the same place on every card as you scroll (2–6 columns depending on the
+  list's width; region takes two, a note the whole line; on a phone the pill sits under the name). It switches whenever the table could not give each
   text column about two words a line, so it never scrolls sideways or squeezes into tall rows.
   This covers the Cellar, the Opened log and the paste preview. The column headings
   become a row of **Sort by** buttons. It is layout only: Copy and CSV still export the full table.

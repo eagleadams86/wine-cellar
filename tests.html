@@ -334,6 +334,13 @@ async function runAsync() {
           /* The phone cards (2026-10-23): how the Cellar list lays out here. */
           listRoom: (() => { const lw = D.getElementById('listWrap'); return lw.scrollWidth - lw.clientWidth; })(),
           rowDisplay: FW.getComputedStyle(D.querySelector('#cellarTable tbody tr')).display,
+          /* Each field's distinct left edges and row offsets across the cards —
+             one each when every card puts the field in the same place. */
+          drift: ['Region', 'Grape', 'Bottles', 'Value', 'Window', 'Where'].filter((l) => {
+            const cells = [...D.querySelectorAll('#cellarTable tbody td[data-label="' + l + '"]')]
+              .filter((c) => c.getBoundingClientRect().width);
+            return new Set(cells.map((c) => Math.round(c.getBoundingClientRect().left))).size > 1;
+          }),
           cardview: D.getElementById('cellarTable').classList.contains('cardview'),
           sortShown: FW.getComputedStyle(D.querySelector('#cellarTable thead')).display !== 'none',
         };
@@ -2348,7 +2355,10 @@ function define() {
   t('at phone width the rows are cards that fit, and the sort survives', () => {
     const r = asyncResults.rows || {};
     ok(!r.error, 'the row frames were measured', r.error);
-    eq(r.narrow.rowDisplay, 'flex', 'a row is a card at 360px');
+    eq(r.narrow.rowDisplay, 'grid', 'a row is a card at 360px');
+    /* Charles, 2026-10-25: "a bit rough when things aren't in the same place
+       while scrolling" — every field starts at one left edge on every card. */
+    eq([r.narrow.drift, r.mid.drift], [[], []], 'each field sits in the same column on every card');
     ok(r.narrow.listRoom <= 1, 'and nothing in the list scrolls sideways', r.narrow.listRoom);
     ok(r.narrow.sortShown, 'the headings stay, as sort buttons');
     eq(r.wide.rowDisplay, 'table-row', 'and a wide window keeps the table');

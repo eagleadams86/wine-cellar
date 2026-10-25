@@ -219,7 +219,15 @@ the family doesn't.
   22px gap (equal 7.5rem shares wrapped a long region to four lines beside a Bottles holding
   "1"; letting fields GROW left holes before the next label — both rejected 2026-10-24), and
   an empty full-width `tr::before` breaks the line after the name and pill so fields start in the
-  same place on every card. Each `<td>` carries `data-label` (the card shows it via `::before`,
+  same place on every card. **Superseded on the three tab lists (2026-10-25, Charles: "rough when
+  things aren't in the same place while scrolling")**: there `tr` is a GRID of `--cols` equal
+  columns set by `@container` on `#listWrap/#openedWrap/#historyWrap` (2 → 6 at 34/48/62/76rem;
+  the container rules must carry the same `:is(#…)` specificity or the 2 default wins), so a field
+  is in the same cell on every card. `td.cardtop` (Status / Opened / When) shares row 1 with the
+  name, or sits under it at 2 columns; Region, Changed, Left span 2; Note spans all. An empty td
+  keeps its cell (`visibility: hidden`) unless nothing after it is filled. The paste preview keeps
+  the flex line (an inline-size container inside a content-sized dialog sizes to 0). The phone test
+  checks `drift` — fields with more than one left edge — is empty. Each `<td>` carries `data-label` (the card shows it via `::before`,
   so exports never see it) — a new column needs one, and a test checks every cell. The name
   `<th>` leads (`order: -2`), the Status pill rides its line (`order: -1`), sortable headings
   become Sort-by chips.

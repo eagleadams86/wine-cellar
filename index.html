@@ -1096,6 +1096,49 @@
     #openedTable.cardview tbody td[data-label="Opened"]::before { content: none; }
     #openedTable.cardview tbody td[data-label="Note"] { order: 2; }
   }
+  /* ── Fields in the SAME place on every card (Charles, 2026-10-25: "a bit
+     rough when things aren't in the same place while scrolling") ─────────
+     The flex line above packs each card by what IT says, so a long region
+     pushed Window onto the next line on one card and not the one below it.
+     On the three tab lists a card is instead a GRID with a column count
+     fixed by the list's own width (a container query, so a half-screen
+     window or the zoom count, not the screen), the same for every card: each
+     field is in the same cell on every card, like a table's column.
+     - The name and the top-right cell (the pill, the opened date, History's
+       moment) share row 1; the fields start on row 2.
+     - Region, and History's Changed and Left, take two columns; a note the
+       whole line.
+     - An EMPTY field keeps its cell (invisible), or the fields after it
+       would shift left — unless nothing after it says anything, when it goes.
+     Not the paste preview: inside a window sized by its content, an
+     inline-size container would size to nothing. */
+  #listWrap, #openedWrap, #historyWrap { container-type: inline-size; }
+  @media screen {
+    :is(#listWrap, #openedWrap, #historyWrap) table.cards.cardview tbody tr {
+      --cols: 2;
+      display: grid; grid-template-columns: repeat(var(--cols), minmax(0, 1fr)); gap: 6px 22px; }
+    :is(#listWrap, #openedWrap, #historyWrap) table.cards.cardview tbody tr::before { content: none; }
+    :is(#listWrap, #openedWrap, #historyWrap) table.cards.cardview tbody th { grid-row: 1; grid-column: 1 / -1; }
+    /* Two columns (a phone): half a line squeezed the name into three, so
+       the name has the whole top line and the pill sits just under it. */
+    :is(#listWrap, #openedWrap, #historyWrap) table.cards.cardview tbody td.cardtop {
+      grid-row: 2; grid-column: 1 / -1; justify-self: start; margin-left: 0; white-space: nowrap; }
+    :is(#listWrap, #openedWrap, #historyWrap) table.cards.cardview tbody td.cardtop::before { content: none; }
+    :is(#listWrap, #openedWrap, #historyWrap) table.cards.cardview tbody td:is([data-label="Region"],
+      [data-label="Changed"], [data-label="Left"]) { grid-column: span 2; }
+    :is(#listWrap, #openedWrap, #historyWrap) table.cards.cardview tbody td[data-label="Note"] { grid-column: 1 / -1; }
+    :is(#listWrap, #openedWrap, #historyWrap) table.cards.cardview tbody td:empty { display: flex; visibility: hidden; }
+    :is(#listWrap, #openedWrap, #historyWrap) table.cards.cardview tbody td:empty:not(:has(~ td:not(:empty))) { display: none; }
+  }
+  @container (min-width: 34rem) {
+    :is(#listWrap, #openedWrap, #historyWrap) table.cards.cardview tbody tr { --cols: 3; }
+    :is(#listWrap, #openedWrap, #historyWrap) table.cards.cardview tbody tr:has(> .cardtop) th { grid-column: 1 / -2; }
+    :is(#listWrap, #openedWrap, #historyWrap) table.cards.cardview tbody td.cardtop {
+      grid-row: 1; grid-column: -2 / -1; justify-self: end; }
+  }
+  @container (min-width: 48rem) { :is(#listWrap, #openedWrap, #historyWrap) table.cards.cardview tbody tr { --cols: 4; } }
+  @container (min-width: 62rem) { :is(#listWrap, #openedWrap, #historyWrap) table.cards.cardview tbody tr { --cols: 5; } }
+  @container (min-width: 76rem) { :is(#listWrap, #openedWrap, #historyWrap) table.cards.cardview tbody tr { --cols: 6; } }
 
   /* Live regions stay IN the tree and are emptied rather than hidden — an
      element toggled out of the tree announces nothing on the way back. */
@@ -4086,7 +4129,7 @@ function renderList() {
         + (hasPaid ? '<td class="num nowrap" data-label="Paid">' + esc(fmtPaid(w.paid))
           + (dealOf(w) ? ' <span class="deal">' + esc(DEAL_WORDS[dealOf(w)]) + '</span>' : '') + '</td>' : '')
         + '<td class="nowrap" data-label="Window">' + esc(fmtWindow(w)) + '</td>'
-        + '<td data-label="Status">' + (w.qty ? pillFor(st) : '<span class="pill">Finished</span>') + '</td>'
+        + '<td class="cardtop" data-label="Status">' + (w.qty ? pillFor(st) : '<span class="pill">Finished</span>') + '</td>'
         + '<td data-label="Where">' + esc(w.location) + '</td>'
         + '</tr>';
     }).join('')
@@ -4226,7 +4269,7 @@ function renderOpened() {
     + '</tr></thead><tbody>'
     + rows.map((o) => '<tr' + (viewOnly ? '' : ' class="rowlink" data-open-bottle="' + esc(o.id) + '"')
       + openedTip(o, shown) + '>'
-      + '<td data-label="Opened">' + esc(fmtDate(o.date)) + '</td>'
+      + '<td class="cardtop" data-label="Opened">' + esc(fmtDate(o.date)) + '</td>'
       /* The row opens its editor; the button on the name is what makes that
          reachable without a mouse — the Cellar table's own pattern. */
       + '<th scope="row">' + (viewOnly ? esc(o.label)
@@ -4351,7 +4394,7 @@ function renderHistory() {
     + v.rows.map((r) => {
       const to = r.lineId ? 'data-bottle="' + esc(r.lineId) + '"' : 'data-open="' + esc(r.wineId) + '"';
       return '<tr' + (viewOnly ? '' : ' class="rowlink" ' + to) + '>'
-      + '<td class="nowrap" data-label="When">' + esc(fmtWhen(r.e.at)) + '</td>'
+      + '<td class="nowrap cardtop" data-label="When">' + esc(fmtWhen(r.e.at)) + '</td>'
       + '<th scope="row">' + (viewOnly ? esc(r.label)
           : '<button type="button" class="rowbtn" ' + (r.lineId ? to : 'data-edit="' + esc(r.wineId) + '"') + '>'
             + esc(r.label) + '</button>')
