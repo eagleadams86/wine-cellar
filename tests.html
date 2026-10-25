@@ -51,7 +51,7 @@
    go MISSING look exactly like tests that pass — a suite that quietly shrank to
    three checks still says "all 3 tests pass". RAISE THIS when you add tests, and
    lower it only when you retire one deliberately. */
-const EXPECTED = 296;
+const EXPECTED = 297;
 
 /* ── It refuses to run anywhere but localhost, and that is load-bearing ──────
    GitHub Pages publishes this page BESIDE the app, where the iframe below would
@@ -916,7 +916,7 @@ function define() {
         'qty', 'region', 'source', 'subregion', 'valueEst', 'valueHigh', 'valueLow', 'vintage'],
        'a new stored field must be added to normalizeState AND bump SCHEMA');
     const o = H.normalizeState({ opened: [{ id: 'o', secret: 1 }] }).opened[0];
-    eq(Object.keys(o).sort(), ['date', 'drinkFrom', 'drinkTo', 'grape', 'id', 'label', 'note', 'paid', 'photoAt', 'place',
+    eq(Object.keys(o).sort(), ['date', 'drinkFrom', 'drinkTo', 'grape', 'id', 'label', 'log', 'note', 'paid', 'photoAt', 'place',
        'rating', 'region', 'subregion', 'vintage', 'wineId'], 'an opened bottle too');
   });
   t('a new wine has no colour until one is chosen or looked up', () => {
@@ -4013,6 +4013,45 @@ function define() {
       W.openBottleEdit(line.id); D.getElementById('o_note').value = 'Lovely'; D.getElementById('openSave').click();
       eq(H.__state().opened.find((o) => o.id === line.id).region, 'Napa Valley', 'a snapshot, like the name');
     } finally { proto.setItem = realStore; D.getElementById('openDialog').close(); H.__plant(FIXTURE); }
+  });
+  t('an opened bottle keeps its own History: an edit, a logged bottle, Undo, and the History tab', () => {
+    const D = W.document, proto = W.Storage.prototype, realStore = proto.setItem;
+    proto.setItem = function () {};
+    const line = () => H.__state().opened.find((o) => o.id === 'fx-o1');
+    try {
+      H.__plant(FIXTURE);
+      W.openBottleEdit('fx-o1');
+      ok(!D.getElementById('bottleHistory').hidden, 'a saved line shows its History');
+      D.getElementById('o_rating').value = '2';
+      D.getElementById('o_place').value = 'Home';
+      D.getElementById('o_note').value = 'Corked, sadly';
+      D.getElementById('openSave').click();
+      const e = line().log[line().log.length - 1];
+      eq(e.k, 'edit', 'an edit in the line\'s window is recorded');
+      eq(e.c.map((d) => d.f).sort(), ['notes', 'place', 'rating'], 'naming each field changed');
+      ok(!JSON.stringify(e).includes('Corked'), 'and never the note\'s words');
+      const n = line().log.length;
+      W.openBottleEdit('fx-o1'); D.getElementById('openSave').click();
+      eq(line().log.length, n, 'a Save that changed nothing writes nothing');
+      W.setTab('history');
+      const row = D.querySelector('#historyTable [data-bottle="fx-o1"]');
+      ok(row, 'the History tab lists the line');
+      D.getElementById('openDialog').close();
+      row.querySelector('button').click();
+      ok(D.getElementById('openDialog').open, 'and pressing it opens the bottle, not the wine');
+      D.getElementById('openDialog').close();
+      W.undoLast();
+      const u = line().log[line().log.length - 1];
+      eq([u.k, line().rating], ['undo', 4],
+         'Undo puts the rating back and says so — the log is carried forward, not undone');
+      W.openLogBottle();
+      ok(D.getElementById('bottleHistory').hidden, 'a new line has no History box yet');
+      D.getElementById('ob_name').value = 'Hand Logged Red';
+      D.getElementById('openSave').click();
+      const added = H.__state().opened[H.__state().opened.length - 1];
+      eq(added.log.map((x) => x.k), ['open'], 'a bottle logged by hand starts its History');
+      ok(!('log' in W.buildSharePayload(H.__state(), { opened: true }).opened[0]), 'never in a share link');
+    } finally { proto.setItem = realStore; D.getElementById('openDialog').close(); W.setTab('cellar'); H.__plant(FIXTURE); }
   });
   t('the Opened list shows Region and Grape, Paid once a line has one, sorts blanks last, and finds', () => {
     const D = W.document;

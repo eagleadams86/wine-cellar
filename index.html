@@ -1928,7 +1928,7 @@ html[data-booting] footer { visibility: hidden; }
       </h2>
       <p class="chart-title">What happened to each wine, newest first: added, changed by hand, looked up
         by Claude — what you took and what you left — opened, put back and undone. Each wine keeps its
-        last 20 entries. Press a line to open its wine.</p>
+        last 20 entries, and so does each opened bottle — its rating, note, date and where. Press a line to open it.</p>
       <div class="filterbar no-print">
         <div class="field" style="flex:1 1 220px">
           <label for="historyFind">Find</label>
@@ -2251,6 +2251,11 @@ html[data-booting] footer { visibility: hidden; }
     <textarea id="o_note" maxlength="600" rows="3" data-keep-caret
               placeholder="Who with, what you ate, what you’d do differently…"></textarea>
   </div>
+  <!-- This bottle's History, newest first — a saved line only (SCHEMA 14). -->
+  <details class="winehist" id="bottleHistory" hidden>
+    <summary>History</summary>
+    <ul class="histlist" id="bottleHistoryList"></ul>
+  </details>
   <p class="warn-line" id="openWarn" role="status"></p>
   <!-- Folded away like the wine window's Delete (Charles, 2026-10-25). -->
   <details class="danger-zone" id="openRemoveZone" hidden>
@@ -2614,8 +2619,10 @@ const TABS        = ['cellar', 'opened', 'history'];
    3 (2026-10-23): `paid`, what one bottle actually cost. 4 (2026-10-24):
    `checkedAt`, when Claude last answered for the wine. 5 (2026-10-24): an
    opened line's `region`, `grape` and `paid`, copied from its wine.
-   13 (2026-10-25): a wine's `color` may be '' — not set; 12 turned it red. */
-const SCHEMA = 13;
+   13 (2026-10-25): a wine's `color` may be '' — not set; 12 turned it red.
+   14 (2026-10-25): an opened line keeps its own History (`log`), and History
+   names three more fields — the day it was opened, its rating and where. */
+const SCHEMA = 14;
 
 /* ── Ids from outside are not trusted ──────────────────────────────────────
    Ids reach `data-id` attributes and <option value>s in a dozen places, so an
@@ -2779,7 +2786,7 @@ const LOG_CAP = 20;
 const LOG_VAL_MAX = 60;
 const LOG_KINDS = ['add', 'paste', 'edit', 'ai', 'check', 'look', 'open', 'back', 'undo', 'revive'];
 const LOG_CODES = ['name', 'vintage', 'color', 'region', 'subregion', 'grape', 'qty', 'location',
-  'value', 'paid', 'window', 'source', 'added', 'notes', 'photo'];
+  'value', 'paid', 'window', 'source', 'added', 'notes', 'photo', 'opened', 'rating', 'place'];
 const LOG_CONF = ['high', 'medium', 'low'];
 const HOST_RE = /^[a-z0-9-]+(\.[a-z0-9-]+)+$/i;
 function cleanLogChanges(v) {
@@ -3155,6 +3162,8 @@ function normalizeState(raw) {
         /* The line's own label photo stamp (SCHEMA 10) — copied from its wine
            by Opened One, or added in the line's window. */
         photoAt: cleanChecked(it.photoAt),
+        /* The line's own History (SCHEMA 14) — the same allowlist as a wine's. */
+        log: cleanLog(it.log),
       };
     });
   {
@@ -3346,7 +3355,8 @@ let undoSnapshot = JSON.stringify(state);   // the state as of the last save or 
    and an Undo never takes it back. Pure and pinned. */
 function coreOf(st) {
   return JSON.stringify(Object.assign({}, st, { version: null,
-    wines: (st.wines || []).map((w) => Object.assign({}, w, { checkedAt: null, log: null })) }));
+    wines: (st.wines || []).map((w) => Object.assign({}, w, { checkedAt: null, log: null })),
+    opened: (st.opened || []).map((o) => Object.assign({}, o, { log: null })) }));
 }
 let undoCore = coreOf(state);
 let undoing = false;
@@ -3388,6 +3398,7 @@ function undoLast() {
   /* Nor what History says happened: each wine keeps the log it has NOW, and
      gains an entry saying what this Undo put back (Charles, 2026-10-25). */
   const was = new Map(state.wines.map((w) => [w.id, w]));
+  const wasLine = new Map(state.opened.map((o) => [o.id, o]));
   const at = nowStamp();
   state = normalizeState(raw);
   state.wines.forEach((w) => {
@@ -3398,6 +3409,15 @@ function undoLast() {
     w.log = before.log.slice();
     const c = diffFields(before, w);
     if (c.length) logTo(w, { at: at, k: 'undo', c: c });
+  });
+  /* An opened line the same way, against its own fields (SCHEMA 14). */
+  state.opened.forEach((o) => {
+    const before = wasLine.get(o.id);
+    if (!before) { logTo(o, { at: at, k: 'revive' }); return; }
+    /* A line made this sitting by Opened One has no log until it is edited. */
+    o.log = (before.log || []).slice();
+    const c = diffLine(before, o);
+    if (c.length) logTo(o, { at: at, k: 'undo', c: c });
   });
   undoing = true;
   save();
@@ -4261,6 +4281,12 @@ function computeHistory(st) {
   st.wines.forEach((w) => (w.log || []).forEach((e, i) => rows.push({ wineId: w.id, label: wineLabel(w), i: i, e: e,
     what: historyWhat(e), changed: (e.c || []).map(changeText), left: (e.x || []).map(leftText),
     src: (e.src || []).join(', ') })));
+  /* And every opened line's, named by its label and the day it was opened —
+     one wine can have several. `lineId` makes the row open the line. */
+  (st.opened || []).forEach((o) => (o.log || []).forEach((e, i) => rows.push({ lineId: o.id,
+    label: o.label + ' · opened ' + fmtDate(o.date), i: i, e: e,
+    what: historyWhat(e), changed: (e.c || []).map(changeText), left: (e.x || []).map(leftText),
+    src: (e.src || []).join(', ') })));
   return rows;
 }
 const HISTORY_COLUMNS = [
@@ -4322,26 +4348,30 @@ function renderHistory() {
   const list = (items) => items.map(esc).join('<br>');
   wrap.innerHTML = '<table id="historyTable" class="cards"><thead><tr>'
     + sortHead(HISTORY_COLUMNS, historySortKey, historySortDir) + '</tr></thead><tbody>'
-    + v.rows.map((r) => '<tr' + (viewOnly ? '' : ' class="rowlink" data-open="' + esc(r.wineId) + '"') + '>'
+    + v.rows.map((r) => {
+      const to = r.lineId ? 'data-bottle="' + esc(r.lineId) + '"' : 'data-open="' + esc(r.wineId) + '"';
+      return '<tr' + (viewOnly ? '' : ' class="rowlink" ' + to) + '>'
       + '<td class="nowrap" data-label="When">' + esc(fmtWhen(r.e.at)) + '</td>'
       + '<th scope="row">' + (viewOnly ? esc(r.label)
-          : '<button type="button" class="rowbtn" data-edit="' + esc(r.wineId) + '">' + esc(r.label) + '</button>')
+          : '<button type="button" class="rowbtn" ' + (r.lineId ? to : 'data-edit="' + esc(r.wineId) + '"') + '>'
+            + esc(r.label) + '</button>')
       + '</th>'
       + '<td data-label="What">' + esc(r.what) + '</td>'
       + '<td class="histcell" data-label="Changed">' + list(r.changed)
         + (r.e.wb ? '<span class="histwhy">Window: ' + esc(r.e.wb) + '</span>' : '') + '</td>'
       + '<td class="histcell" data-label="Left">' + list(r.left) + '</td>'
       + '<td data-label="Sources">' + esc(r.src) + '</td>'
-      + '</tr>').join('')
+      + '</tr>';
+    }).join('')
     + '</tbody></table>';
 }
 /* One wine's History, in its own window: newest first, one line an entry. */
-function renderWineHistory(w) {
-  const box = document.getElementById('wineHistory');
+function renderWineHistory(w, boxId, listId) {
+  const box = document.getElementById(boxId || 'wineHistory');
   const log = w && Array.isArray(w.log) ? w.log : [];
   box.hidden = !w;
   box.open = false;
-  document.getElementById('wineHistoryList').innerHTML = !log.length
+  document.getElementById(listId || 'wineHistoryList').innerHTML = !log.length
     ? '<li>Nothing recorded yet — changes from now on are kept here.</li>'
     : log.slice().reverse().map((e) => '<li><strong>' + esc(fmtWhen(e.at)) + '</strong> · ' + esc(historyWhat(e))
       + ((e.c || []).length ? ' — ' + esc(e.c.map(changeText).join('; ')) : '')
@@ -5649,11 +5679,35 @@ const LOG_FIELDS = [
   ['notes', 'Notes', (w) => w.notes || ''],
   ['photo', 'Photo', (w) => w.photoAt || ''],
 ];
-const LOG_LABEL = Object.fromEntries(LOG_FIELDS.map(([f, label]) => [f, label]));
+/* What History can name on an opened line (SCHEMA 14): the wine as it was
+   copied or typed, and what the reader said about the bottle. The shared codes
+   print the same way as a wine's. */
+const LINE_FIELDS = [
+  ['name', 'Name', (o) => nameOfLabel(o.label)],
+  ['vintage', 'Vintage', (o) => (o.vintage == null ? 'NV' : String(o.vintage))],
+  ['region', 'Region', (o) => o.region || ''],
+  ['subregion', 'Sub-region', (o) => o.subregion || ''],
+  ['grape', 'Grape', (o) => o.grape || ''],
+  ['paid', 'Paid', (o) => (o.paid == null ? '' : fmtPaid(o.paid))],
+  ['window', 'Window', (o) => (o.drinkFrom == null && o.drinkTo == null ? '' : fmtWindow(o))],
+  ['opened', 'Opened on', (o) => (o.date ? fmtDate(o.date) : '')],
+  ['rating', 'Rating', (o) => (o.rating ? '★'.repeat(o.rating) : '')],
+  ['place', 'Where opened', (o) => o.place || ''],
+  ['notes', 'Notes', (o) => o.note || ''],
+  ['photo', 'Photo', (o) => o.photoAt || ''],
+];
+/* Every field either list names, wines' first — the Field filter's order. */
+const ALL_LOG_FIELDS = LOG_FIELDS.concat(LINE_FIELDS.filter(([f]) => !LOG_FIELDS.some((d) => d[0] === f)));
+const LOG_LABEL = Object.fromEntries(ALL_LOG_FIELDS.map(([f, label]) => [f, label]));
 const logVal = (f, w) => LOG_FIELDS.find((d) => d[0] === f)[2](w || {});
 /* What differs between two versions of a wine, as History changes. */
 function diffFields(before, after) {
   return LOG_FIELDS.filter(([f, , val]) => val(before || {}) !== val(after || {}))
+    .map(([f, , val]) => ({ f: f, o: val(before || {}), n: val(after || {}) }));
+}
+/* The same, between two versions of an opened line. */
+function diffLine(before, after) {
+  return LINE_FIELDS.filter(([f, , val]) => val(before || {}) !== val(after || {}))
     .map(([f, , val]) => ({ f: f, o: val(before || {}), n: val(after || {}) }));
 }
 /* Appends one entry, trimmed to the cap, oldest dropped. */
@@ -6469,6 +6523,7 @@ function openBottleEdit(id) {
   dressOpenDialog('edit');
   fillOpenDialog(o);
   bottlePhoto.reset(o);
+  renderWineHistory(o, 'bottleHistory', 'bottleHistoryList');
   openModal($('openDialog'));
 }
 function openLogBottle() {
@@ -6476,6 +6531,7 @@ function openLogBottle() {
   editingBottleId = null;
   loggingBottle = true;
   dressOpenDialog('log');
+  renderWineHistory(null, 'bottleHistory', 'bottleHistoryList');
   fillOpenDialog(null);
   bottlePhoto.reset(null);
   openModal($('openDialog'));
@@ -6488,6 +6544,7 @@ function openDrink(id) {
   editingBottleId = null;
   loggingBottle = false;
   dressOpenDialog('drink');
+  renderWineHistory(null, 'bottleHistory', 'bottleHistoryList');
   $('openBody').textContent = wineLabel(w) + ' — ' + plural(w.qty, 'bottle') + ' left. This takes '
     + 'one off the count and adds a line to the Opened tab.';
   fillOpenDialog(null);
@@ -6520,6 +6577,7 @@ $('openSave').addEventListener('click', () => {
     if (loggingBottle) {
       const line = Object.assign({ id: uid(), wineId: null }, wine, told);
       bottlePhoto.applyTo(line);
+      logTo(line, { at: nowStamp(), k: 'open' });
       state.opened.push(line);
       $('openDialog').close();
       save();
@@ -6529,8 +6587,12 @@ $('openSave').addEventListener('click', () => {
     const o = state.opened.find((x) => x.id === editingBottleId);
     $('openDialog').close();
     if (!o) { render(); toast('That line has gone since the window opened, so nothing was changed.', 5000); return; }
+    const was = Object.assign({}, o);
     Object.assign(o, wine, told);
     bottlePhoto.applyTo(o);
+    /* What the window changed, as History (SCHEMA 14) — nothing, no entry. */
+    const hand = diffLine(was, o);
+    if (hand.length) logTo(o, { at: nowStamp(), k: 'edit', c: hand });
     save();
     toast('Saved');
     return;
@@ -7257,18 +7319,21 @@ $('historyWrap').addEventListener('click', (e) => {
     if (again) again.focus();
     return;
   }
+  if (viewOnly) return;
+  const line = e.target.closest('[data-bottle]');
+  if (line) { openBottleEdit(line.getAttribute('data-bottle')); return; }
   const row = e.target.closest('[data-edit], [data-open]');
-  if (row && !viewOnly) openWine(row.getAttribute('data-edit') || row.getAttribute('data-open'));
+  if (row) openWine(row.getAttribute('data-edit') || row.getAttribute('data-open'));
 });
 $('historyFind').addEventListener('input', renderHistory);
 /* The Field box offers every field History can name. */
-$('historyFieldPanel').innerHTML = LOG_FIELDS.map(([f, label]) =>
+$('historyFieldPanel').innerHTML = ALL_LOG_FIELDS.map(([f, label]) =>
   '<label class="checkline"><input type="checkbox" value="' + esc(f) + '">' + esc(label) + '</label>').join('');
 function setHistoryFilters() {
   const kinds = Object.keys(HISTORY_KINDS).filter((k) => historyPick.has(k));
   $('historyKindSum').textContent = !kinds.length ? 'Everything'
     : kinds.length <= 2 ? kinds.map((k) => HISTORY_KIND_LABEL[k]).join(', ') : kinds.length + ' kinds';
-  const fields = LOG_FIELDS.map(([f]) => f).filter((f) => historyFields.has(f));
+  const fields = ALL_LOG_FIELDS.map(([f]) => f).filter((f) => historyFields.has(f));
   $('historyFieldSum').textContent = !fields.length ? 'Every Field'
     : fields.length <= 2 ? fields.map((f) => LOG_LABEL[f]).join(', ') : fields.length + ' fields';
   $('historyKindBox').querySelectorAll('input').forEach((b) => { b.checked = historyPick.has(b.value); });

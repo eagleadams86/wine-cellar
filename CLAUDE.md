@@ -152,6 +152,16 @@ the family doesn't.
   `computeHistory` + the Opened tab's machinery: `sortHead`, Find via `foldHas`, page-life
   `historyPick` (kinds) / `historyFields` sets, a host in `CARD_HOSTS`, rows open the wine.
   The wine window shows the same list (`renderWineHistory`) under Notes.
+- **SCHEMA 14: an opened line keeps its own History** (2026-10-25, Charles: "history doesn't seem
+  to be tracking changes to the opened bottles"). `o.log`, same `cleanLog` allowlist; `LINE_FIELDS`
+  + `diffLine` are the line's version of LOG_FIELDS/diffFields, adding codes `opened` (date),
+  `rating`, `place`; `ALL_LOG_FIELDS` feeds `LOG_LABEL` and the Field filter. Writers: the line's
+  window Save (`edit`, only when something changed) and Log a Bottle (`open`); Opened One logs on
+  the WINE only (no duplicate row). `coreOf` nulls line logs; `undoLast` carries them forward
+  (capture `wasLine` BEFORE `state` is replaced — reading it after wiped every line's log) and a
+  line made by Opened One this sitting has NO log yet, so `(before.log || [])`. History rows for a
+  line carry `lineId` → `data-bottle` → `openBottleEdit`; `#bottleHistory` in the Opened window.
+  Share links already whitelist line fields, so `log` never travels.
 - **The thumbnail enlarges** into `#photoView`, a TOP-LEVEL dialog (inside the edit window its
   clicks would trip that window's click-outside and close both). `photoFit` sizes it to the
   photo's own ratio within the opener's width × the screen height. Any click, ✕ or Escape

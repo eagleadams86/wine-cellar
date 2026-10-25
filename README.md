@@ -60,7 +60,11 @@ cellar on your other devices.
   of each wine's window. Each wine keeps its **last 20 entries** — the whole cellar syncs as one
   document capped at 1 MB, so History is kept small and never holds the text of your notes. An
   Undo never erases History: it adds an "Undone" entry saying what it put back. A deleted wine's
-  History goes with it.
+  History goes with it. **Opened bottles keep their own History too** — a change made in a bottle's
+  window (rating, note, the day it was opened, where, the wine's details, the photo) is listed under
+  the bottle's label and opening date, pressing it opens that bottle, and the same list sits at the
+  foot of the bottle's window. A bottle logged by hand starts with an "Opened one" entry; one taken
+  from the Cellar is already recorded on its wine. Removing a bottle removes its History with it.
 - **Log a Bottle** — for a bottle opened at dinner, a winery or a tasting: type the wine, press
   **Look Up with Claude** to fill its region, grape and drinking window, and save. It goes straight
   onto the Opened tab and its dashboard without ever being in the Cellar.
