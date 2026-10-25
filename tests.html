@@ -51,7 +51,7 @@
    go MISSING look exactly like tests that pass — a suite that quietly shrank to
    three checks still says "all 3 tests pass". RAISE THIS when you add tests, and
    lower it only when you retire one deliberately. */
-const EXPECTED = 287;
+const EXPECTED = 288;
 
 /* ── It refuses to run anywhere but localhost, and that is load-bearing ──────
    GitHub Pages publishes this page BESIDE the app, where the iframe below would
@@ -2656,6 +2656,14 @@ function define() {
     ok(/out of credit/.test(H.lookupErrorMessage(400, { error: { message: 'Your credit balance is too low' } })), 'no credit');
   });
   const PHOTO = 'data:image/jpeg;base64,/9j/4AAQSkZJRg==';
+  t('a long explanation ends on a whole word with an ellipsis, never mid-word', () => {
+    const long = 'My estimate: tawny is ready at bottling, so the window starts with the owner\'s 2010 cellar date. The rest';
+    const c = H.clipWords(long, 100);
+    ok(c.length <= 100 && /…$/.test(c), c);
+    ok(/date\.?…$|2010 cellar…$|cellar date…$/.test(c), 'it stops after a whole word: ' + c);
+    eq(H.clipWords('Short one.', 100), 'Short one.', 'a short one is untouched');
+    eq(H.readLookup({ confidence: 'high', window_basis: long, sources: [] }).windowBasis, c, 'readLookup uses it');
+  });
   t('a non-vintage wine sends when it arrived, so its window runs from bottling', () => {
     const q = (w) => JSON.stringify(H.buildLookupRequest(Object.assign({ name: 'Sample Tawny' }, w), '2026-10-25'));
     ok(/in the owner's cellar since 2012, so bottled no later than that/.test(q({ vintage: null, added: '2012' })), 'a bare year');

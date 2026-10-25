@@ -2628,6 +2628,15 @@ const fmtAdded = (a) => (DATE_RE.test(a || '') ? fmtDate(a) : ADDED_YEAR_RE.test
 function cleanLine(v, cap) {
   return String(v == null ? '' : v).replace(/[\u0000-\u001f\u007f]+/g, ' ').trim().slice(0, cap);
 }
+/* cleanLine, but a line too long ends on a whole WORD with "…" — Claude's
+   explanation of a value or window was cut at 100 mid-word ("the ow",
+   Charles, 2026-10-25), as the Looked up line once was at 160. */
+function clipWords(v, cap) {
+  const s = cleanLine(v, 100000);
+  if (s.length <= cap) return s;
+  const cut = s.slice(0, cap - 1).replace(/\s+\S*$/, '').replace(/[\s,;:.(\u2014-]+$/, '');
+  return (cut || s.slice(0, cap - 1)) + '…';
+}
 /* Notes keep their line breaks and lose every other control character. */
 function cleanNote(v, cap) {
   return String(v == null ? '' : v).replace(/\r\n?/g, '\n')
@@ -4998,10 +5007,11 @@ const LOOKUP_TOOL = {
       value_low: NUM_OR_NULL,
       value_high: NUM_OR_NULL,
       value_is_estimate: { type: 'boolean', description: 'true unless the range comes from current retail listings for this vintage.' },
-      value_basis: { type: 'string', description: 'One short phrase: where the value came from.' },
+      value_basis: { type: 'string', description: 'One short phrase, under 90 characters: where the value came from.' },
       drink_from: INT_OR_NULL,
       drink_to: INT_OR_NULL,
-      window_basis: { type: 'string', description: 'One short phrase: whose window this is, or that it is your estimate.' },
+      window_basis: { type: 'string', description: 'One short phrase, under 90 characters: whose window this is, or that it '
+        + 'is your estimate.' },
       sources: {
         type: 'array',
         items: {
@@ -5269,10 +5279,10 @@ function readLookup(found, asked) {
     valueLow: low,
     valueHigh: high == null || high === low ? null : high,
     valueEst: f.value_is_estimate !== false,
-    valueBasis: cleanLine(f.value_basis, 100),
+    valueBasis: clipWords(f.value_basis, 100),
     drinkFrom: from,
     drinkTo: to,
-    windowBasis: cleanLine(f.window_basis, 100),
+    windowBasis: clipWords(f.window_basis, 100),
     sources: sources,
     /* How many sources were left out for naming a different wine — said on
        screen, because Claude may have taken a figure from one of them. */
@@ -7951,7 +7961,7 @@ window.__wineTestHooks = {
   __photoStore: function (next) { const was = photoStore; photoStore = next; return was; },
   __photoDraft: function (d, which) { (which === 'opened' ? bottlePhoto : winePhoto).setDraft(d); },
   cleanPhoto: cleanPhoto, photoIdsGone: photoIdsGone, backupPhotoEntries: backupPhotoEntries,
-  __lookupStampKey: () => (lookupStamp ? lookupStamp.key : ''), photoContent: photoContent, imageFromTransfer: imageFromTransfer, photoFit: photoFit, labelNameFor: labelNameFor, heicBrand: heicBrand, isHeic: isHeic, readPicked: readPicked, PHOTO_MAX: PHOTO_MAX, PHOTO_SEND_MAX: PHOTO_SEND_MAX,
+  __lookupStampKey: () => (lookupStamp ? lookupStamp.key : ''), photoContent: photoContent, imageFromTransfer: imageFromTransfer, photoFit: photoFit, clipWords: clipWords, labelNameFor: labelNameFor, heicBrand: heicBrand, isHeic: isHeic, readPicked: readPicked, PHOTO_MAX: PHOTO_MAX, PHOTO_SEND_MAX: PHOTO_SEND_MAX,
   SCHEMA: SCHEMA, ID_RE: ID_RE, STORAGE_KEY: STORAGE_KEY, THEME_KEY: THEME_KEY,
   TAB_KEY: TAB_KEY, TABS: TABS, SHARE_FORMAT: SHARE_FORMAT, SHARE_PAYLOAD_V: SHARE_PAYLOAD_V,
   blankState: blankState, normalizeState: normalizeState, defaultSettings: defaultSettings,
