@@ -94,6 +94,9 @@ cellar on your other devices.
   text column about two words a line, so it never scrolls sideways or squeezes into tall rows.
   This covers the Cellar, the Opened log and the paste preview. The column headings
   become a row of **Sort by** buttons. It is layout only: Copy and CSV still export the full table.
+- **Closing a wine's window keeps your place** — Save, Cancel, Opened One or a tap outside
+  leaves the cellar where it was, so you can work down a long list on a phone. Every window
+  opens at its top.
 - **Opened One** and **Delete Wine** are in the wine's own window (press its row): Opened One
   takes a bottle off the count and writes a line in that log, asking first if you had changed
   something in the window without saving. Press a line on the Opened tab to change its date,

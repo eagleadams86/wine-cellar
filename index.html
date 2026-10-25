@@ -4634,8 +4634,19 @@ function opensOnFocus(el) {
    field. (pointer: coarse), NOT a width breakpoint — the keyboard is a fact
    about touch, not about width. A dialog that genuinely wants the keyboard needs
    no special case: call openModal and then focus the field yourself. */
+/* The windows that put the page back where it was when they close — see the
+   watcher at the foot. Declared up here because openModal takes the offset. */
+const KEEPS_PLACE = ['wineDialog', 'openDialog'];
+let placeY = null;
+const placeOpen = () => KEEPS_PLACE.some((id) => document.getElementById(id).open);
 function openModal(dlg) {
+  if (KEEPS_PLACE.indexOf(dlg.id) !== -1 && placeY == null) placeY = window.scrollY;
   dlg.showModal();
+  /* A window always opens at its TOP. One <dialog> serves every wine, and iOS
+     Safari keeps its scroll across close and reopen, so each wine after the
+     first opened down at Save, where the last one was left (Charles,
+     2026-10-25). Chrome resets it; Safari doesn't. */
+  dlg.scrollTop = 0;
   if (!matchMedia('(pointer: coarse)').matches) return;
   const el = document.activeElement;
   if (!el || !dlg.contains(el)) return;
@@ -7745,6 +7756,27 @@ document.addEventListener('keydown', (e) => {
     new MutationObserver(() => { if (!$(id).open) stop(); })
       .observe($(id), { attributes: true, attributeFilter: ['open'] });
   });
+
+/* CLOSING A RECORD'S WINDOW LEAVES THE PAGE WHERE IT WAS (Charles, 2026-10-25:
+   working down the cellar on his phone, every Save dropped him somewhere else
+   and he had to scroll back to find his place). Two things move it: Save's
+   render() rebuilds the list under the window, and close() hands the focus back
+   to whatever held it, which the browser scrolls into view a task later. The
+   page offset is taken in openModal when the FIRST of these windows opens —
+   Opened One goes from one to the other, and the second must not take the
+   offset over — and put back when the last one closes, again on the frame
+   after the browser's own move. Opt-in, not every dialog: a Find hit moves the
+   page on purpose and must keep that move. Watched through `open`, as above. */
+KEEPS_PLACE.forEach((id) => {
+  new MutationObserver(() => {
+    if (placeY == null || placeOpen()) return;
+    const y = placeY;
+    placeY = null;
+    const put = () => { if (!placeOpen() && placeY == null) window.scrollTo(0, y); };
+    put();
+    requestAnimationFrame(() => { put(); setTimeout(put, 0); });
+  }).observe($(id), { attributes: true, attributeFilter: ['open'] });
+});
 
 /* ── The hover tooltip ───────────────────────────────────────────────────────
    Every sibling's chart answers a hover with a panel naming what is under the

@@ -51,7 +51,7 @@
    go MISSING look exactly like tests that pass — a suite that quietly shrank to
    three checks still says "all 3 tests pass". RAISE THIS when you add tests, and
    lower it only when you retire one deliberately. */
-const EXPECTED = 292;
+const EXPECTED = 293;
 
 /* ── It refuses to run anywhere but localhost, and that is load-bearing ──────
    GitHub Pages publishes this page BESIDE the app, where the iframe below would
@@ -3043,6 +3043,55 @@ function define() {
       await tick();
       ok(signals[0].aborted, 'and the close aborted it — no request left running behind no window');
     });
+  });
+  t('the wine window opens at its top, and closing it leaves the page where it was', async () => {
+    /* Charles, 2026-10-25, organising on his phone: iOS Safari kept the ONE
+       wine window's scroll across close and reopen, so the next wine opened
+       down at Save; and Save's render() plus the focus handed back on close
+       moved the page, losing his place in the cellar. save() is stubbed: this
+       suite never writes the reader's storage. */
+    const D = W.document, dlg = D.getElementById('wineDialog'), realSave = W.save;
+    W.save = () => {};
+    try {
+      H.__plant(FIXTURE);
+      W.setTab('cellar');
+      const room = D.documentElement.scrollHeight - D.documentElement.clientHeight;
+      ok(room > 100, 'the page is tall enough to scroll', room);
+      const y = Math.floor(room / 2);
+      W.scrollTo(0, y);
+      W.openWine('fx-hold');
+      ok(dlg.scrollHeight > dlg.clientHeight, 'the window is tall enough to scroll');
+      dlg.scrollTop = dlg.scrollHeight;
+      ok(dlg.scrollTop > 0, 'scrolled down to Save');
+      dlg.close();
+      await tick();
+      W.openWine('fx-ready');
+      eq(dlg.scrollTop, 0, 'the next wine opens at the top of the window');
+      /* Chrome resets a closed dialog's scroll itself, so the line above passes
+         here with or without the fix; what Safari needs is said in the source. */
+      ok(/dlg\.showModal\(\);\s*dlg\.scrollTop = 0;/.test(stripComments(APP_SRC)),
+         'openModal puts every window back at its top');
+      D.getElementById('f_notes').value += ' edited';
+      D.getElementById('wineSave').click();
+      ok(!dlg.open, 'Save closed it');
+      /* The move a phone makes — the rebuilt list and the focus handed back —
+         does not happen in a hidden frame, so it is made here, as it lands. */
+      W.scrollTo(0, 0);
+      await tick(); await tick();
+      eq(Math.round(W.scrollY), y, 'and the page is where it was before the window opened');
+      W.openWine('fx-hold');
+      D.getElementById('wineDrink').click();
+      ok(D.getElementById('openDialog').open, 'Opened One goes on to the bottle window');
+      D.getElementById('openCancel').click();
+      W.scrollTo(0, 0);
+      await tick(); await tick();
+      eq(Math.round(W.scrollY), y, 'and from there too the page is where it started');
+    } finally {
+      W.save = realSave;
+      ['wineDialog', 'openDialog'].forEach((id) => { if (D.getElementById(id).open) D.getElementById(id).close(); });
+      W.scrollTo(0, 0);
+      H.__plant(FIXTURE);
+    }
   });
   t('a photo alone starts a wine: the label fills an EMPTY name and vintage, and is sent', async () => {
     const D = W.document, sent = [];

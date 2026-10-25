@@ -340,6 +340,11 @@ the family doesn't.
   button rule's `nowrap` — before that the Wine column alone never wrapped, squeezed every other
   column and pushed the × off the edge. No underline because the whole ROW is the target (it
   hovers and opens as one); keyboard focus keeps the ring. A test pins both.
+- **Windows open at their top; the record windows keep the page's place** (2026-10-25):
+  `openModal` sets `scrollTop = 0` (iOS Safari keeps a closed dialog's scroll, so every wine
+  after the first opened at Save), and takes `placeY` for `KEEPS_PLACE` (wine + opened
+  windows), which a watcher on `open` puts back when the last of them closes. Save's render()
+  and close()'s focus hand-back both move the page. Opt-in on purpose: a Find hit moves it.
 - **The table's own order is drinking order** — past the window, drink soon, ready, hold,
   none; then the window that closes soonest. The Wine column sorts by name, then vintage.
 
@@ -354,6 +359,6 @@ was a one-line version of the cellar rule.
 
 ## Tests
 
-`tests.html`, `EXPECTED = 292`. Run it headless (Playwright) rather than in the Browser pane:
+`tests.html`, `EXPECTED = 293`. Run it headless (Playwright) rather than in the Browser pane:
 the pane throttles hidden timers and its focus heuristics turn the 705px keyboard-focus check
 red on untouched code.
