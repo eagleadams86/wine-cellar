@@ -6625,7 +6625,13 @@ $('checkStart').addEventListener('click', async () => {
     while (next < todo.length && checkCtl === ctl) {
       const w = todo[next++];
       try {
-        const got = await lookupWine(w, key, { signal: ctl.signal });
+        /* The wine's kept label photo goes too, as Look Up sends it (Charles,
+           2026-10-25): the label settles which bottle, and a wine typed a
+           little wrong stops coming back "could not find". A wine with no
+           photo, or one this device cannot fetch, is asked about by name. */
+        const photo = await loadPhoto(w).catch(() => null);
+        if (checkCtl !== ctl) return;
+        const got = await lookupWine(w, key, { signal: ctl.signal, photo: photo && photo.data });
         if (checkCtl !== ctl) return;
         checkFound.set(w.id, { key: wineKey(w), r: readLookup(got.found, w) });
         /* A fresh answer is offered afresh: the old one's ticks do not carry over. */

@@ -184,7 +184,9 @@ photo from the iPhone works directly. The window says which of these happened.
 ### Check All Wines
 
 **✦ Check All Wines** under the Cellar table runs the same lookup on every wine with bottles
-left (finished wines are skipped), three at a time.
+left (finished wines are skipped), three at a time. A wine with a label photo sends its kept
+copy with the question, as Look Up does, so the label settles which bottle it is (about a cent
+more for each such wine; the cost shown up front doesn't count it).
 
 - **You choose which wines.** Every wine has a box and says when it was last checked. The window
   opens with the wines **not checked in the last 90 days** selected; **Select Not Checked In**

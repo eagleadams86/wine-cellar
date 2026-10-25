@@ -51,7 +51,7 @@
    go MISSING look exactly like tests that pass — a suite that quietly shrank to
    three checks still says "all 3 tests pass". RAISE THIS when you add tests, and
    lower it only when you retire one deliberately. */
-const EXPECTED = 280;
+const EXPECTED = 281;
 
 /* ── It refuses to run anywhere but localhost, and that is load-bearing ──────
    GitHub Pages publishes this page BESIDE the app, where the iframe below would
@@ -3118,10 +3118,13 @@ function define() {
       value_low: 20, value_is_estimate: true, drink_from: 2024, drink_to: 2030,
       sources: [{ title: 'a', url: 'https://www.example.com/x' }] },
   };
-  const checkFetch = (asked) => async (url, init) => {
-    const q = JSON.parse(init.body).messages[0].content;
+  const checkFetch = (asked, photos) => async (url, init) => {
+    const c = JSON.parse(init.body).messages[0].content;
+    /* With a label photo the content is [image, text]; without, plain text. */
+    const q = Array.isArray(c) ? c.filter((x) => x.type === 'text').map((x) => x.text).join('') : c;
     const name = Object.keys(CHECK_ANSWERS).find((n) => q.indexOf(n) !== -1);
     asked.push(name);
+    if (photos && Array.isArray(c) && c.some((x) => x.type === 'image')) photos.push(name);
     return { ok: true, status: 200, json: async () => ({ stop_reason: 'tool_use', usage: {},
       content: [{ type: 'tool_use', name: 'record_wine', id: 't', input: Object.assign({ matched_wine: name,
         sources: [] }, CHECK_ANSWERS[name]) }] }) };
@@ -3188,6 +3191,25 @@ function define() {
     H.applyLookupTo(w, H.readLookup({ confidence: 'high', value_low: 5 }), ['value']);
     eq(w.notes.split('\n').length, 2);
     ok(w.notes.indexOf('Looked up 2020') === -1 && /^Mine\.\nLooked up /.test(w.notes), w.notes);
+  });
+  t('Check All sends a wine’s kept label photo, and asks about the rest by name', async () => {
+    const D = W.document, asked = [], photos = [], at = '2026-10-24T12:00:00.000Z';
+    const mem = new Map([['fx-empty', { data: PHOTO, at: at }]]);
+    const was = H.__photoStore({ get: async (id) => mem.get(id) || null, put: async () => true,
+                                 del: async () => null, keys: async () => [...mem.keys()] });
+    const proto = W.Storage.prototype, realStore = proto.setItem;
+    proto.setItem = function () {};
+    try {
+      await withKey(checkFetch(asked, photos), async () => {
+        H.__plant(Object.assign({}, CHECK_FX, { wines: CHECK_FX.wines.map((w) =>
+          (w.id === 'fx-empty' ? Object.assign({}, w, { photoAt: at }) : w)) }));
+        D.getElementById('checkBtn').click();
+        D.getElementById('checkStart').click();
+        for (let i = 0; i < 50 && !/checked/.test(D.getElementById('checkNote').textContent); i++) await tick();
+        eq(asked.slice().sort(), ['Alpha Pinot', 'Bravo Bianco', 'Charlie Cabernet', 'Delta Blanc'], 'every wine still asked about');
+        eq(photos, ['Delta Blanc'], 'and only the one with a photo sent it');
+      });
+    } finally { proto.setItem = realStore; D.getElementById('checkDialog').close(); H.__photoStore(was); H.__plant(FIXTURE); }
   });
   t('Check All Wines looks up every bottled wine, saves only the ticked lines, and Undo takes it back', async () => {
     const D = W.document, asked = [], proto = W.Storage.prototype, realStore = proto.setItem;
