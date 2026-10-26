@@ -920,6 +920,19 @@
   .pairplan { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 6px 12px; margin-top: 6px; }
   .pairplan .field { margin: 0; flex: 1 1 12rem; }
   .pairplan .act-end { margin-left: auto; }
+  /* Best and Worst: two short lists of pairings, each line opens its pairing. */
+  .pairbest { display: grid; grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); gap: var(--sp-4) var(--sp-6); }
+  .pairbest h3 { font-size: var(--fs-base); margin: 0 0 6px; }
+  .pairbest ul { margin: 0; padding: 0; list-style: none; }
+  .pairbest li + li { margin-top: 6px; }
+  /* A plain line of text that opens its pairing — the button's box and fill
+     taken off one by one (never `all: unset`, which would also take the
+     family's focus ring). */
+  .pairbest button { background: none; border: 0; padding: 0; margin: 0; min-height: 0; width: 100%;
+    text-align: left; font: inherit; font-size: var(--fs-sm); color: var(--text-secondary);
+    white-space: normal; cursor: pointer; border-radius: var(--radius-sm); }
+  .pairbest button:hover strong { text-decoration: underline; }
+  .pairbest button strong { color: var(--text-primary); }
   textarea { resize: vertical; }
   #pasteBox { font-family: var(--font-mono); font-size: var(--fs-xs); }
   #pastePreview table { margin-top: var(--sp-3); }
@@ -1989,6 +2002,21 @@ html[data-booting] footer { visibility: hidden; }
        pairing's own rating and note (how the wine went with the food). Pair a
        Meal asks Claude; Add a Pairing notes one yourself. -->
   <div id="pairingsPanel" role="tabpanel" aria-labelledby="tab-pairings" hidden>
+    <!-- The Pairings tab's dashboard (Charles, 2026-10-26): worked out from the
+         WHOLE list by computePairings — the list's Find never reaches it — and
+         hidden until there is a pairing. The status tiles are the list's filter. -->
+    <div class="card" id="pairGlanceCard" data-fold="pairglance">
+      <h2>Pairings at a Glance</h2>
+      <div class="stats" id="pairStats"></div>
+      <p class="warn-line" id="pairGlanceWarn" role="status"></p>
+    </div>
+
+    <div class="card" id="pairBestCard" data-fold="pairbest">
+      <h2>Best and Worst</h2>
+      <p class="chart-title">The pairings you rated highest and lowest — what to pour again, and what not to.</p>
+      <div id="pairBest"></div>
+    </div>
+
     <div class="card" id="pairingCard" data-fold="pairings">
       <h2>Pairings
         <span class="spacer"></span>
@@ -2013,10 +2041,6 @@ html[data-booting] footer { visibility: hidden; }
           <input type="search" id="pairingFind" maxlength="60" placeholder="meal, wine, note…"
                  autocomplete="off" data-keep-caret>
         </div>
-        <span class="likeview" role="group" aria-label="Which pairings">
-          <button type="button" class="btn-small" data-pairing-show="planned" aria-pressed="false">Planned</button>
-          <button type="button" class="btn-small" data-pairing-show="had" aria-pressed="false">Had</button>
-        </span>
         <button type="button" class="link" id="clearPairingFind">Clear</button>
         <p class="hint" id="pairingFindNote" role="status"></p>
       </div>
@@ -6133,6 +6157,9 @@ function sampleData() {
       { id: 'demo-p2', wineId: 'demo-sparkling', label: 'NV Fictional Brut Rosé', meal: 'Fried chicken night',
         date: '', status: 'planned', rating: null, note: '', openedId: null,
         why: 'Bubbles and acid cut through the fat and salt of anything fried.' },
+      { id: 'demo-p6', wineId: 'demo-ready', label: (Y - 3) + ' Example Ridge Pinot Noir',
+        meal: 'Mushroom tart for book club', date: back(3), status: 'planned', rating: null, note: '', openedId: null,
+        why: 'Pinot Noir’s earthiness meets the mushrooms, and its light body suits pastry.' },
       { id: 'demo-p3', wineId: 'demo-ready', label: (Y - 3) + ' Example Ridge Pinot Noir',
         meal: 'Roast salmon with mushrooms', date: back(5), status: 'had', rating: 5,
         note: 'Earthy mushrooms brought the Pinot alive.', openedId: 'demo-o4',
@@ -7916,6 +7943,91 @@ function setDrinkPairing(dp) {
    Every pairing, planned and had, in one list with the Opened tab's machinery.
    Its own order: planned first, soonest day first and undecided last; then had,
    newest first. */
+/* computePairings() is the ONLY place the Pairings tab's figures are worked
+   out — computeOpened's rule. Pure, `today` passed in, and over the WHOLE list:
+   Find and the tiles narrow the list, never these. Planned, overdue and had
+   are the list's own three words (pairingStatus), so they never overlap. */
+function computePairings(st, today) {
+  const ps = st.pairings || [];
+  const count = { planned: 0, overdue: 0, had: 0 };
+  ps.forEach((p) => { count[pairingKind(p, today)] += 1; });
+  const next = ps.filter((p) => p.status === 'planned' && p.date && p.date >= today)
+    .sort((a, b) => a.date.localeCompare(b.date))[0] || null;
+  const rated = ps.filter((p) => p.status === 'had' && p.rating != null);
+  const newest = (a, b) => b.date.localeCompare(a.date) || String(b.at || '').localeCompare(String(a.at || ''));
+  return {
+    all: ps.length, count: count,
+    next: next ? { id: next.id, date: next.date, meal: next.meal } : null,
+    rating: { avg: rated.length ? rated.reduce((a, p) => a + p.rating, 0) / rated.length : null,
+              rated: rated.length, had: count.had },
+    best: rated.filter((p) => p.rating >= 4).sort((a, b) => b.rating - a.rating || newest(a, b)).slice(0, 3),
+    worst: rated.filter((p) => p.rating <= 2).sort((a, b) => a.rating - b.rating || newest(a, b)).slice(0, 3),
+  };
+}
+/* Which tile a pairing counts under. */
+function pairingKind(p, today) {
+  return p.status === 'had' ? 'had' : p.date && p.date < today ? 'overdue' : 'planned';
+}
+/* Which kinds the list is narrowed to; empty is every one. Page-life, like the
+   Cellar's statusPick, and pressed ONLY through setPairingPick. */
+const pairingPick = new Set();
+function renderPairingDash(c) {
+  const any = c.all > 0;
+  $('pairGlanceCard').hidden = !any;
+  $('pairBestCard').hidden = !any;
+  if (!any) return;
+  const tiles = [
+    ['Planned', String(c.count.planned), 'meals ahead', 'planned', 'hold'],
+    ['Coming Up', c.next ? fmtDate(c.next.date).replace(/,? \d{4}$/, '') : '—', c.next ? c.next.meal : 'no day set'],
+    ['Overdue', String(c.count.overdue), 'day has passed', 'overdue', 'warn'],
+    ['Had', String(c.count.had), 'meals eaten', 'had', 'ok'],
+    ['Pairing Rating', c.rating.avg == null ? '—' : (Math.round(c.rating.avg * 10) / 10).toFixed(1) + ' ★',
+     c.rating.rated + ' of ' + c.rating.had + ' rated'],
+  ];
+  /* Written only when it CHANGED, and a press never rewrites it — it repaints
+     aria-pressed (setPairingPick) — so the pressed tile keeps the focus and
+     iPhone Safari does not drop the page (renderOpenedDash's rule). */
+  const html = tiles.map((x) => {
+    const inner = '<div class="label">' + esc(x[0]) + '</div>'
+      + '<div class="v">' + esc(x[1]) + '<span class="sub">' + esc(x[2]) + '</span></div>';
+    return x[3]
+      ? '<button type="button" class="stat ' + x[4] + '" data-pairing-pick="' + x[3] + '" aria-pressed="'
+        + pairingPick.has(x[3]) + '">' + inner + '</button>'
+      : '<div class="stat">' + inner + '</div>';
+  }).join('');
+  if ($('pairStats').innerHTML !== html) $('pairStats').innerHTML = html;
+  const unrated = c.rating.had - c.rating.rated;
+  $('pairGlanceWarn').textContent = unrated ? plural(unrated, 'had pairing') + ' with no rating '
+    + (unrated === 1 ? 'is' : 'are') + ' left out of the rating.' : '';
+  const line = (p) => '<li><button type="button" data-pairing="' + esc(p.id) + '"><span aria-hidden="true" class="stars">'
+    + '★'.repeat(p.rating) + '</span> <span class="sr-only">' + p.rating + ' of 5: </span><strong>' + esc(p.meal)
+    + '</strong> · ' + esc(p.label) + (p.note ? ' — ' + esc(p.note) : '') + '</button></li>';
+  const side = (title, list) => list.length ? '<div><h3>' + esc(title) + '</h3><ul>' + list.map(line).join('') + '</ul></div>' : '';
+  const best = side('Do Again', c.best) + side('Give It a Miss', c.worst);
+  $('pairBest').innerHTML = best ? '<div class="pairbest">' + best + '</div>'
+    : '<p class="empty">Rate a pairing you have had and it shows here.</p>';
+}
+function setPairingPick(keys) {
+  pairingPick.clear();
+  keys.forEach((k) => { if (['planned', 'overdue', 'had'].indexOf(k) !== -1) pairingPick.add(k); });
+  document.querySelectorAll('#pairStats [data-pairing-pick]').forEach((b) =>
+    b.setAttribute('aria-pressed', String(pairingPick.has(b.dataset.pairingPick))));
+  renderPairingList();
+}
+$('pairStats').addEventListener('click', (e) => {
+  const tile = e.target.closest('[data-pairing-pick]');
+  if (!tile) return;
+  const next = new Set(pairingPick), k = tile.dataset.pairingPick;
+  next[next.has(k) ? 'delete' : 'add'](k);
+  /* A filter behind a folded card would change nothing you can see. */
+  if ($('pairingCard').classList.contains('boxshut')) setFold($('pairingCard'), false);
+  setPairingPick([...next]);
+});
+$('pairBest').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-pairing]');
+  if (b && !viewOnly) openPairing(b.dataset.pairing);
+});
+
 const PAIRING_COLUMNS = [
   { key: 'date',   label: 'When',   desc: true },
   { key: 'meal',   label: 'Meal',   desc: false },
@@ -7926,8 +8038,6 @@ const PAIRING_COLUMNS = [
   { key: 'why',    label: 'Why Claude Picked It', desc: false },
 ];
 let pairingSortKey = null, pairingSortDir = 'desc';
-/* Page-life, like the Opened tab's timing pick: '' is both. */
-let pairingShow = '';
 function pairingStatus(p, today) {
   if (p.status === 'had') return { label: 'Had', cls: 'ok', rank: 1 };
   if (p.date && p.date < today) return { label: 'Was planned', cls: 'warn', rank: 0 };
@@ -7937,7 +8047,7 @@ function visiblePairings() {
   const today = todayISO();
   const q = searchFold($('pairingFind').value.trim());
   let rows = state.pairings.slice();
-  if (pairingShow) rows = rows.filter((p) => p.status === pairingShow);
+  if (pairingPick.size) rows = rows.filter((p) => pairingPick.has(pairingKind(p, today)));
   if (q) rows = rows.filter((p) => [p.meal, p.label, p.note, p.why, p.date ? fmtDate(p.date) : '',
     pairingStatus(p, today).label].some((t) => foldHas(t, q)));
   const own = (a, b) => {
@@ -7965,13 +8075,16 @@ function visiblePairings() {
   });
 }
 function renderPairings() {
+  renderPairingDash(computePairings(state, todayISO()));
+  renderPairingList();
+}
+/* The list alone — what Find and the tiles change, so they redraw nothing else. */
+function renderPairingList() {
   const rows = visiblePairings(), total = state.pairings.length, today = todayISO();
   const planned = state.pairings.filter((p) => p.status === 'planned').length;
   $('pairingCount').textContent = total ? planned + ' planned · ' + (total - planned) + ' had' : 'none yet';
-  $('pairingFindNote').textContent = ($('pairingFind').value.trim() || pairingShow) && total
-    ? 'Showing ' + rows.length + ' of ' + total : '';
-  document.querySelectorAll('[data-pairing-show]').forEach((b) =>
-    b.setAttribute('aria-pressed', String(b.dataset.pairingShow === pairingShow)));
+  $('pairingFindNote').textContent = ($('pairingFind').value.trim() || pairingPick.size) && total
+    ? 'Showing ' + rows.length + ' of ' + total + ' — the filter changes this list only, never the figures above.' : '';
   const wrap = $('pairingWrap');
   if (!total) {
     wrap.innerHTML = '<p class="empty">No pairings yet. Press Pair a Meal, tell Claude what you are eating, '
@@ -8003,7 +8116,7 @@ $('pairingWrap').addEventListener('click', (e) => {
     const next = nextSort(pairingSortKey, pairingSortDir, sort.dataset.sort, !!sort.dataset.desc);
     pairingSortKey = next.key;
     pairingSortDir = next.dir;
-    renderPairings();
+    renderPairingList();
     const again = $('pairingWrap').querySelector('[data-sort="' + sort.dataset.sort + '"]');
     if (again) again.focus();
     return;
@@ -8012,12 +8125,8 @@ $('pairingWrap').addEventListener('click', (e) => {
   const row = e.target.closest('[data-pairing]');
   if (row) openPairing(row.getAttribute('data-pairing'));
 });
-$('pairingFind').addEventListener('input', renderPairings);
-$('clearPairingFind').addEventListener('click', () => { $('pairingFind').value = ''; pairingShow = ''; renderPairings(); });
-document.querySelectorAll('[data-pairing-show]').forEach((b) => b.addEventListener('click', () => {
-  pairingShow = pairingShow === b.dataset.pairingShow ? '' : b.dataset.pairingShow;
-  renderPairings();
-}));
+$('pairingFind').addEventListener('input', renderPairingList);
+$('clearPairingFind').addEventListener('click', () => { $('pairingFind').value = ''; setPairingPick([]); });
 
 /* ── One pairing's window ────────────────────────────────────────────────── */
 let editingPairingId = null;
@@ -9406,7 +9515,7 @@ window.__wineTestHooks = {
   LOOKUP_KEY_STORE: LOOKUP_KEY_STORE, SHARE_MAX_BYTES: SHARE_MAX_BYTES, b64urlEncode: b64urlEncode,
   buildPairRequest: buildPairRequest, pairMeal: pairMeal, readPairing: readPairing, pairWines: pairWines,
   PAIR_TOOL: PAIR_TOOL, PAIR_TEXT_MAX: PAIR_TEXT_MAX, PAIR_MEAL_MAX: PAIR_MEAL_MAX,
-  setDrinkPairing: setDrinkPairing, __pairLast: (v) => { pairLast = v; renderPairResults(); },
+  setDrinkPairing: setDrinkPairing, computePairings: computePairings, __pairLast: (v) => { pairLast = v; renderPairResults(); },
 };
 </script>
 <script type="module">

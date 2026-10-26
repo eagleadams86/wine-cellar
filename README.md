@@ -290,9 +290,15 @@ dinner. Type a dish — "grilled lamb chops with rosemary" — or paste a whole 
   goes on the Pairings tab and in the wine's window as "Planned for: …"), **Opened One** (takes the
   bottle off the count and records the pairing as had) and **Open Wine**. The last answer stays
   for the page's life, so you can come back to it after opening a wine.
-- **The Pairings tab** lists every pairing: planned ones first (soonest day first, undecided
-  last, a day gone by marked *Was planned*), then the ones you've had, newest first. **Planned**
-  and **Had** narrow the list; Find searches meals, wines, notes and Claude's reasons. Press a line
+- **The Pairings tab** opens on two dashboard cards. **Pairings at a Glance** has tiles for
+  **Planned**, **Coming Up** (the next dated meal), **Overdue** (a planned day gone by), **Had**
+  and your average **Pairing Rating**; press Planned, Overdue or Had to narrow the list to those
+  (several at once; **Clear** lets them go). **Best and Worst** lists your top-rated pairings
+  under *Do Again* and your 1–2★ ones under *Give It a Miss*; press one to open it. Both count the
+  whole list, whatever the filter shows.
+- **The list** has every pairing: planned ones first (soonest day first, undecided
+  last, a day gone by marked *Was planned*), then the ones you've had, newest first. Find
+  searches meals, wines, notes and Claude's reasons. Press a line
   to change it, **rate how the pairing went** (separate from the bottle's own rating on the Opened
   tab) and add a note. A planned pairing has **We Had It — Opened One**, which opens the bottle
   and marks the pairing had, linked to that opened line. **＋ Add a Pairing** notes one without

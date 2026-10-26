@@ -119,6 +119,12 @@ the family doesn't.
   cleared by `dressOpenDialog`): Save flips a planned pairing to had or writes a new had one,
   linked by `openedId`, and the wine's `open` History entry gains a `meal` change. Plan for Later
   writes a `plan` History kind (LOG_KINDS) with `meal`; History's What filter has **Pairings**.
+  **Its dashboard** (same day, Charles chose tiles + Best and Worst): `computePairings(st, today)`
+  is the one place its figures are worked out, over the WHOLE list. `pairingKind` splits planned /
+  overdue / had (disjoint — the list's own words). The Planned, Overdue and Had tiles are the
+  list's ONLY filter (`pairingPick`, pressed through `setPairingPick`, which repaints aria-pressed
+  and redraws the list alone — never the tile markup); the old Planned/Had buttons are gone. Best =
+  had 4–5★, Worst = 1–2★, three each, newest breaks ties.
 
 - **Lookup `confidence` is WHICH bottle, nothing else** (2026-10-25, Charles). The schema and
   `LOOKUP_SYSTEM` both say so; how firm the value/window are lives in `value_is_estimate` and
@@ -425,6 +431,6 @@ was a one-line version of the cellar rule.
 
 ## Tests
 
-`tests.html`, `EXPECTED = 307`. Run it headless (Playwright) rather than in the Browser pane:
+`tests.html`, `EXPECTED = 309`. Run it headless (Playwright) rather than in the Browser pane:
 the pane throttles hidden timers and its focus heuristics turn the 705px keyboard-focus check
 red on untouched code.
