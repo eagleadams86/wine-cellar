@@ -294,9 +294,11 @@ dinner. Type a dish — "grilled lamb chops with rosemary" — or paste a whole 
   **Planned**, **Coming Up** (the next dated meal), **Overdue** (a planned day gone by), **Had**
   and your average **Pairing Rating**; press Planned, Overdue or Had to narrow the list to those
   (several at once). The list's **Status** box is the same filter as tick boxes, as on the Cellar
-  and Opened tabs — a tile and its box always agree — and **Clear** lets them all go. **Best and Worst** lists your top-rated pairings
-  under *Do Again* and your 1–2★ ones under *Give It a Miss*; press one to open it. Both count the
-  whole list, whatever the filter shows.
+  and Opened tabs — a tile and its box always agree — and **Clear** lets them all go. **What Pairs Well** is the Opened tab's What You Like for
+  pairings: the pairings you've had, grouped by the wine's grape, with how many, how many you
+  rated and the average **pairing** rating — best first, every heading sorts, and the same
+  Grouped / As written switch (one setting for both tables). Both cards count the whole list,
+  whatever the filter shows.
 - **The list** has every pairing: planned ones first (soonest day first, undecided
   last, a day gone by marked *Was planned*), then the ones you've had, newest first. Find
   searches meals, wines, notes and Claude's reasons. Press a line

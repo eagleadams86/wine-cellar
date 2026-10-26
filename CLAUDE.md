@@ -126,8 +126,13 @@ the family doesn't.
   `setPairingPick` (repaints aria-pressed + the box, redraws the list alone — never the tile
   markup) — the Cellar's tiles + Status box and the Opened tab's tiles + Timing box, the same shape.
   The tiles were first shipped as a REPLACEMENT for a filter (wrong; Charles caught it): every tab
-  keeps its dropdown beside its tiles. Best =
-  had 4–5★, Worst = 1–2★, three each, newest breaks ties.
+  keeps its dropdown beside its tiles. **What Pairs Well**
+  (`computePairings(st, today, grouped).grapes` → `likeGroups`, rendered by `renderPairLike`)
+  REPLACED a Best and Worst list the same day — Charles: "if there are five 5-star reviews, which
+  one is the best?" It picked the three newest and silently dropped the rest; don't bring a
+  ranked top-N back. Only HAD pairings; a pairing's grape is its opened line's copy, else its
+  wine's, else blank (counted in the warn line). Grouped / As written is ONE setting
+  (`likeGrouped`) — each card's switch redraws both tables.
 
 - **Lookup `confidence` is WHICH bottle, nothing else** (2026-10-25, Charles). The schema and
   `LOOKUP_SYSTEM` both say so; how firm the value/window are lives in `value_is_estimate` and
@@ -434,6 +439,6 @@ was a one-line version of the cellar rule.
 
 ## Tests
 
-`tests.html`, `EXPECTED = 309`. Run it headless (Playwright) rather than in the Browser pane:
+`tests.html`, `EXPECTED = 310`. Run it headless (Playwright) rather than in the Browser pane:
 the pane throttles hidden timers and its focus heuristics turn the 705px keyboard-focus check
 red on untouched code.

@@ -51,7 +51,7 @@
    go MISSING look exactly like tests that pass — a suite that quietly shrank to
    three checks still says "all 3 tests pass". RAISE THIS when you add tests, and
    lower it only when you retire one deliberately. */
-const EXPECTED = 309;
+const EXPECTED = 310;
 
 /* ── It refuses to run anywhere but localhost, and that is load-bearing ──────
    GitHub Pages publishes this page BESIDE the app, where the iframe below would
@@ -2798,21 +2798,41 @@ function define() {
     eq(c.count, { planned: 3, overdue: 1, had: 8 }, 'a planned day gone by is overdue, never also planned');
     eq(c.next && c.next.meal, 'Soonest', 'Coming Up is the soonest day from today');
     eq([c.rating.rated, c.rating.had, Math.round(c.rating.avg * 100) / 100], [7, 8, 3.43], 'an unrated one is out of the average');
-    eq(c.best.map((p) => p.id), ['f', 'e', 'g'], 'Do Again: best first, then newest, three at most');
-    eq(c.worst.map((p) => p.id), ['i', 'j'], 'Give It a Miss: 1–2 stars only, lowest first');
     eq(H.computePairings(H.normalizeState({}), '2026-10-26').next, null);
+  });
+  t('What Pairs Well groups the pairings you had by grape, with the PAIRING’s rating', () => {
+    /* It replaced Best and Worst (Charles, 2026-10-26: "if there are five 5-star
+       reviews, which one is the best?") — grouping has no ties to break. */
+    const st = H.normalizeState({
+      wines: [{ id: 'w1', name: 'A', grape: 'Pinot Noir' }, { id: 'w2', name: 'B', grape: 'Syrah' }],
+      opened: [{ id: 'o1', wineId: 'w2', date: '2026-10-01', label: 'B', grape: 'Pinot Noir, Gamay', rating: 1 }],
+      pairings: [
+        { id: 'a', wineId: 'w1', status: 'had', date: '2026-10-01', rating: 5 },
+        { id: 'b', wineId: 'w1', status: 'had', date: '2026-10-02', rating: 4 },
+        { id: 'c', wineId: 'w2', openedId: 'o1', status: 'had', date: '2026-10-03', rating: 3 },
+        { id: 'd', wineId: 'w2', status: 'had', date: '2026-10-04' },
+        { id: 'e', wineId: 'gone', status: 'had', date: '2026-10-05', rating: 2 },
+        { id: 'f', wineId: 'w1', status: 'planned', date: '2026-11-01' },
+      ] });
+    const g = H.computePairings(st, '2026-10-26', true).grapes;
+    const pinot = g.rows.find((r) => r.name === 'Pinot Noir'), syrah = g.rows.find((r) => r.name === 'Syrah');
+    eq([pinot.bottles, pinot.rated, pinot.avg], [3, 3, 4], 'the opened line’s grape wins over the wine’s, and is grouped');
+    eq([syrah.bottles, syrah.rated, syrah.avg], [1, 0, null], 'an unrated pairing counts, out of the average');
+    eq(g.blank, 1, 'a pairing whose wine is gone has no grape, and is counted aloud');
+    eq(g.rows.reduce((a, r) => a + r.bottles, 0) + g.blank, 5, 'planned pairings are not in it');
+    eq(H.computePairings(st, '2026-10-26', false).grapes.rows.map((r) => r.name).sort(),
+       ['Pinot Noir', 'Pinot Noir, Gamay', 'Syrah'], 'As written keeps each spelling apart');
   });
   t('the tiles filter the list and keep the focus; the dashboard hides with no pairings', () => {
     const D = W.document;
     H.__plant(H.sampleData());
     W.setTab('pairings');
     try {
-      ok(!D.getElementById('pairGlanceCard').hidden && !D.getElementById('pairBestCard').hidden, 'both cards show');
+      ok(!D.getElementById('pairGlanceCard').hidden && !D.getElementById('pairLikeCard').hidden, 'both cards show');
       const tile = (k) => D.querySelector('#pairStats [data-pairing-pick="' + k + '"]');
       ['planned', 'overdue', 'had'].forEach((k) => ok(Number(tile(k).querySelector('.v').firstChild.textContent) > 0,
         'sample data reaches the ' + k + ' tile'));
-      ok(/Do Again/.test(D.getElementById('pairBest').textContent) && /Give It a Miss/.test(D.getElementById('pairBest').textContent),
-        'and both Best and Worst lists');
+      eq(D.querySelectorAll('#pairLikeGrapes tbody tr').length, 3, 'and What Pairs Well has a row per grape');
       tile('had').focus();
       tile('had').click();
       eq(D.querySelectorAll('#pairingTable tbody tr').length, 3, 'Had shows had only');
@@ -2832,7 +2852,7 @@ function define() {
       eq(D.querySelectorAll('#pairingTable tbody tr').length, 6, 'Clear lets them all go');
       eq([tile('overdue').getAttribute('aria-pressed'), D.getElementById('pairingPickSum').textContent], ['false', 'Every Status']);
       H.__plant(FIXTURE);
-      ok(D.getElementById('pairGlanceCard').hidden && D.getElementById('pairBestCard').hidden, 'no pairings, no dashboard');
+      ok(D.getElementById('pairGlanceCard').hidden && D.getElementById('pairLikeCard').hidden, 'no pairings, no dashboard');
     } finally { W.setTab('cellar'); H.__plant(FIXTURE); }
   });
   t('Opened One for a meal makes a had pairing; We Had It turns a planned one had', () => {
