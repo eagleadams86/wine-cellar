@@ -910,6 +910,16 @@
   .likes { display: grid; gap: var(--sp-5); grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
            align-items: start; }
   .likes table { width: 100%; }
+  /* Cellar Makeup's tables have five columns, What You Like's four: a narrower
+     share would hide Ready behind a scrollbar, so these go two across. */
+  #makeupCard .likes { grid-template-columns: repeat(auto-fit, minmax(min(100%, 23rem), 1fr)); }
+  /* And on a phone the fifth column still needs ~45px more than the screen
+     has: the cells lose half their side padding and the headings their
+     letter spacing, so all five fit unscrolled (measured at 375px). */
+  @media (max-width: 30rem) {
+    #makeupCard :is(tbody th, td, thead th button) { padding-left: 3px; padding-right: 3px; }
+    #makeupCard thead th button { letter-spacing: 0; }
+  }
   .likeview { display: inline-flex; gap: 6px; }
   .likeview button[aria-pressed="true"] { background: var(--btn-bg); border-color: var(--btn-bg);
                                           color: var(--btn-text); font-weight: var(--fw-semibold); }
@@ -1811,6 +1821,30 @@ html[data-booting] footer { visibility: hidden; }
       </h2>
       <div class="stats" id="stats"></div>
       <p class="warn-line" id="overviewWarn" role="status"></p>
+    </div>
+
+    <!-- What You Like, for the cellar as it stands (Charles, 2026-10-26): every
+         wine with bottles left, by grape, region, sub-region and colour. Worked
+         out by computeMakeup over the WHOLE cellar — Find and the status tiles
+         narrow the list, never this. -->
+    <div class="card" id="makeupCard" data-fold="makeup">
+      <h2>Cellar Makeup
+        <button class="tile-help" type="button" data-help="makeup"
+                aria-label="How these tables are worked out">i</button>
+        <span class="spacer"></span>
+        <span class="likeview no-print" role="group" aria-label="How names are counted">
+          <button type="button" class="btn-small" data-like-view="grouped">Grouped</button>
+          <button type="button" class="btn-small" data-like-view="written">As written</button>
+        </span>
+      </h2>
+      <p class="chart-title">The bottles you have now by grape, region, sub-region and colour, most first — and how many of them are ready to open.</p>
+      <div class="likes">
+        <div class="table-scroll" id="makeGrapes"></div>
+        <div class="table-scroll" id="makeRegions"></div>
+        <div class="table-scroll" id="makeSubregions"></div>
+        <div class="table-scroll" id="makeColours"></div>
+      </div>
+      <p class="warn-line" id="makeWarn" role="status"></p>
     </div>
 
     <div class="card" id="cellarCard" data-fold="cellar">
@@ -3892,6 +3926,51 @@ function computeOpened(st, grouped) {
   };
 }
 
+/* One Cellar Makeup table: the wines with bottles left, grouped by one field
+   the way What You Like groups (likeGroups' folding and naming), counting
+   wines, bottles, and the bottles ready to open now — Ready, Drink Soon or
+   Past Window this year. Blanks are counted, never quietly dropped. */
+function makeupGroups(wines, field, grouped, yr, soon) {
+  const fold = grouped && field === 'region' ? groupedRegion : grouped && field === 'grape' ? groupedGrape : (x) => x;
+  const groups = new Map();
+  let blank = 0;
+  wines.forEach((w) => {
+    const written = field === 'color' ? (COLOR_LABEL[w.color] || '')
+      : String(w[field] || '').trim().replace(/\s+/g, ' ');
+    const name = written ? fold(written) || written : '';
+    if (!name) { blank += w.qty; return; }
+    const k = name.toLowerCase();
+    if (!groups.has(k)) groups.set(k, { spellings: new Map(), from: new Set(), wines: 0, bottles: 0, ready: 0 });
+    const g = groups.get(k);
+    g.from.add(written);
+    g.spellings.set(name, (g.spellings.get(name) || 0) + w.qty);
+    g.wines += 1;
+    g.bottles += w.qty;
+    if (['ready', 'soon', 'past'].indexOf(statusOf(w, yr, soon)) !== -1) g.ready += w.qty;
+  });
+  const rows = [...groups.values()].map((g) => ({
+    /* The spelling with the most bottles; on a tie, one with capitals. */
+    name: [...g.spellings].sort((a, b) => b[1] - a[1]
+      || (a[0] === a[0].toLowerCase()) - (b[0] === b[0].toLowerCase()) || a[0].localeCompare(b[0]))[0][0],
+    wines: g.wines, bottles: g.bottles, ready: g.ready, from: [...g.from].sort(),
+  }));
+  return { rows: rows, blank: blank };
+}
+/* computeMakeup() is the ONLY place Cellar Makeup's figures are worked out —
+   computeAll's rule. Pure; the year is an argument. Shares are of EVERY bottle,
+   blanks included, so a table's shares add up to less than 100% exactly when
+   its blank line says some bottles have no name for it. */
+function computeMakeup(st, yr, grouped) {
+  const soon = st.settings.soonYears;
+  const wines = st.wines.filter((w) => w.qty > 0);
+  const g = grouped !== false;
+  return {
+    bottles: wines.reduce((a, w) => a + w.qty, 0),
+    grapes: makeupGroups(wines, 'grape', g, yr, soon), regions: makeupGroups(wines, 'region', g, yr, soon),
+    subregions: makeupGroups(wines, 'subregion', g, yr, soon), colours: makeupGroups(wines, 'color', g, yr, soon),
+  };
+}
+
 /* computeAll() is the ONLY place the figures are worked out. Every tile, the
    chart and the Cellar's status filter read from it, so no two parts of the screen can
    disagree. Pure: the year is an argument, so a test can pin any year. Only
@@ -3956,6 +4035,7 @@ function render() {
   const c = computeAll(state, thisYear());
   renderViewbar();
   renderStats(c);
+  renderMakeup(computeMakeup(state, thisYear(), likeGrouped));
   renderChart(c);
   /* Last, and after the chart: it asks whether there is anything under the
      button, and brings the window back down if what was filling it has gone. */
@@ -4442,6 +4522,57 @@ function renderOpenedDash(c) {
   document.getElementById('timingWarn').textContent = notes.join(' ');
   renderLikeTables(c);
 }
+/* ── Cellar Makeup ────────────────────────────────────────────────────────── */
+const MAKE_TABLES = { grape: ['makeGrapes', 'Grape', 'grapes'], region: ['makeRegions', 'Region', 'regions'],
+  subregion: ['makeSubregions', 'Sub-region', 'subregions'], color: ['makeColours', 'Colour', 'colours'] };
+const makeColumns = (label) => [
+  { key: 'name',    label: label,       desc: false },
+  { key: 'wines',   label: 'Wines',     desc: true, num: true },
+  { key: 'bottles', label: 'Bottles',   desc: true, num: true },
+  { key: 'share',   label: 'Share',     desc: true, num: true },
+  { key: 'ready',   label: 'Ready',     desc: true, num: true },
+];
+/* View state, never saved; null is the table's own order (most bottles first). */
+const makeSort = { grape: { key: null, dir: 'desc' }, region: { key: null, dir: 'desc' },
+  subregion: { key: null, dir: 'desc' }, color: { key: null, dir: 'desc' } };
+function renderMakeup(c) {
+  $('makeupCard').hidden = !c.bottles;
+  if (!c.bottles) return;
+  document.querySelectorAll('[data-like-view]').forEach((b) =>
+    b.setAttribute('aria-pressed', String((b.dataset.likeView === 'grouped') === likeGrouped)));
+  Object.keys(MAKE_TABLES).forEach((f) => renderMakeTable(f, c));
+  const blanks = [];
+  Object.keys(MAKE_TABLES).forEach((f) => {
+    const n = c[MAKE_TABLES[f][2]].blank, label = MAKE_TABLES[f][1];
+    if (n) blanks.push(plural(n, 'bottle') + ' with no ' + label.toLowerCase() + ' recorded '
+      + (n === 1 ? 'is' : 'are') + ' left out of the ' + label + ' table.');
+  });
+  $('makeWarn').textContent = blanks.join(' ');
+}
+function renderMakeTable(field, c) {
+  const [hostId, label, k] = MAKE_TABLES[field];
+  const g = c[k], srt = makeSort[field], host = $(hostId);
+  const key = srt.key || 'bottles', sign = (srt.key ? srt.dir : 'desc') === 'asc' ? 1 : -1;
+  const val = (r) => key === 'share' ? r.bottles : r[key];
+  const rows = g.rows.slice().sort((a, b) =>
+    (key === 'name' ? a.name.localeCompare(b.name) * sign : (val(a) - val(b)) * sign)
+    || b.bottles - a.bottles || a.name.localeCompare(b.name));
+  if (!rows.length) {
+    host.innerHTML = '<p class="empty">No ' + label.toLowerCase() + ' recorded on any wine in the cellar.</p>';
+    return;
+  }
+  host.innerHTML = '<table data-make="' + field + '"><thead><tr>' + sortHead(makeColumns(label), srt.key, srt.dir)
+    + '</tr></thead><tbody>'
+    + rows.map((r) => '<tr' + (likeGrouped && (r.from.length > 1 || r.from[0] !== r.name)
+        ? rowTip('', 'Grouped from:\n' + r.from.join('\n')) : '') + '><th scope="row">' + esc(r.name) + '</th>'
+      + '<td class="num">' + r.wines + '</td>'
+      + '<td class="num">' + r.bottles + '</td>'
+      + '<td class="num">' + Math.round(r.bottles / c.bottles * 100) + '%</td>'
+      + '<td class="num">' + r.ready + '</td>'
+      + '</tr>').join('')
+    + '</tbody></table>';
+}
+
 /* What You Like alone — what its view buttons and sort headings change, so
    they redraw nothing else. */
 function renderLikeTables(c) {
@@ -8081,6 +8212,27 @@ $('pairingPickBox').addEventListener('change', (e) => {
   next[box.checked ? 'add' : 'delete'](box.value);
   setPairingPick([...next]);
 });
+$('makeupCard').addEventListener('click', (e) => {
+  /* Grouped / As written: What You Like's one device setting, for all three cards. */
+  const view = e.target.closest('[data-like-view]');
+  if (view) {
+    likeGrouped = view.dataset.likeView === 'grouped';
+    try { localStorage.setItem(LIKE_VIEW_KEY, likeGrouped ? 'grouped' : 'written'); } catch (err) { /* page-life only */ }
+    renderMakeup(computeMakeup(state, thisYear(), likeGrouped));
+    renderLikeTables(computeOpened(state, likeGrouped));
+    renderPairLike(computePairings(state, todayISO(), likeGrouped));
+    view.focus({ preventScroll: true });
+    return;
+  }
+  const sort = e.target.closest('[data-make] [data-sort]');
+  if (!sort) return;
+  const field = sort.closest('[data-make]').dataset.make, cur = makeSort[field];
+  makeSort[field] = nextSort(cur.key, cur.dir, sort.dataset.sort, !!sort.dataset.desc);
+  /* Only its own table is redrawn — the iPhone Safari jump rule. */
+  renderMakeTable(field, computeMakeup(state, thisYear(), likeGrouped));
+  const again = $(MAKE_TABLES[field][0]).querySelector('[data-sort="' + sort.dataset.sort + '"]');
+  if (again) again.focus({ preventScroll: true });
+});
 $('pairLikeCard').addEventListener('click', (e) => {
   /* Grouped / As written is ONE device setting, What You Like's own. */
   const view = e.target.closest('[data-like-view]');
@@ -8089,6 +8241,7 @@ $('pairLikeCard').addEventListener('click', (e) => {
     try { localStorage.setItem(LIKE_VIEW_KEY, likeGrouped ? 'grouped' : 'written'); } catch (err) { /* page-life only */ }
     renderPairLike(computePairings(state, todayISO(), likeGrouped));
     renderLikeTables(computeOpened(state, likeGrouped));
+    renderMakeup(computeMakeup(state, thisYear(), likeGrouped));
     view.focus({ preventScroll: true });
     return;
   }
@@ -8451,8 +8604,9 @@ $('likeCard').addEventListener('click', (e) => {
     likeGrouped = view.dataset.likeView === 'grouped';
     try { localStorage.setItem(LIKE_VIEW_KEY, likeGrouped ? 'grouped' : 'written'); } catch (err) { /* page-life only */ }
     renderLikeTables(computeOpened(state, likeGrouped));
-    /* One setting, two tables: What Pairs Well follows it too. */
+    /* One setting, three cards: What Pairs Well and Cellar Makeup follow it. */
     renderPairLike(computePairings(state, todayISO(), likeGrouped));
+    renderMakeup(computeMakeup(state, thisYear(), likeGrouped));
     view.focus({ preventScroll: true });
     return;
   }
@@ -8558,6 +8712,8 @@ const HELP = {
   likes: ['How These Tables Are Worked Out', `<p>Every opened bottle, grouped by its <strong>grape</strong> and, separately, by its <strong>region</strong>, as they were recorded when it was opened. <strong>Grouped</strong> (the usual view) folds names written different ways: a region becomes its area and state or country — “Stags Leap District, Napa Valley, CA” counts as Napa Valley, California — and a grape becomes the first grape named, so “75% Cabernet Sauvignon, 18.2% Cabernet Franc” counts as Cabernet Sauvignon — except a classic blend, which keeps its name: a Bordeaux, Meritage or “Bordeaux-style” wine counts as <strong>Bordeaux blend</strong>, and the same for Rhône, Port and Champagne blends. Point at a row to see what it took in. The first grape named isn’t always the most of the blend, so <strong>As written</strong> counts every spelling apart, ignoring only capitals and extra spaces.</p>
     <p><strong>Sub-region</strong> counts the narrower place inside a region — Stags Leap District inside Napa Valley — for the bottles that have one; it is counted as written in either view.</p>
     <p><strong>Bottles</strong> counts them all. <strong>Rated</strong> is how many you gave stars to, and <strong>Avg ★</strong> is the average of those stars, out of 5 — a bottle you didn’t rate never pulls it down. Best-rated comes first, with the most bottles breaking a tie; press a heading to sort by it instead.</p>`],
+  makeup: ['How These Tables Are Worked Out', `<p>Every wine you still have bottles of, grouped by its <strong>grape</strong>, its <strong>region</strong>, its <strong>sub-region</strong> and its <strong>colour</strong>. <strong>Grouped</strong> folds names written different ways, as What You Like on the Opened tab does — “Stags Leap District, Napa Valley, CA” counts as Napa Valley, California, and a grape counts as the first one named, except a classic blend such as a Bordeaux blend, which keeps its name. <strong>As written</strong> counts every spelling apart. Point at a row to see what it took in. The switch is one setting for this card, What You Like and What Pairs Well.</p>
+    <p><strong>Wines</strong> is how many different wines, <strong>Bottles</strong> how many bottles of them, and <strong>Share</strong> that as a part of every bottle in the cellar. <strong>Ready</strong> counts the bottles you could open this year: Ready, Drink Soon or Past Window. Most bottles come first; press a heading to sort by it instead. Finished wines are never counted, and Find and the status tiles never change these tables.</p>`],
 };
 const helpDialog = $('helpDialog');
 document.addEventListener('click', (e) => {
@@ -9594,7 +9750,7 @@ window.__wineTestHooks = {
   LOOKUP_KEY_STORE: LOOKUP_KEY_STORE, SHARE_MAX_BYTES: SHARE_MAX_BYTES, b64urlEncode: b64urlEncode,
   buildPairRequest: buildPairRequest, pairMeal: pairMeal, readPairing: readPairing, pairWines: pairWines,
   PAIR_TOOL: PAIR_TOOL, PAIR_TEXT_MAX: PAIR_TEXT_MAX, PAIR_MEAL_MAX: PAIR_MEAL_MAX,
-  setDrinkPairing: setDrinkPairing, computePairings: computePairings, __pairLast: (v) => { pairLast = v; renderPairResults(); },
+  setDrinkPairing: setDrinkPairing, computePairings: computePairings, computeMakeup: computeMakeup, __pairLast: (v) => { pairLast = v; renderPairResults(); },
 };
 </script>
 <script type="module">

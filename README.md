@@ -15,6 +15,12 @@ cellar on your other devices.
   window first, then the windows that close soonest — so it doubles as the list of what to open
   next), sortable, filterable, with Copy and CSV; and a chart of how many bottles are inside their
   drinking window in each of the coming years.
+- **Cellar Makeup** (under At a Glance) — what your cellar is made of right now: every wine with
+  bottles left, grouped by **grape**, **region**, **sub-region** and **colour**, with how many
+  wines and bottles, each one's **share** of the cellar, and how many of those bottles are
+  **ready** to open this year (Ready, Drink Soon or Past Window). Most bottles first; every heading
+  sorts; the same **Grouped / As written** switch as What You Like (one setting for all three
+  tables). Find and the status tiles never change it.
 - **The status tiles are filters.** Press **Past Window**, **Drink Soon**, **Ready** or
   **Holding** to show just those wines in the Cellar list, and again to take it off; several can
   be on at once, each marked with a ✓. The **Status** box in the Cellar is the same filter as a

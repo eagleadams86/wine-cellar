@@ -103,6 +103,15 @@ the family doesn't.
 
 ## Decisions — Don't Undo
 
+- **Cellar Makeup** (2026-10-26, Charles): `#makeupCard` right under At a Glance — What You
+  Like for the cellar as it stands. `computeMakeup(st, yr, grouped)` → `makeupGroups` (likeGroups'
+  folding/naming, but weighted by `qty`; counts wines, bottles, `ready` = ready/soon/past). Share is
+  of EVERY bottle, blanks included. Columns Wines · Bottles · Share · Ready (5, not What You Like's
+  4) — so the grid is 23rem min (two across only when they fit; half-screen 756px is one across)
+  and under 30rem the cells lose half their side padding and the headings their letter spacing;
+  measured: all four tables fit 313px exactly. Don't add a sixth column without re-measuring.
+  Grouped / As written is ONE setting (`likeGrouped`) across What You Like, What Pairs Well and
+  this — each switch redraws all three.
 - **Pair a Meal + the Pairings tab (SCHEMA 15, 2026-10-26, a friend of Charles's idea).**
   `buildPairRequest` is pure and pinned: Opus 5.5 effort `low` (Charles chose it over Sonnet),
   ONE strict tool `recommend_wines`, **no web search and no `cache_control`** (a cache write costs
