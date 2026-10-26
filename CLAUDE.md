@@ -56,7 +56,7 @@ the family doesn't.
   any more (and since SCHEMA 12 there is no note line). A wine with no `subregion` key has the old second part of its Looked up line moved in
   (`subregionFromNotes`, guarded against window/could-not-find/hosts parts). What You Like's
   Sub-region table is never folded.
-- **Check All's default ticks are `tickRule`** (Charles, 2026-10-24: "an estimate overwriting an
+- **Check Wines' default ticks are `tickRule`** (Charles, 2026-10-24: "an estimate overwriting an
   actual" must not be pre-ticked). Better evidence wins: listings (`!r.valueEst`) tick; a published
   window ticks only over YOUR estimate. "Estimate" is `ESTIMATE_WORDS` on the basis text; yours is
   read off History by `windowBasisOf` (the newest entry whose `c` changed the window: its `wb`, else
@@ -108,13 +108,13 @@ the family doesn't.
   `window_basis` on their own lines. Before, one word did both, and a label Claude had just read
   came back "Probably the right wine" only because no merchant listed that vintage. Badges:
   `LOOKUP_CONF` (Sure of the wine / Probably / Could not find) plus `labelPill(r)` — a neutral
-  **Label read** when `r.labelName` came back. **Check All sends each wine's kept photo**
+  **Label read** when `r.labelName` came back. **Check Wines sends each wine's kept photo**
   (`loadPhoto(w)`, the ≤800px copy), as the editor's Look Up does; privacy.html says so.
 - **The label's name/vintage are OFFERED** (`LABEL_KEYS`, 2026-10-25, Charles: "Vocal" typed for
   "Vöcal"): first rows of `LOOKUP_BOXES` and `LOOKUP_FIELDS`. An EMPTY box is still filled by the
   Look Up handler; a typed one gets Use This only — `applyLookup(all)` skips LABEL_KEYS, and the
   panel's Use All count ignores them. Taking one moves `lookupStamp.key` to the new name so Save
-  keeps the check stamp. Check All's `tickRule`: name ticks only when equal after `searchFold`
+  keeps the check stamp. Check Wines' `tickRule`: name ticks only when equal after `searchFold`
   minus non-alphanumerics; vintage never ticks. The Opened window's Look Up does not offer them.
   The offered name is `labelNameFor(typed, label)`: a label whose words are all in the typed
   name (a front label printing only "Vöcal") RE-SPELLS those words in the typed name; only a
@@ -122,7 +122,7 @@ the family doesn't.
 - **Lookups send Came from** (2026-10-25, Charles: Wine Access listed the 2023 Vöcal at $95
   while Claude guessed $45–75): `buildLookupRequest` adds "Came from, in the owner's words: …"
   (never the old "Already in the cellar"), and `LOOKUP_SYSTEM` says to search that shop first.
-  The editor's Look Up passes `f_source`; Check All and paste pass the wine. privacy.html says so.
+  The editor's Look Up passes `f_source`; Check Wines and paste pass the wine. privacy.html says so.
 - **A non-vintage lookup sends Added** (2026-10-25, Charles's decade-old 30-year tawnies): only
   when `!w.vintage` and `added` is a day or bare year — "in the owner's cellar since X, so bottled
   no later than that". `LOOKUP_SYSTEM` says an NV window runs from bottling (a bottling date read
@@ -133,7 +133,7 @@ the family doesn't.
   (`LOOKUP_LINE_MAX` went with the Looked up line in SCHEMA 12.)
 - **SCHEMA 13: `color` may be `''`, "Not set"** (2026-10-25, Charles). The Add window starts
   there instead of Red; normalizeState keeps it (and no longer guesses red for a missing one);
-  Look Up fills it like an empty box and Check All counts it as empty. The paste list's guess
+  Look Up fills it like an empty box and Check Wines counts it as empty. The paste list's guess
   from grape and name still ends in red — that is a parse of what was pasted, not a default.
 - **SCHEMA 12: History (`w.log`)** (2026-10-25, Charles). A Use This on the NAME rewrote the old
   "Looked up …" note line with Claude's window explanation beside a window he had KEPT, and
@@ -263,7 +263,7 @@ the family doesn't.
   block (shared by every wine) plus top-level automatic `cache_control`. Web search re-reads its
   results inside one call; cached, those reads are 5% price. Measured on 4 real wines, same
   answers: $0.137 uncached → $0.056 system mark only → **$0.046 both**. `LOOKUP_COST`/`LOOKUP_SECS`
-  drive Check All's estimate; `lookupWine` usage counts `cacheRead`/`cacheWrite` apart from input.
+  drive Check Wines' estimate; `lookupWine` usage counts `cacheRead`/`cacheWrite` apart from input.
   0 of 20 windows came from a named critic, so the note line says "estimate". The terminal test
   harness bridges fetch to Node so the key (`~/.config/anthropic_winecellar_key`) never enters the
   page. privacy.html says what is sent; keep it true if the request changes. **Closing either
@@ -295,7 +295,7 @@ the family doesn't.
   name or Claude's `matched_wine`; `r.dropped` is said on screen (`droppedLine`). Every caller passes
   the asked wine. Kept narrow on purpose: on the 58 real pages from that day's re-runs it dropped
   exactly the one wrong page. It cannot undo a figure Claude took from that page.
-- **Check All Wines** (2026-10-23) reuses that lookup across every wine with `qty > 0`.
+- **Check Wines** (2026-10-23) reuses that lookup across every wine with `qty > 0`.
   `lookupDiffs`/`applyLookupTo` are the saved-wine twins of `LOOKUP_BOXES`/`applyLookup` (those
   read the FORM; these read a wine) — change a field's rule in both. Pre-tick rule: an EMPTY
   field starts ticked, a replacement unticked, colour never. Answers live in `checkFound`
@@ -316,7 +316,7 @@ the family doesn't.
   (`buildSharePayload` is a whitelist — SHARE_PAYLOAD_V stays 3). The editor's Look Up stamps at
   once only when the form's name matches the saved wine (`wineKey`); otherwise `lookupStamp`
   waits for Save, and Save clears the stamp on a renamed wine. `fmtChecked()` is the one printer.
-- **Check All picks vs ticks:** `checkPicks` (wine ids, "Select …" buttons, `data-pick`) say what
+- **Check Wines picks vs ticks:** `checkPicks` (wine ids, "Select …" buttons, `data-pick`) say what
   Start looks up; `checkTicks` (`data-tick`, Tick All) say what Save changes. Never share the
   words. Picks fill on open from `#checkSince` (not checked in N days, plus this sitting's
   failures — page-life only, not `state`); a wine leaves the picks when its answer arrives.
@@ -324,7 +324,7 @@ the family doesn't.
   the count skip it — a hidden box Select All could tick would re-bill invisibly. A failed lookup
   has no answer, so it keeps its box.
 - **Not found still leaves a record** (2026-10-24; History since 2026-10-25): a `low` answer is a
-  `look` entry with `cf: 'low'` and nothing else. Check All offers nothing for it.
+  `look` entry with `cf: 'low'` and nothing else. Check Wines offers nothing for it.
 - **An installed iPhone draws under the status bar** (black-translucent), so the header pads by
   `env(safe-area-inset-top)`, a fixed `body::before` band in `--surface` keeps scrolled content
   out from under the clock (the header is not sticky on a phone), and a dialog's max-height takes

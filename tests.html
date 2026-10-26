@@ -949,7 +949,7 @@ function define() {
       const src = stripComments(APP_SRC);
       ok(/\['color', 'Colour', \(\) => !editingId \|\| !\$\('f_color'\)\.value,/.test(src),
          'Look Up fills a colour that is not set, as it fills an empty box');
-      ok(/\['color', 'Colour', \(w\) => !w\.color,/.test(src), 'and Check All counts it as empty');
+      ok(/\['color', 'Colour', \(w\) => !w\.color,/.test(src), 'and Check Wines counts it as empty');
       eq(H.SCHEMA >= 13, true, 'SCHEMA moved on, so older code halts rather than turn it red');
     } finally { W.save = realSave; if (D.getElementById('wineDialog').open) D.getElementById('wineDialog').close(); H.__plant(FIXTURE); }
   });
@@ -2705,7 +2705,7 @@ function define() {
     ok(!/sk-ant|x-api-key/i.test(JSON.stringify(b)), 'the key is never in the body');
     eq(b.cache_control, { type: 'ephemeral' }, 'automatic prompt caching is on — it cut a lookup from $0.137 to $0.046');
     eq(b.system.length, 1, 'the system prompt is one block…');
-    eq(b.system[0].cache_control, { type: 'ephemeral' }, '…marked, so every wine in a Check All reuses it');
+    eq(b.system[0].cache_control, { type: 'ephemeral' }, '…marked, so every wine in a Check Wines reuses it');
   });
   t('a paused search is resumed, a silent finish is asked once, and the answer is the tool’s input', async () => {
     const replies = [
@@ -3238,7 +3238,7 @@ function define() {
     eq(H.labelNameFor('', 'Vöcal'), 'Vöcal', 'an empty box takes the label');
     eq(H.labelNameFor('Vocal', ''), '', 'no label, no offer');
   });
-  t('Check All offers the label’s name: the same name re-spelled starts ticked, another name not', () => {
+  t('Check Wines offers the label’s name: the same name re-spelled starts ticked, another name not', () => {
     const w = { name: 'Vocal Cabernet', vintage: 2023, notes: '' };
     const r = (x) => H.readLookup(Object.assign({ confidence: 'high', matched_wine: 'x', sources: [] }, x), { name: 'x' });
     const row = (x, key) => H.lookupDiffs(w, r(x)).find((d) => d.key === key);
@@ -3303,7 +3303,7 @@ function define() {
       D.getElementById('pasteDialog').close();
     });
   });
-  /* Check All Wines: a cellar with every case in it — a wine Claude would
+  /* Check Wines: a cellar with every case in it — a wine Claude would
      change, one it cannot find, one that already matches, one with empty boxes,
      and a finished wine the check must skip. */
   const CHECK_FX = Object.assign({}, FIXTURE, { wines: FIXTURE.wines.concat([
@@ -3451,7 +3451,7 @@ function define() {
     ok(/WHICH bottle/.test(req) && /value_is_estimate and window_basis/.test(req), 'the schema says so');
     ok(/Confidence is about WHICH bottle only/.test(req), 'and so does the prompt');
   });
-  t('Check All sends a wine’s kept label photo, and asks about the rest by name', async () => {
+  t('Check Wines sends a wine’s kept label photo, and asks about the rest by name', async () => {
     const D = W.document, asked = [], photos = [], at = '2026-10-24T12:00:00.000Z';
     const mem = new Map([['fx-empty', { data: PHOTO, at: at }]]);
     const was = H.__photoStore({ get: async (id) => mem.get(id) || null, put: async () => true,
@@ -3473,7 +3473,7 @@ function define() {
       });
     } finally { proto.setItem = realStore; D.getElementById('checkDialog').close(); H.__photoStore(was); H.__plant(FIXTURE); }
   });
-  t('Check All Wines looks up every bottled wine, saves only the ticked lines, and Undo takes it back', async () => {
+  t('Check Wines looks up every bottled wine, saves only the ticked lines, and Undo takes it back', async () => {
     const D = W.document, asked = [], proto = W.Storage.prototype, realStore = proto.setItem;
     proto.setItem = function () {};
     try {
@@ -4454,7 +4454,7 @@ function define() {
                              window_basis: 'critic', sources: [] }, { name: 'X' });
     eq(r.subregion, 'Stags Leap District', 'the sub-district comes back as the Sub-region');
     const d = H.lookupDiffs({ region: 'Napa Valley, California', subregion: '' }, r).find((x) => x.key === 'subregion');
-    ok(d && d.tick, 'Check All offers it, ticked, into an empty box');
+    ok(d && d.tick, 'Check Wines offers it, ticked, into an empty box');
   });
   t('a sub-district in an old Looked up line moves into Sub-region, once', () => {
     const st = H.normalizeState({ wines: [

@@ -982,7 +982,7 @@
   .lookup-panel .lookline > span:first-child { flex: 1 1 16rem; min-width: 0; }
   .lookup-panel .lookline .link { flex: none; }
   .lookup-panel .lookdone { flex: none; font-size: var(--fs-xs); color: var(--text-muted); }
-  /* Check All Wines: one panel per wine, tighter, and a ticked line per change. */
+  /* Check Wines: one panel per wine, tighter, and a ticked line per change. */
   #checkList .lookup-panel { padding: 8px 12px; margin: 0 0 var(--sp-4); }
   #checkList .lookup-panel > :last-child { margin-bottom: 0; }
   #checkList .checkline { margin-bottom: 4px; font-size: var(--fs-sm); color: var(--text-secondary); }
@@ -1822,7 +1822,7 @@ html[data-booting] footer { visibility: hidden; }
       <div class="row-actions no-print top-actions" id="cellarTop">
         <button type="button" class="primary" id="addBtn">＋ Add Wine</button>
         <button type="button" id="pasteBtn">Paste a List</button>
-        <button type="button" id="checkBtn"><span aria-hidden="true">✦</span> Check All Wines</button>
+        <button type="button" id="checkBtn"><span aria-hidden="true">✦</span> Check Wines</button>
         <button type="button" id="sampleBtn">Load Sample Data</button>
       </div>
 
@@ -1862,7 +1862,7 @@ html[data-booting] footer { visibility: hidden; }
       <div class="row-actions no-print foot-actions" id="cellarFoot" hidden>
         <button type="button" class="primary" data-same="addBtn">＋ Add Wine</button>
         <button type="button" data-same="pasteBtn">Paste a List</button>
-        <button type="button" data-same="checkBtn"><span aria-hidden="true">✦</span> Check All Wines</button>
+        <button type="button" data-same="checkBtn"><span aria-hidden="true">✦</span> Check Wines</button>
       </div>
     </div>
 
@@ -2375,7 +2375,7 @@ html[data-booting] footer { visibility: hidden; }
 </dialog>
 
 <dialog id="checkDialog" aria-labelledby="checkTitle">
-  <h2 id="checkTitle">Check All Wines</h2>
+  <h2 id="checkTitle">Check Wines</h2>
   <p id="checkIntro"></p>
   <!-- Which wines Start Checking looks up. "Select" here, never "Tick": the
        ticks below a wine are the CHANGES to save, and Tick All is theirs. -->
@@ -4338,7 +4338,7 @@ const isClaude = (e) => e.cf != null || ['ai', 'check', 'look'].indexOf(e.k) !==
 /* What an entry was, in words. */
 function historyWhat(e) {
   const base = { add: 'Added', paste: 'Added from a list', edit: 'Changed by hand',
-    ai: 'Claude: taken', check: 'Check All: taken', look: 'Claude looked it up', open: 'Opened one',
+    ai: 'Claude: taken', check: 'Check Wines: taken', look: 'Claude looked it up', open: 'Opened one',
     back: 'Put back', undo: 'Undone', revive: 'Brought back by Undo' }[e.k] || '';
   return base + (e.cf && e.k !== 'ai' && e.k !== 'check' && e.k !== 'look' ? ' · Claude looked it up' : '')
     + (e.cf ? ' · ' + LOOKUP_CONF[e.cf][1] : '');
@@ -5568,7 +5568,7 @@ function buildLookupRequest(w, today, tune, names, photo) {
     fallbacks: 'default',
     /* Prompt caching (2026-10-25, after Anthropic's "cache hit rate is low"
        email). One mark on the system prompt — the instructions and tools every
-       wine shares, so a Check All or a paste reuses them — and automatic
+       wine shares, so a Check Wines or a paste reuses them — and automatic
        caching for the rest. Web search re-reads its own results inside one
        call; cached, those re-reads cost 5% of the input price. Measured on four
        of Charles's wines, same answers: $0.137 a wine uncached, $0.056 with
@@ -5737,7 +5737,7 @@ function readLookup(found, asked) {
 
 /* ── Writing History ──────────────────────────────────────────────────────
    Every field History can name, with how it is printed. One list for every
-   writer, so an editor save, Check All, paste and Undo describe a change the
+   writer, so an editor save, Check Wines, paste and Undo describe a change the
    same way. */
 const LOG_FIELDS = [
   ['name', 'Name', (w) => w.name || ''],
@@ -6354,7 +6354,7 @@ function lookupStop() {
    price and window are is said on their own lines ("est.", "my estimate").
    Until 2026-10-25 one word did both jobs, and "Probably the right wine"
    came back for a bottle whose label Claude had just read, only because no
-   merchant listed that vintage (Charles, on a Check All of 21 wines). */
+   merchant listed that vintage (Charles, on a Check Wines of 21 wines). */
 const LOOKUP_CONF = { high: ['ok', 'Sure of the wine'], medium: ['warn', 'Probably the right wine'],
                       low: ['err', 'Could not find this exact wine'] };
 /* A second, quiet badge when a label photo went with the question and Claude
@@ -6996,7 +6996,7 @@ $('pasteLookup').addEventListener('click', async () => {
 });
 $('pasteBtn').addEventListener('click', openPaste);
 
-/* ── Check All Wines ───────────────────────────────────────────────────────
+/* ── Check Wines ───────────────────────────────────────────────────────
    Every wine with bottles left, looked up a few at a time, then a review:
    one ticked line per thing Claude says differently. A box that is EMPTY now
    starts ticked (Look Up's "fill only what is empty"); a line that would
@@ -7221,7 +7221,7 @@ function checkBlock(w) {
     }).join('')
     + (hosts.length ? '<p>Sources: ' + hosts.join(', ') + '</p>' : '') + droppedLine(r);
 }
-/* What one lookup costs and takes, for the estimate Check All gives before
+/* What one lookup costs and takes, for the estimate Check Wines gives before
    it spends anything. Measured 2026-10-25 on four real wines with prompt
    caching on: $0.040–0.053 and 14–17 s each; rounded up, so the estimate is
    never the low one. */

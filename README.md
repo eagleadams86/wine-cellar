@@ -29,7 +29,7 @@ cellar on your other devices.
   in words, never colour. It goes into the CSV, a pasted
   list can carry a **Paid** (or Price Paid / Cost) column, and a share link carries it only if you
   tick **What you paid** in the Share window.
-- **Enter saves** the wine window, Opened a Bottle, Paste a List and Check All Wines — anywhere
+- **Enter saves** the wine window, Opened a Bottle, Paste a List and Check Wines — anywhere
   but a text area (Notes, the pasted list), where Enter is a new line. On a focused button, Enter
   presses that button.
 - **Date added** in the wine window starts on today for a new wine and can be changed to the
@@ -89,7 +89,7 @@ cellar on your other devices.
   is a Bordeaux blend, not a "Merlot blend" — or else the lead grape and "blend", and is sent the names already in your cellar so it
   reuses your spelling. A finer sub-district goes in the wine's **Sub-region** (e.g. Stags Leap
   District), shown after the region in both lists, copied onto opened bottles, and counted in What
-  You Like's own Sub-region table. Run **Check All
+  You Like's own Sub-region table. Run **Check
   Wines** to bring older wines into line — it only changes what you tick.
 - **Folding cards** — At a Glance, Cellar, Drinking Windows Ahead, Opened at the Right Time,
   What You Like and Bottles Opened fold up to their heading
@@ -113,11 +113,11 @@ cellar on your other devices.
   something in the window without saving. Press a line on the Opened tab to change its date,
   rating or note, or to **Remove This Bottle** (folded away at the bottom of the window) — which puts the bottle back on the count, so a
   mistaken press is easy to undo.
-- **＋ Add Wine, Paste a List and ✦ Check All Wines sit at the top of the Cellar**, above Find, so
+- **＋ Add Wine, Paste a List and ✦ Check Wines sit at the top of the Cellar**, above Find, so
   adding a wine never means scrolling past the whole cellar. Once the list is taller than the
   window, the same buttons turn up under it as well. **＋ Log a Bottle** does the same on the Opened tab.
 - **Paste a List** reads the table Claude writes when you ask it to look wines up — see below.
-- **✦ Check All Wines** looks every wine with bottles left up with Claude at once — see below.
+- **✦ Check Wines** looks up the wines you pick with Claude in one go — see below.
 - **↩ Undo** (⌘Z / Ctrl+Z) walks back through this sitting's changes, one Save at a time —
   Money Map's undo, ported. Up to twenty steps; an edit, an Opened One, a pasted list, a
   restore and even Delete All Data are each one step. The button asks first, because there
@@ -158,7 +158,7 @@ the pages it used.
   the wine". A **Label read** badge beside it means a label photo went along and Claude read it.
   When it can't find the wine it fills nothing rather than guess; its History says it was tried.
 - **It remembers when.** Each wine keeps the time Claude last answered for it — from this window
-  or Check All Wines — saved the moment the answer arrives, even if you change nothing. The wine
+  or Check Wines — saved the moment the answer arrives, even if you change nothing. The wine
   window shows it beside the button ("Checked 12 days ago"). It syncs and backs up with the wine,
   is never in a share link, and Undo leaves it alone. Renaming a wine clears it.
 - **A source that names a different wine is left out.** If a page's address names a specific
@@ -177,7 +177,7 @@ the pages it used.
 - **Cost: about $0.05 a wine** with prompt caching (measured on four wines, 2026-10-25: $0.040–0.053
   and 14–17 seconds each; it was $0.137 uncached). Most of a lookup is Claude reading search results,
   and the search tool re-reads them inside one call — cached, a re-read costs 5% of the normal
-  input price. The instructions every wine shares are cached too, so Check All and a pasted list
+  input price. The instructions every wine shares are cached too, so Check Wines and a pasted list
   reuse them. It is capped at 3 searches and low effort per wine; the paste window runs three lookups at a time. **Closing the window stops
   them** — Cancel, Escape or a click outside — so nothing keeps running (or billing) behind it.
   A key Claude rejects stops the whole paste at once and says why.
@@ -203,7 +203,7 @@ photo from the iPhone works directly. The window says which of these happened.
   typed is kept), and the panel shows "The label reads …".
 - **The label's name and vintage are offered, never forced.** When what you typed differs from the
   label — "Vocal" for a "Vöcal" label, say — the panel offers the name with its own
-  **Use this** (Use All never renames a wine), and Check All offers it as a line. Check All
+  **Use this** (Use All never renames a wine), and Check Wines offers it as a line. Check Wines
   starts it ticked only when it is the same name spelled the label's way. A front label that
   prints only the producer re-spells that word in YOUR name ("Vöcal Cabernet Wheeler Vineyard"),
   rather than cutting the name down to "Vöcal"; a label with words yours lacks is offered whole.
@@ -232,10 +232,10 @@ photo from the iPhone works directly. The window says which of these happened.
   the device and the cloud the next time the app opens, because Undo can bring the wine back
   until then.
 
-### Check All Wines
+### Check Wines
 
-**✦ Check All Wines** at the top of the Cellar runs the same lookup on every wine with bottles
-left (finished wines are skipped), three at a time. A wine with a label photo sends its kept
+**✦ Check Wines** at the top of the Cellar runs the same lookup on the wines you pick — any
+wine with bottles left (finished wines are skipped), three at a time. A wine with a label photo sends its kept
 copy with the question, as Look Up does, so the label settles which bottle it is (about a cent
 more for each such wine; the cost shown up front doesn't count it).
 
