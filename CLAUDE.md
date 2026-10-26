@@ -23,7 +23,10 @@ the family doesn't.
   (the share payload's opened map does not carry them; the receiver backfills from the shared
   wine, and `paid` only travels when What you paid is ticked). A line that has one, even blank,
   keeps it. The Opened list's Paid column hides while no line has a price, like the Cellar's;
-  its Find (`#openedFind`) is page-life only. Removing a log line puts the bottle back on the count.
+  its Find (`#openedFind`) is page-life only. Removing a log line puts the bottle back on the count,
+  and a pairing had with that line (`openedId`) goes back to `planned` with `openedId: null` and a
+  `back` History entry — the confirm says so first (2026-10-26 review). The Opened tab's Wine sort
+  is by the label's NAME, then vintage — `compareWines`' rule.
 - SCHEMA 6 (2026-10-24) adds `vintage`, `drinkFrom`, `drinkTo` to an opened line by the same
   snapshot-and-backfill rule; a line whose wine is gone reads its vintage off the label's leading
   year (`wineLabel`'s "2010 …" / "NV …" shape). The share payload still omits them — the
@@ -79,7 +82,12 @@ the family doesn't.
   `wine-photo-unsent`). Deletes are DEFERRED: `save()` → `photoBookkeeping` puts a
   wine that lost its photo on `wine-photo-gone`, and only the list as it stood at boot
   (`photoGoneAtBoot`) is deleted — Undo can bring a wine back until a reload. `sweepPhotos()` runs
-  after the reveal, never in a shared view or the harness (`inTests()`). Not in share links
+  after the reveal, never in a shared view or the harness (`inTests()`). **With sync on, the local
+  copy sweep (`sweepPhotoCopies`) and the cloud deletes (`deleteGonePhotos`) wait for the sync
+  verdict and re-read the state it left** — a newer cloud copy can bring a deleted wine back, photo
+  and all (2026-10-26 review). The queues (`flushPhotoQueue`, `deleteGonePhotos`) live in the MAIN
+  script and take a `cloud` of `{ send, remove }` from the module, so the suite drives them with a
+  fake; a photo retaken mid-send stays on `wine-photo-unsent` and goes round again. Not in share links
   (whitelist); in a backup with **Include label photos**, ticked by default since 2026-10-25 (`photos` map, restored by
   `backupPhotoEntries`). Tests swap the store with `__photoStore` — the suite never writes the disk.
   `accept` on the file input lists types: `image/*` opened a "comment" for the tests' comment
@@ -484,6 +492,6 @@ was a one-line version of the cellar rule.
 
 ## Tests
 
-`tests.html`, `EXPECTED = 304`. Run it headless (Playwright) rather than in the Browser pane:
+`tests.html`, `EXPECTED = 319`. Run it headless (Playwright) rather than in the Browser pane:
 the pane throttles hidden timers and its focus heuristics turn the 705px keyboard-focus check
 red on untouched code.

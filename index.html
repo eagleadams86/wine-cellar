@@ -3101,11 +3101,25 @@ async function sweepPhotos() {
   const live = new Set(photoRecs(state).filter((w) => w.photoAt).map((w) => w.id));
   photoGoneAtBoot = photoIds(PHOTO_GONE_KEY).filter((id) => !live.has(id));
   setPhotoIds(PHOTO_GONE_KEY, photoGoneAtBoot);
-  /* Any copy here whose wine has no photo any more — deleted on this device
-     in an earlier visit, or on another one. */
+  /* With sync on, this device's state may be about to be replaced by a newer
+     cloud copy that still has some of these photos — so the copies wait for
+     the sync verdict, and the sync module sweeps them then. The flag test is
+     shouldBootSync's, read here because the module has not run yet. */
+  let syncing = false;
+  try {
+    const flag = localStorage.getItem('wine-sync-live');
+    syncing = flag === '1' || (flag === null && localStorage.getItem('wine-sync-uid') !== null);
+  } catch (e) { syncing = false; }
+  if (!syncing) await sweepPhotoCopies();
+}
+/* Any copy here whose record has no photo any more — deleted on this device
+   in an earlier visit, or on another one. Reads the state as it is NOW. */
+async function sweepPhotoCopies() {
+  const live = new Set(photoRecs(state).filter((w) => w.photoAt).map((w) => w.id));
   const keys = await photoStore.keys();
   for (const k of keys) if (!live.has(k)) await photoStore.del(k);
 }
+window.wcPhotoSweepCopies = () => (viewOnly || inTests() ? null : sweepPhotoCopies());
 /* Called by the sync module once a cloud delete has gone through. */
 function inTests() {
   try { return !!(window.frameElement && window.frameElement.hasAttribute('data-wine-tests')); }
@@ -3114,6 +3128,41 @@ function inTests() {
 function photoGoneDone(id) {
   photoGoneAtBoot = photoGoneAtBoot.filter((x) => x !== id);
   setPhotoIds(PHOTO_GONE_KEY, photoIds(PHOTO_GONE_KEY).filter((x) => x !== id));
+}
+/* The unsent list, sent one at a time through `cloud.send(id, { data, at })`
+   (the sync module's setDoc). A refusal throws out to the caller and leaves
+   the rest on the list for the next try. */
+let photoFlushing = false, photoFlushAgain = false;
+async function flushPhotoQueue(cloud) {
+  if (photoFlushing) { photoFlushAgain = true; return; }
+  photoFlushing = true;
+  try {
+    do {
+      photoFlushAgain = false;
+      for (const id of photoIds(PHOTO_UNSENT_KEY)) {
+        const w = photoRecs(state).find((x) => x.id === id);
+        const sentAt = w && w.photoAt;
+        const p = sentAt ? await photoStore.get(id) : null;
+        if (p) await cloud.send(id, { data: p.data, at: p.at || sentAt });
+        /* A photo retaken while that send was in flight is queued again under
+           the same id — so it stays on the list, and goes round once more. */
+        const now = photoRecs(state).find((x) => x.id === id);
+        if (now && now.photoAt && now.photoAt !== sentAt) { photoFlushAgain = true; continue; }
+        setPhotoIds(PHOTO_UNSENT_KEY, photoIds(PHOTO_UNSENT_KEY).filter((x) => x !== id));
+      }
+    } while (photoFlushAgain);
+  } finally { photoFlushing = false; }
+}
+/* The photos that were past Undo when this page loaded, deleted from the
+   cloud through `cloud.remove(id)` once signed in — each re-checked against
+   the state the sync verdict left, since a newer cloud copy may have brought
+   its record back, photo and all. */
+async function deleteGonePhotos(cloud) {
+  const live = new Set(photoRecs(state).filter((w) => w.photoAt).map((w) => w.id));
+  for (const id of photoGoneAtBoot.slice()) {
+    if (!live.has(id)) await cloud.remove(id);
+    photoGoneDone(id);
+  }
 }
 /* What a backup file's `photos` may put back: only a valid photo, for a wine
    in the restored cellar that says it has one. Pure and pinned. */
@@ -4219,7 +4268,7 @@ function renderList() {
   if (!v.total) {
     wrap.innerHTML = '<p class="empty">' + (state.wines.length
       ? 'Every wine here is finished. Turn on “Show wines with no bottles left” in Settings to see them.'
-      : 'No wines yet. Add one, paste a list, or load the sample data to see what the app does.')
+      : 'No wines yet. Add one — its window can paste a whole list — or load the sample data to see what the app does.')
       + '</p>';
     return;
   }
@@ -4278,7 +4327,13 @@ function visibleOpened() {
       if (a.rating == null || b.rating == null) return (a.rating == null) - (b.rating == null);
       return (a.rating - b.rating) * sign || b.date.localeCompare(a.date);
     }
-    if (key === 'wine') return a.label.localeCompare(b.label) * sign || b.date.localeCompare(a.date);
+    /* By the name after the label's vintage, then the vintage — compareWines'
+       rule, or the column would order by year. */
+    if (key === 'wine') {
+      const nm = (o) => o.label.replace(/^(?:\d{4}|NV)\s+/i, '');
+      return (nm(a).localeCompare(nm(b)) || (a.vintage || 0) - (b.vintage || 0)) * sign
+        || b.date.localeCompare(a.date);
+    }
     if (key === 'note') return a.note.localeCompare(b.note) * sign;
     return a.date.localeCompare(b.date) * sign;
   });
@@ -5536,11 +5591,23 @@ function parseValueCell(cell) {
 }
 function parseWindowCell(cell, yr) {
   const t = String(cell || '').trim();
-  let m = /(now|\d{4})\s*(?:[–—-]|to)\s*(\d{4})/i.exec(t);
-  if (m) return { from: /now/i.test(m[1]) ? yr : Number(m[1]), to: Number(m[2]) };
+  /* A range, joined by a dash or a word, whose end may be two digits
+     ("2025–30" is 2025 to 2030, read in the start's century). */
+  let m = /(now|\d{4})\s*(?:[–—-]|\b(?:to|through|thru|until|till)\b)\s*(\d{4}|\d{2})\b/i.exec(t);
+  if (m) {
+    const from = /now/i.test(m[1]) ? yr : Number(m[1]);
+    let to = Number(m[2]);
+    if (m[2].length === 2) {
+      to += Math.floor(from / 100) * 100;
+      if (to < from) to += 100;
+    }
+    return { from: from, to: to };
+  }
   if ((m = /(\d{4})\s*\+/.exec(t)) || (m = /\bfrom\s*(\d{4})/i.exec(t))) return { from: Number(m[1]), to: null };
-  if ((m = /\bby\s*(\d{4})/i.exec(t))) return { from: null, to: Number(m[1]) };
-  if (/^now\b/i.test(t)) return { from: yr, to: null };
+  if ((m = /\b(?:by|until|till|through|thru|before)\s*(\d{4})/i.exec(t))) return { from: null, to: Number(m[1]) };
+  /* "Now", "Drink now", "Ready now" — but a lone year stays unread: "2028"
+     could be a start or an end, and a guessed window is a wrong status. */
+  if (/^(?:(?:drink|ready|open)\s+)?now\b/i.test(t)) return { from: yr, to: null };
   return { from: null, to: null };
 }
 /* A colour from a Colour column when there is one, else a guess from the
@@ -5591,8 +5658,16 @@ function parseWineList(text, yr) {
     if (qCell !== '' && /^\d{1,3}$/.test(qCell)) qty = Number(qCell);
     const vm = /^(\d{4}|NV)\b[\s,.-]*(.*)$/i.exec(wine);
     let vintage = vm && /\d/.test(vm[1]) ? Number(vm[1]) : null;
+    let rest = vm ? vm[2] : wine;
+    /* A vintage written after the name ("Château X 2015") — unless the name
+       already said NV, or a Vintage column says a different year. */
+    const tail = !vm && /^(.*?)[\s,]+\(?((?:19|20)\d{2})\)?$/.exec(wine);
+    if (tail && (!/^\d{4}$/.test(at('vintage')) || at('vintage') === tail[2])) {
+      vintage = Number(tail[2]);
+      rest = tail[1];
+    }
     if (vintage == null && /^\d{4}$/.test(at('vintage'))) vintage = Number(at('vintage'));
-    const name = cleanLine(vm ? vm[2] : wine, 80);
+    const name = cleanLine(rest, 80);
     if (!name) { skipped.push(i + 1); return; }
     const val = parseValueCell(at('value', 1));
     const win = parseWindowCell(at('window', 2), yr);
@@ -7256,7 +7331,15 @@ $('pasteLookup').addEventListener('click', async () => {
   if (pasteLookupCtl) { pasteLookupStop(); renderPaste(); $('pasteNote').textContent += ' Stopped.'; return; }
   const key = lookupKey();
   if (!key) { $('pasteNote').textContent = 'Add your Claude API key in Settings first.'; return; }
-  const todo = pasted.rows.filter((r) => !pasteFound.has(wineKey(r)));
+  /* One look-up per wine: two rows of the same wine merge on Add, so the
+     second would be paid for and thrown away. */
+  const seen = new Set();
+  const todo = pasted.rows.filter((r) => {
+    const k = wineKey(r);
+    if (pasteFound.has(k) || seen.has(k)) return false;
+    seen.add(k);
+    return true;
+  });
   if (!todo.length) { $('pasteNote').textContent = 'Every wine here has been looked up.'; return; }
   const ctl = new AbortController();
   pasteLookupCtl = ctl;
@@ -8094,7 +8177,8 @@ function renderPairLike(c) {
       : (a[key] - b[key]) * sign)
     || b.bottles - a.bottles || a.name.localeCompare(b.name));
   const host = $('pairLikeGrapes');
-  host.innerHTML = !rows.length ? '<p class="empty">No pairing you have had has a grape recorded.</p>'
+  host.innerHTML = !rows.length ? '<p class="empty">' + (c.count.had
+      ? 'No pairing you have had has a grape recorded.' : 'No pairing has been had yet.') + '</p>'
     : '<table data-pair-like><thead><tr>' + sortHead(PAIR_LIKE_COLUMNS, srt.key, srt.dir) + '</tr></thead><tbody>'
       + rows.map((r) => '<tr' + (likeGrouped && (r.from.length > 1 || r.from[0] !== r.name)
           ? rowTip('', 'Grouped from:\n' + r.from.join('\n')) : '') + '><th scope="row">' + esc(r.name) + '</th>'
@@ -8365,7 +8449,7 @@ $('pairingHad').addEventListener('click', () => {
   const was = Object.assign({}, p);
   Object.assign(p, { meal: b.meal, rating: b.rating, note: b.note });
   const hand = diffPairing(was, p);
-  if (hand.length) logTo(p, { at: nowStamp(), k: 'edit', c: hand });
+  if (hand.length) { logTo(p, { at: nowStamp(), k: 'edit', c: hand }); save(); }
   $('pairingDialog').close();
   openDrink(p.wineId);
   if ($('openDialog').open) setDrinkPairing({ meal: p.meal, why: p.why, pairingId: p.id });
@@ -8426,12 +8510,21 @@ $('openRemove').addEventListener('click', () => {
   const o = editingBottleId && state.opened.find((x) => x.id === editingBottleId);
   if (!o) { $('openDialog').close(); render(); return; }
   const w = o.wineId ? state.wines.find((x) => x.id === o.wineId) : null;
+  /* A pairing had with this bottle would point at nothing, so it goes back
+     to planned — the meal is still worth having, it just has not been had. */
+  const paired = state.pairings.filter((p) => p.openedId === o.id);
   if (!confirm('Remove the bottle of “' + o.label + '” opened ' + fmtDate(o.date) + '?\n\n'
       + (w ? 'It goes back on the count, as unopened.'
          : o.wineId ? 'The wine itself has been deleted, so there is no count to put it back on.'
-         : 'It was logged without a Cellar wine, so there is no count to put it back on.'))) return;
+         : 'It was logged without a Cellar wine, so there is no count to put it back on.')
+      + (paired.length ? '\n\nIts pairing with “' + paired[0].meal + '” goes back to planned.' : ''))) return;
   $('openDialog').close();
   state.opened = state.opened.filter((x) => x.id !== o.id);
+  paired.forEach((p) => {
+    const was = Object.assign({}, p);
+    Object.assign(p, { status: 'planned', openedId: null });
+    logTo(p, { at: nowStamp(), k: 'back', c: diffPairing(was, p) });
+  });
   if (w) {
     const was = w.qty;
     w.qty = Math.min(999, w.qty + 1);
@@ -8598,6 +8691,10 @@ $('stats').addEventListener('click', (e) => {
   });
   document.addEventListener('click', (e) => {
     if (pick.open && !pick.contains(e.target)) pick.open = false;
+  });
+  /* And so does Tab out of it — left open, the panel sits over the list. */
+  pick.addEventListener('focusout', (e) => {
+    if (pick.open && e.relatedTarget && !pick.contains(e.relatedTarget)) pick.open = false;
   });
 });
 /* One listener for every export button there will ever be, delegated at <main>
@@ -9401,6 +9498,7 @@ window.__wineTestHooks = {
   /* Swaps the IndexedDB photo store for the suite's in-memory one, and sets a
      picked photo, so photo tests touch nothing on disk. Returns the old store. */
   __photoStore: function (next) { const was = photoStore; photoStore = next; return was; },
+  __photoGoneAtBoot: function (ids) { photoGoneAtBoot = ids.slice(); },
   __photoDraft: function (d, which) { (which === 'opened' ? bottlePhoto : winePhoto).setDraft(d); },
   cleanPhoto: cleanPhoto, photoIdsGone: photoIdsGone, backupPhotoEntries: backupPhotoEntries,
   __lookupStampKey: () => (lookupStamp ? lookupStamp.key : ''), photoContent: photoContent, imageFromTransfer: imageFromTransfer, photoFit: photoFit, clipWords: clipWords, labelNameFor: labelNameFor, heicBrand: heicBrand, isHeic: isHeic, readPicked: readPicked, PHOTO_MAX: PHOTO_MAX, PHOTO_SEND_MAX: PHOTO_SEND_MAX,
@@ -9905,26 +10003,20 @@ async function startSync() {
    (offline, or rules that do not allow it yet) leaves the photo on the list
    for the next try and never touches the cellar's own sync. */
 const photoRef = (id) => F.doc(db, COLLECTION, user.uid, 'photos', id);
-let photoFlushing = false, photoFlushAgain = false, photoWarned = false;
+let photoWarned = false;
 const photoWarn = (e) => {
   if (!photoWarned) { photoWarned = true; console.warn('Label photos are not reaching the cloud yet:', e && e.code); }
 };
+/* The two cloud calls the photo queues need — the queues themselves live in
+   the main script (flushPhotoQueue, deleteGonePhotos), where the suite can
+   drive them with a fake. */
+const photoCloud = {
+  send: (id, d) => F.setDoc(photoRef(id), d),
+  remove: (id) => F.deleteDoc(photoRef(id)),
+};
 async function flushPhotos() {
   if (!user || !F) return;
-  if (photoFlushing) { photoFlushAgain = true; return; }
-  photoFlushing = true;
-  try {
-    do {
-      photoFlushAgain = false;
-      for (const id of photoIds(PHOTO_UNSENT_KEY)) {
-        const w = photoRecs(window.wcGet()).find((x) => x.id === id);
-        const p = w && w.photoAt ? await photoStore.get(id) : null;
-        if (p) await F.setDoc(photoRef(id), { data: p.data, at: p.at || w.photoAt });
-        setPhotoIds(PHOTO_UNSENT_KEY, photoIds(PHOTO_UNSENT_KEY).filter((x) => x !== id));
-      }
-    } while (photoFlushAgain);
-  } catch (e) { photoWarn(e); }
-  finally { photoFlushing = false; }
+  try { await flushPhotoQueue(photoCloud); } catch (e) { photoWarn(e); }
 }
 window.wcPhotoFlush = () => { flushPhotos(); };
 window.wcPhotoFetch = async (id) => {
@@ -9936,9 +10028,8 @@ window.wcPhotoFetch = async (id) => {
   } catch (e) { photoWarn(e); return null; }
 };
 async function photosAfterSignIn() {
-  try {
-    for (const id of photoGoneAtBoot.slice()) { await F.deleteDoc(photoRef(id)); photoGoneDone(id); }
-  } catch (e) { photoWarn(e); }
+  try { await deleteGonePhotos(photoCloud); } catch (e) { photoWarn(e); }
+  if (window.wcPhotoSweepCopies) window.wcPhotoSweepCopies();
   flushPhotos();
 }
 

@@ -122,7 +122,7 @@ cellar on your other devices.
   takes a bottle off the count and writes a line in that log, asking first if you had changed
   something in the window without saving. Press a line on the Opened tab to change its date,
   rating or note, or to **Remove This Bottle** (folded away at the bottom of the window) — which puts the bottle back on the count, so a
-  mistaken press is easy to undo.
+  mistaken press is easy to undo. A pairing had with that bottle goes back to planned.
 - **＋ Add Wine and ✦ Check Wines sit at the top of the Cellar**, above Find, so
   adding a wine never means scrolling past the whole cellar. Once the list is taller than the
   window, the same buttons turn up under it as well. **＋ Log a Bottle** does the same on the Opened tab.
@@ -157,6 +157,8 @@ cellar on your other devices.
 the web for a wine and come back with its value, drinking window, region, grape and colour, plus
 the pages it used.
 
+- **A wine pasted twice is looked up once** — the rows merge on Add, so the second lookup would
+  be paid for and thrown away.
 - **It fills only what is empty.** Anything you typed or pasted stays. In the wine window each
   line of Claude's answer — value, window, region, grape, colour — has its own **Use this**, so you
   can take its value and keep your window; a line that already matches says "✓ in the box", and
@@ -359,12 +361,14 @@ Two shapes are understood:
 - **Claude's lookup table** with no header needed — **Wine · Approx. value · Drink window ·
   Verdict**, in that order, tab-separated, Markdown, or lined up with spaces.
 
-Each wine starts with its vintage (`2019 Sample Hill Reserva`, or `NV …`). The parser reads:
+Each wine starts with its vintage (`2019 Sample Hill Reserva`, or `NV …`), or ends with it
+(`Sample Hill Reserva 2019`). The parser reads:
 
 - values like `$40-$70`, `$1,200–$1,500`, `~$25–35 (estimate)`, `$20-$25 est.` (both keep the *estimate*
   flag) and `~$36 list, ~$20–27 street` (the street price wins);
-- windows like `2027–2034`, `2026-2026`, `Now–2031` (Now = this year), `2030+`, `by 2029`;
-  an empty window stays empty (*No window*);
+- windows like `2027–2034`, `2025–30`, `2026-2026`, `Now–2031` or `Now through 2031` (Now = this
+  year), `Drink now`, `2030+`, `by 2029` or `until 2029`; an empty window stays empty (*No window*),
+  and so does a lone year like `2028`, which could be a start or an end;
 - the bottle count from a Bottles column, or `x2` / `(3 bottles)` in the wine cell; one
   bottle otherwise;
 - a Where column per wine — the box in the window fills in only where the list says nothing;
@@ -436,7 +440,7 @@ characters, opened-bottle notes too.
 python3 -m http.server 8025
 ```
 
-Open `http://localhost:8025/` for the app and `/tests.html` for the suite (202 tests; the
+Open `http://localhost:8025/` for the app and `/tests.html` for the suite (319 tests; the
 `EXPECTED` floor in the file fails the run if any go missing). CI runs the same page headless
 on every push, plus CodeQL.
 

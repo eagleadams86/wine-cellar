@@ -51,7 +51,7 @@
    go MISSING look exactly like tests that pass — a suite that quietly shrank to
    three checks still says "all 3 tests pass". RAISE THIS when you add tests, and
    lower it only when you retire one deliberately. */
-const EXPECTED = 308;
+const EXPECTED = 319;
 
 /* ── It refuses to run anywhere but localhost, and that is load-bearing ──────
    GitHub Pages publishes this page BESIDE the app, where the iframe below would
@@ -2268,6 +2268,29 @@ function define() {
     const r = H.parseWineList('Wine,Bottles\n2007 Two Column Cab,3', 2026).rows[0];
     eq([r.vintage, r.name, r.qty], [2007, 'Two Column Cab', 3]);
   });
+  t('a drink window in the spellings people write', () => {
+    const w = (c) => { const r = W.parseWindowCell(c, 2026); return [r.from, r.to]; };
+    eq(w('2025–30'), [2025, 2030], 'a two-digit end, in the start’s century');
+    eq(w('2098-05'), [2098, 2105], 'and across a century');
+    eq(w('Now through 2031'), [2026, 2031], '“through” joins a range, and keeps its end');
+    eq(w('2027 to 2030'), [2027, 2030]);
+    eq(w('2027 until 2030'), [2027, 2030]);
+    eq(w('until 2030'), [null, 2030], 'an end alone');
+    eq(w('Drink now'), [2026, null]);
+    eq(w('Ready now'), [2026, null]);
+    eq(w('2030+'), [2030, null]);
+    eq(w('Not now'), [null, null], 'a “now” that says the opposite is not read');
+    eq(w('2028'), [null, null], 'a lone year could be either end, so it is left unread');
+  });
+  t('a vintage written after the name is the vintage', () => {
+    const r = H.parseWineList('Wine,Bottles\nChâteau Trailing 2015,2\nBracket Red (2012),1\nNV Fizz 2015,1', 2026).rows;
+    eq([r[0].vintage, r[0].name], [2015, 'Château Trailing'], 'taken off the end of the name');
+    eq([r[1].vintage, r[1].name], [2012, 'Bracket Red'], 'in brackets too');
+    eq([r[2].vintage, r[2].name], [null, 'Fizz 2015'], 'a name that says NV stays NV');
+    const c = H.parseWineList('Wine,Vintage\nCuvée 1905,2019\nSame Year 2018,2018', 2026).rows;
+    eq([c[0].vintage, c[0].name], [2019, 'Cuvée 1905'], 'a Vintage column with another year leaves the name whole');
+    eq([c[1].vintage, c[1].name], [2018, 'Same Year'], 'one that agrees takes it off');
+  });
 
   group('At a Glance drives the Cellar filter');
   /* A fixture with every status, so each tile has something to filter to. */
@@ -3607,6 +3630,18 @@ function define() {
       D.getElementById('pasteDialog').close();
     });
   });
+  t('a wine pasted twice is looked up — and paid for — once', async () => {
+    const D = W.document, signals = [];
+    await withKey(hangingFetch(signals), async () => {
+      W.openPaste();
+      D.getElementById('pasteBox').value = 'Wine,Bottles\n2019 Twice Example,1\n2019 Twice Example,2\n2020 Once Example,1';
+      D.getElementById('pasteBox').dispatchEvent(new W.Event('input'));
+      D.getElementById('pasteLookup').click();
+      for (let i = 0; i < 5; i++) await tick();
+      eq(signals.length, 2, 'two wines, two lookups, though there are three rows');
+      D.getElementById('pasteDialog').close();
+    });
+  });
   /* Check Wines: a cellar with every case in it — a wine Claude would
      change, one it cannot find, one that already matches, one with empty boxes,
      and a finished wine the check must skip. */
@@ -4300,6 +4335,148 @@ function define() {
       ok(!H.__state().opened.some((o) => o.id === 'fx-o1') && !D.getElementById('openDialog').open, 'Yes removes it and closes');
       eq(qty(), before + 1, 'and the bottle is back on the count');
     } finally { proto.setItem = realStore; W.confirm = realConfirm; D.getElementById('openDialog').close(); H.__plant(FIXTURE); W.setTab('cellar'); }
+  });
+  t('removing a bottle had with a meal puts its pairing back to planned', () => {
+    const D = W.document, proto = W.Storage.prototype, realStore = proto.setItem, realConfirm = W.confirm;
+    proto.setItem = function () {};
+    let asked = '';
+    try {
+      H.__plant(Object.assign({}, FIXTURE, { pairings: [
+        { id: 'pr-had', wineId: 'fx-ready', label: '2019 Alpha Pinot', meal: 'Roast Duck', date: '2026-03-01',
+          status: 'had', rating: 4, note: '', openedId: 'fx-o1', why: '' },
+        { id: 'pr-other', wineId: 'fx-ready', label: '2019 Alpha Pinot', meal: 'Soup', date: '',
+          status: 'planned', rating: null, note: '', openedId: null, why: '' }] }));
+      W.openBottleEdit('fx-o1');
+      W.confirm = (m) => { asked = m; return true; };
+      D.getElementById('openRemove').click();
+      ok(/pairing with “Roast Duck” goes back to planned/.test(asked), 'the question says so first', asked);
+      const p = H.__state().pairings.find((x) => x.id === 'pr-had');
+      eq([p.status, p.openedId, p.rating], ['planned', null, 4], 'planned again, pointing at no line, its rating kept');
+      eq(p.log.slice(-1)[0].k, 'back', 'and its History says it was put back');
+      ok(p.log.slice(-1)[0].c.some((d) => d.f === 'status' && d.o === 'Had' && d.n === 'Planned'), 'Had → Planned');
+      eq(H.__state().pairings.find((x) => x.id === 'pr-other').status, 'planned', 'another pairing is left alone');
+    } finally { proto.setItem = realStore; W.confirm = realConfirm; D.getElementById('openDialog').close(); H.__plant(FIXTURE); }
+  });
+  t('We Had It saves what was typed, even if Opened One is then cancelled', () => {
+    const D = W.document, proto = W.Storage.prototype, realStore = proto.setItem;
+    const writes = [];
+    proto.setItem = function (k, v) { if (k === H.STORAGE_KEY) writes.push(v); };
+    try {
+      H.__plant(Object.assign({}, FIXTURE, { pairings: [
+        { id: 'pr-plan', wineId: 'fx-ready', label: '2019 Alpha Pinot', meal: 'Lamb', date: '',
+          status: 'planned', rating: null, note: '', openedId: null, why: '' }] }));
+      W.openPairing('pr-plan');
+      D.getElementById('p_note').value = 'Rosemary and garlic';
+      D.getElementById('pairingHad').click();
+      ok(D.getElementById('openDialog').open, 'Opened One opens');
+      D.getElementById('openDialog').close();
+      ok(writes.length && /Rosemary and garlic/.test(writes[writes.length - 1]), 'the note was saved before it opened');
+      const before = writes.length;
+      W.openPairing('pr-plan');
+      D.getElementById('pairingHad').click();
+      D.getElementById('openDialog').close();
+      eq(writes.length, before, 'nothing typed, nothing saved — no empty Undo step');
+    } finally { proto.setItem = realStore; D.getElementById('openDialog').close(); D.getElementById('pairingDialog').close(); H.__plant(FIXTURE); }
+  });
+  t('the Opened tab’s Wine column sorts by name, then vintage — not by year', () => {
+    const D = W.document;
+    try {
+      H.__plant(Object.assign({}, FIXTURE, { opened: [
+        { id: 'so-1', wineId: null, label: '2019 Zeta Red', vintage: 2019, date: '2026-01-01' },
+        { id: 'so-2', wineId: null, label: 'NV Alpha Fizz', vintage: null, date: '2026-01-02' },
+        { id: 'so-3', wineId: null, label: '2021 Beta White', vintage: 2021, date: '2026-01-03' },
+        { id: 'so-4', wineId: null, label: '2010 Beta White', vintage: 2010, date: '2026-01-04' }] }));
+      W.setTab('opened');
+      const head = () => D.querySelector('#openedWrap [data-sort="wine"]');
+      head().click();
+      eq(W.visibleOpened().map((o) => o.id), ['so-2', 'so-4', 'so-3', 'so-1'], 'A–Z by name, older vintage first');
+      head().click(); head().click();
+    } finally { H.__plant(FIXTURE); W.setTab('cellar'); }
+  });
+  t('a filter dropdown closes when Tab leaves it, and stays open while Tab moves inside', () => {
+    const D = W.document;
+    ['statusPick', 'timingPickBox', 'pairingPickBox', 'historyKindBox', 'historyFieldBox'].forEach((id) => {
+      const pick = D.getElementById(id);
+      pick.open = true;
+      const inside = pick.querySelector('input, summary');
+      pick.dispatchEvent(new W.FocusEvent('focusout', { bubbles: true, relatedTarget: inside }));
+      ok(pick.open, id + ' stays open while focus is inside');
+      pick.dispatchEvent(new W.FocusEvent('focusout', { bubbles: true, relatedTarget: D.getElementById('main') }));
+      ok(!pick.open, id + ' closes when focus leaves');
+    });
+  });
+  t('What Pairs Well, with nothing had yet, says only that', () => {
+    const D = W.document;
+    try {
+      H.__plant(Object.assign({}, FIXTURE, { pairings: [
+        { id: 'pr-only', wineId: 'fx-ready', label: '2019 Alpha Pinot', meal: 'Lamb', date: '',
+          status: 'planned', rating: null, note: '', openedId: null, why: '' }] }));
+      W.setTab('pairings');
+      eq(D.getElementById('pairLikeGrapes').textContent.trim(), 'No pairing has been had yet.',
+         'never that a grape is missing');
+    } finally { H.__plant(FIXTURE); W.setTab('cellar'); }
+  });
+  /* The photo queues, driven through a fake cloud: the sync module only hands
+     them setDoc and deleteDoc. The id lists live in localStorage, so both
+     calls are swapped for a map for the length of each test. */
+  const withPhotoLists = async (fn) => {
+    const proto = W.Storage.prototype, realSet = proto.setItem, realGet = proto.getItem, mem = new Map();
+    proto.setItem = function (k, v) { if (/^wine-photo-/.test(k)) mem.set(k, String(v)); };
+    proto.getItem = function (k) { return /^wine-photo-/.test(k) ? (mem.has(k) ? mem.get(k) : null) : realGet.call(this, k); };
+    try { await fn(mem); } finally { proto.setItem = realSet; proto.getItem = realGet; }
+  };
+  t('a photo retaken while its upload is in flight is sent again, not dropped', async () => {
+    await withPhotoLists(async (mem) => {
+      const store = new Map([['pq-1', { data: PHOTO, at: 'A' }]]);
+      const was = H.__photoStore({ get: async (id) => store.get(id) || null, put: async () => true,
+                                   del: async () => null, keys: async () => [...store.keys()] });
+      try {
+        H.__plant({ wines: [{ id: 'pq-1', name: 'Queued', photoAt: '2026-10-24T12:00:00.000Z' }] });
+        mem.set('wine-photo-unsent', JSON.stringify(['pq-1']));
+        const sent = [];
+        let release;
+        const cloud = { send: (id, d) => { sent.push(d.at); return sent.length === 1 ? new Promise((r) => { release = r; }) : Promise.resolve(); } };
+        const run = W.flushPhotoQueue(cloud);
+        await tick();
+        /* Retaken mid-send: a new stamp on the wine, a new copy in the store. */
+        H.__state().wines[0].photoAt = '2026-10-25T09:00:00.000Z';
+        store.set('pq-1', { data: PHOTO, at: '2026-10-25T09:00:00.000Z' });
+        release();
+        await run;
+        eq(sent, ['A', '2026-10-25T09:00:00.000Z'], 'the new photo goes up after the old one');
+        eq(JSON.parse(mem.get('wine-photo-unsent')), [], 'and only then leaves the list');
+      } finally { H.__photoStore(was); H.__plant(FIXTURE); }
+    });
+  });
+  t('photos past Undo are deleted at sign-in only if the cloud copy did not bring them back', async () => {
+    await withPhotoLists(async (mem) => {
+      try {
+        /* Deleted here, but the newer cloud copy the verdict adopted has it. */
+        H.__plant({ wines: [{ id: 'pg-back', name: 'Came Back', photoAt: '2026-10-24T12:00:00.000Z' }] });
+        mem.set('wine-photo-gone', JSON.stringify(['pg-back', 'pg-gone']));
+        H.__photoGoneAtBoot(['pg-back', 'pg-gone']);
+        const removed = [];
+        await W.deleteGonePhotos({ remove: async (id) => { removed.push(id); } });
+        eq(removed, ['pg-gone'], 'only the one still gone is deleted from the cloud');
+        eq(JSON.parse(mem.get('wine-photo-gone')), [], 'and neither is waiting any more');
+      } finally { H.__photoGoneAtBoot([]); H.__plant(FIXTURE); }
+    });
+  });
+  t('with sync on, local photo copies wait for the sync verdict before any is swept', async () => {
+    const proto = W.Storage.prototype, realGet = proto.getItem, realSet = proto.setItem;
+    const dels = [], store = { get: async () => null, put: async () => true,
+      del: async (k) => { dels.push(k); }, keys: async () => ['orphan'] };
+    const was = H.__photoStore(store);
+    proto.setItem = function () {};
+    try {
+      H.__plant({ wines: [] });
+      proto.getItem = function (k) { return k === 'wine-sync-live' ? '1' : /^wine-photo-/.test(k) ? null : realGet.call(this, k); };
+      await W.sweepPhotos();
+      eq(dels, [], 'signed in last time: nothing swept at boot');
+      proto.getItem = function (k) { return k === 'wine-sync-live' ? '0' : /^wine-photo-/.test(k) ? null : realGet.call(this, k); };
+      await W.sweepPhotos();
+      eq(dels, ['orphan'], 'sync off: the orphan copy goes at once');
+    } finally { proto.getItem = realGet; proto.setItem = realSet; H.__photoStore(was); H.__plant(FIXTURE); }
   });
   t('an opened line keeps its wine’s region, grape and price — filled in once for old lines', () => {
     const st = H.normalizeState({ wines: [{ id: 'w', name: 'A', region: 'Rioja', grape: 'Tempranillo', paid: 18.5 }],
