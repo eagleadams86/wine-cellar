@@ -113,10 +113,11 @@ cellar on your other devices.
   something in the window without saving. Press a line on the Opened tab to change its date,
   rating or note, or to **Remove This Bottle** (folded away at the bottom of the window) — which puts the bottle back on the count, so a
   mistaken press is easy to undo.
-- **＋ Add Wine, Paste a List and ✦ Check Wines sit at the top of the Cellar**, above Find, so
+- **＋ Add Wine and ✦ Check Wines sit at the top of the Cellar**, above Find, so
   adding a wine never means scrolling past the whole cellar. Once the list is taller than the
   window, the same buttons turn up under it as well. **＋ Log a Bottle** does the same on the Opened tab.
-- **Paste a List** reads the table Claude writes when you ask it to look wines up — see below.
+- **Paste a List** — the **paste a list** link in the Add Wine window — reads the table Claude writes
+  when you ask it to look wines up — see below.
 - **✦ Check Wines** looks up the wines you pick with Claude in one go — see below.
 - **↩ Undo** (⌘Z / Ctrl+Z) walks back through this sitting's changes, one Save at a time —
   Money Map's undo, ported. Up to twenty steps; an edit, an Opened One, a pasted list, a
@@ -289,7 +290,7 @@ range; wines with no value are left out and the page says how many bottles that 
 
 ## Adding Wines From a List
 
-Press **Paste a List** and paste one wine per line, straight from a chat or a spreadsheet.
+Press **＋ Add Wine**, then **paste a list** in the window's opening line, and paste one wine per line, straight from a chat or a spreadsheet.
 Two shapes are understood:
 
 - **A list with a header row** — CSV (like the Cellar table's own ⬇ CSV), tab-separated or a

@@ -1780,7 +1780,7 @@ html[data-booting] footer { visibility: hidden; }
         <button type="button" id="firstSample">Load Sample Data</button>
         <button type="button" id="firstRestore">Restore a Backup</button></p>
       <p><strong>Start Fresh</strong> opens the window for your first wine. To add several at once,
-        press <strong>Paste a List</strong> there and paste the table Claude gives you when you ask
+        press <strong>paste a list</strong> at the top of that window and paste the table Claude gives you when you ask
         it to look up value and drinking windows.</p>
       <p><strong>Load Sample Data</strong> fills the cellar with invented wines — one for every
         status, a few bottles already opened — so every figure on both tabs has something behind
@@ -1818,10 +1818,10 @@ html[data-booting] footer { visibility: hidden; }
 
       <!-- At the TOP, so adding a wine never means scrolling past the cellar
            (Charles, 2026-10-26). A copy turns up under the list once it is
-           too long to see both ends at once (footRows). -->
+           too long to see both ends at once (footRows). No Paste a List here:
+           the Add window's own "paste a list" link opens it (Charles, same day). -->
       <div class="row-actions no-print top-actions" id="cellarTop">
         <button type="button" class="primary" id="addBtn">＋ Add Wine</button>
-        <button type="button" id="pasteBtn">Paste a List</button>
         <button type="button" id="checkBtn"><span aria-hidden="true">✦</span> Check Wines</button>
         <button type="button" id="sampleBtn">Load Sample Data</button>
       </div>
@@ -1861,7 +1861,6 @@ html[data-booting] footer { visibility: hidden; }
       <!-- The same buttons again once the list is long — see footRows(). -->
       <div class="row-actions no-print foot-actions" id="cellarFoot" hidden>
         <button type="button" class="primary" data-same="addBtn">＋ Add Wine</button>
-        <button type="button" data-same="pasteBtn">Paste a List</button>
         <button type="button" data-same="checkBtn"><span aria-hidden="true">✦</span> Check Wines</button>
       </div>
     </div>
@@ -6994,7 +6993,6 @@ $('pasteLookup').addEventListener('click', async () => {
       + '. Claude filled only what your list left empty — check the ✦ rows, then Add.';
   }
 });
-$('pasteBtn').addEventListener('click', openPaste);
 
 /* ── Check Wines ───────────────────────────────────────────────────────
    Every wine with bottles left, looked up a few at a time, then a review:
@@ -8589,7 +8587,7 @@ async function boot() {
   /* Every edit surface goes in a shared view. The table already renders
      read-only above; these are the buttons that would write. */
   if (viewOnly) {
-    ['syncBtn', 'undoBtn', 'settingsBtn', 'dataBtn', 'shareBtn', 'addBtn', 'pasteBtn', 'checkBtn', 'sampleBtn', 'logBtn'].forEach((id) => {
+    ['syncBtn', 'undoBtn', 'settingsBtn', 'dataBtn', 'shareBtn', 'addBtn', 'checkBtn', 'sampleBtn', 'logBtn'].forEach((id) => {
       const el = $(id);
       if (el) el.hidden = true;
     });

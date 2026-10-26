@@ -4053,12 +4053,14 @@ function define() {
   t('the card buttons sit above the list; a copy turns up under it only once it is long', () => {
     const D = W.document, $ = (id) => D.getElementById(id);
     const many = Array.from({ length: 40 }, (_, i) => ({ id: 'ft-' + i, name: 'Foot Test ' + i, qty: 1 }));
-    const top = ['addBtn', 'pasteBtn', 'checkBtn', 'sampleBtn'];
+    const top = ['addBtn', 'checkBtn', 'sampleBtn'];
     try {
       W.setTab('cellar');
       const card = $('cellarCard');
       ok($('cellarTop').compareDocumentPosition($('listWrap')) & W.Node.DOCUMENT_POSITION_FOLLOWING, 'the top row comes before the list');
-      ok(top.every((id) => $('cellarTop').contains($(id))), 'Add, Paste, Check and Sample are all in it');
+      ok(top.every((id) => $('cellarTop').contains($(id))), 'Add, Check and Sample are all in it');
+      ok(!$('pasteBtn') && !D.querySelector('[data-same="pasteBtn"]'), 'no Paste a List button — the Add window links to it');
+      ok($('wineToPaste'), 'and that link is still there');
       ok($('openedTop').contains($('logBtn')), 'and Log a Bottle leads the Opened card');
       H.__plant(Object.assign({}, FIXTURE, { wines: FIXTURE.wines.slice(0, 2) }));
       W.footRows();
@@ -4068,7 +4070,7 @@ function define() {
       W.footRows();
       eq($('cellarFoot').hidden, false, 'a list taller than the window: the second row shows');
       eq([...$('cellarFoot').querySelectorAll('[data-same]')].map((b) => b.dataset.same).join(),
-        'addBtn,pasteBtn,checkBtn', 'with Add, Paste and Check — Sample only ever shows on an empty cellar');
+        'addBtn,checkBtn', 'with Add and Check — Sample only ever shows on an empty cellar');
       let pressed = 0;
       const count = () => { pressed++; };
       $('addBtn').addEventListener('click', count);
