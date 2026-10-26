@@ -51,7 +51,7 @@
    go MISSING look exactly like tests that pass — a suite that quietly shrank to
    three checks still says "all 3 tests pass". RAISE THIS when you add tests, and
    lower it only when you retire one deliberately. */
-const EXPECTED = 300;
+const EXPECTED = 301;
 
 /* ── It refuses to run anywhere but localhost, and that is load-bearing ──────
    GitHub Pages publishes this page BESIDE the app, where the iframe below would
@@ -4049,6 +4049,40 @@ function define() {
       H.__plant(FIXTURE);
       eq(btn(), true, 'a cellar of your own: gone');
     } finally { H.__plant(FIXTURE); }
+  });
+  t('the card buttons sit above the list; a copy turns up under it only once it is long', () => {
+    const D = W.document, $ = (id) => D.getElementById(id);
+    const many = Array.from({ length: 40 }, (_, i) => ({ id: 'ft-' + i, name: 'Foot Test ' + i, qty: 1 }));
+    const top = ['addBtn', 'pasteBtn', 'checkBtn', 'sampleBtn'];
+    try {
+      W.setTab('cellar');
+      const card = $('cellarCard');
+      ok($('cellarTop').compareDocumentPosition($('listWrap')) & W.Node.DOCUMENT_POSITION_FOLLOWING, 'the top row comes before the list');
+      ok(top.every((id) => $('cellarTop').contains($(id))), 'Add, Paste, Check and Sample are all in it');
+      ok($('openedTop').contains($('logBtn')), 'and Log a Bottle leads the Opened card');
+      H.__plant(Object.assign({}, FIXTURE, { wines: FIXTURE.wines.slice(0, 2) }));
+      W.footRows();
+      ok(card.offsetHeight > 0, 'the Cellar card is laid out');
+      eq($('cellarFoot').hidden, true, 'a short list: no second row');
+      H.__plant(Object.assign({}, FIXTURE, { wines: many }));
+      W.footRows();
+      eq($('cellarFoot').hidden, false, 'a list taller than the window: the second row shows');
+      eq([...$('cellarFoot').querySelectorAll('[data-same]')].map((b) => b.dataset.same).join(),
+        'addBtn,pasteBtn,checkBtn', 'with Add, Paste and Check — Sample only ever shows on an empty cellar');
+      let pressed = 0;
+      const count = () => { pressed++; };
+      $('addBtn').addEventListener('click', count);
+      try { $('cellarFoot').querySelector('[data-same="addBtn"]').click(); }
+      finally { $('addBtn').removeEventListener('click', count); if ($('wineDialog').open) $('wineDialog').close(); }
+      eq(pressed, 1, 'the foot Add presses the top one — one handler per action');
+      top.forEach((id) => { $(id).hidden = true; });
+      W.footRows();
+      eq($('cellarFoot').hidden, true, 'nothing to press up top (a shared view): no foot row');
+      eq($('cellarTop').hidden, true, 'and no empty top row either');
+    } finally {
+      top.forEach((id) => { $(id).hidden = false; });
+      H.__plant(FIXTURE); W.footRows();
+    }
   });
   t('refitting one card list leaves the others, and the page, where they are', () => {
     const D = W.document;

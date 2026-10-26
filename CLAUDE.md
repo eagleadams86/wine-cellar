@@ -386,6 +386,12 @@ the family doesn't.
   after the first opened at Save), and takes `placeY` for `KEEPS_PLACE` (wine + opened
   windows), which a watcher on `open` puts back when the last of them closes. Save's render()
   and close()'s focus hand-back both move the page. Opt-in on purpose: a Find hit moves it.
+- **The card buttons are at the TOP; a foot copy is MEASURED** (2026-10-26, Charles: scrolling
+  past every wine to add one). `#cellarTop` / `#openedTop` sit above Find, ids unchanged.
+  `#cellarFoot` / `#openedFoot` show only while the top row → end of list is taller than the
+  window (`footRows()`, a ResizeObserver + resize). Not a row count like FM/SP's — a wine is a row
+  or a tall card depending on width. Foot buttons are `data-same` stand-ins that press the top one
+  (one handler per action) and copy its hidden/disabled; no Load Sample Data copy.
 - **The table's own order is drinking order** — past the window, drink soon, ready, hold,
   none; then the window that closes soonest. The Wine column sorts by name, then vintage.
 
@@ -400,6 +406,6 @@ was a one-line version of the cellar rule.
 
 ## Tests
 
-`tests.html`, `EXPECTED = 296`. Run it headless (Playwright) rather than in the Browser pane:
+`tests.html`, `EXPECTED = 301`. Run it headless (Playwright) rather than in the Browser pane:
 the pane throttles hidden timers and its focus heuristics turn the 705px keyboard-focus check
 red on untouched code.

@@ -113,6 +113,9 @@ cellar on your other devices.
   something in the window without saving. Press a line on the Opened tab to change its date,
   rating or note, or to **Remove This Bottle** (folded away at the bottom of the window) — which puts the bottle back on the count, so a
   mistaken press is easy to undo.
+- **＋ Add Wine, Paste a List and ✦ Check All Wines sit at the top of the Cellar**, above Find, so
+  adding a wine never means scrolling past the whole cellar. Once the list is taller than the
+  window, the same buttons turn up under it as well. **＋ Log a Bottle** does the same on the Opened tab.
 - **Paste a List** reads the table Claude writes when you ask it to look wines up — see below.
 - **✦ Check All Wines** looks every wine with bottles left up with Claude at once — see below.
 - **↩ Undo** (⌘Z / Ctrl+Z) walks back through this sitting's changes, one Save at a time —
@@ -231,7 +234,7 @@ photo from the iPhone works directly. The window says which of these happened.
 
 ### Check All Wines
 
-**✦ Check All Wines** under the Cellar table runs the same lookup on every wine with bottles
+**✦ Check All Wines** at the top of the Cellar runs the same lookup on every wine with bottles
 left (finished wines are skipped), three at a time. A wine with a label photo sends its kept
 copy with the question, as Look Up does, so the label settles which bottle it is (about a cent
 more for each such wine; the cost shown up front doesn't count it).

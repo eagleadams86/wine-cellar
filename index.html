@@ -1304,6 +1304,11 @@
   .row-actions { display: flex; flex-wrap: wrap; gap: var(--sp-4);
                  justify-content: flex-end; margin-top: var(--sp-6); }
   .row-actions .spacer { flex: 1 1 auto; }
+  /* A card's own buttons: left-aligned, above its Find (top) or under its
+     list (foot). The top row takes the gap BELOW it, where the dialog rows
+     take theirs above. */
+  .top-actions, .foot-actions { justify-content: flex-start; }
+  .top-actions { margin: 0 0 var(--sp-5); }
   /* Cancel and the window's own button are ONE unit, pushed right: on a phone
      the row wrapped a button at a time and left Save alone on a line of its
      own, under Cancel's neighbours (Charles, 2026-10-25). Now the pair wraps
@@ -1811,6 +1816,16 @@ html[data-booting] footer { visibility: hidden; }
         </span>
       </h2>
 
+      <!-- At the TOP, so adding a wine never means scrolling past the cellar
+           (Charles, 2026-10-26). A copy turns up under the list once it is
+           too long to see both ends at once (footRows). -->
+      <div class="row-actions no-print top-actions" id="cellarTop">
+        <button type="button" class="primary" id="addBtn">＋ Add Wine</button>
+        <button type="button" id="pasteBtn">Paste a List</button>
+        <button type="button" id="checkBtn"><span aria-hidden="true">✦</span> Check All Wines</button>
+        <button type="button" id="sampleBtn">Load Sample Data</button>
+      </div>
+
       <!-- Find, in the table — NARROWS what you are looking at. The header's ⌕
            Find searches everything and jumps to one record. These controls live
            in the markup and are never redrawn by render(), or the caret is lost. -->
@@ -1843,11 +1858,11 @@ html[data-booting] footer { visibility: hidden; }
       </div>
 
       <div class="table-scroll" id="listWrap"></div>
-      <div class="row-actions no-print" style="justify-content:flex-start">
-        <button type="button" class="primary" id="addBtn">＋ Add Wine</button>
-        <button type="button" id="pasteBtn">Paste a List</button>
-        <button type="button" id="checkBtn"><span aria-hidden="true">✦</span> Check All Wines</button>
-        <button type="button" id="sampleBtn">Load Sample Data</button>
+      <!-- The same buttons again once the list is long — see footRows(). -->
+      <div class="row-actions no-print foot-actions" id="cellarFoot" hidden>
+        <button type="button" class="primary" data-same="addBtn">＋ Add Wine</button>
+        <button type="button" data-same="pasteBtn">Paste a List</button>
+        <button type="button" data-same="checkBtn"><span aria-hidden="true">✦</span> Check All Wines</button>
       </div>
     </div>
 
@@ -1920,6 +1935,9 @@ html[data-booting] footer { visibility: hidden; }
         Open a wine on the Cellar tab and press <strong>Opened One</strong> to add to it, press
         <strong>Log a Bottle</strong> for one opened at dinner, a winery or a tasting, and press a line
         here to change anything on it.</p>
+      <div class="row-actions no-print top-actions" id="openedTop">
+        <button type="button" class="primary" id="logBtn">＋ Log a Bottle</button>
+      </div>
       <!-- Find, in the list — the Cellar's own. In the markup, never redrawn,
            or the caret is lost. -->
       <div class="filterbar no-print">
@@ -1947,8 +1965,8 @@ html[data-booting] footer { visibility: hidden; }
         <p class="hint" id="openedFindNote" role="status"></p>
       </div>
       <div class="table-scroll" id="openedWrap"></div>
-      <div class="row-actions no-print" style="justify-content:flex-start">
-        <button type="button" class="primary" id="logBtn">＋ Log a Bottle</button>
+      <div class="row-actions no-print foot-actions" id="openedFoot" hidden>
+        <button type="button" class="primary" data-same="logBtn">＋ Log a Bottle</button>
       </div>
     </div>
   </div>
@@ -6520,6 +6538,52 @@ $('wineToPaste').addEventListener('click', () => { $('wineDialog').close(); open
 $('addBtn').addEventListener('click', () => openWine(null));
 $('logBtn').addEventListener('click', openLogBottle);
 
+/* ── The card buttons, top and foot ───────────────────────────────────────
+   Each card's buttons sit above its list. Under it, the same buttons again —
+   but only once the stretch from the top row to the end of the list is taller
+   than the window, the point where you can no longer see both at once (the
+   family's foot Add rule, FM/SP). Those apps count rows in a fixed dialog;
+   here a wine is a one-line row or a tall card depending on the width
+   (fitCards), so a count would be wrong somewhere — this MEASURES. A foot
+   button is a stand-in: it presses the top one, so each action has exactly one
+   handler, and it copies that button's hidden/disabled. The foot row sits
+   below the list, so showing it never moves anything already on screen. */
+const FOOT_ROWS = [['cellarTop', 'listWrap', 'cellarFoot'], ['openedTop', 'openedWrap', 'openedFoot']];
+function footRows() {
+  FOOT_ROWS.forEach(([topId, hostId, footId]) => {
+    const top = $(topId), host = $(hostId), foot = $(footId);
+    if (!top || !host || !foot) return;
+    foot.querySelectorAll('[data-same]').forEach((b) => {
+      const twin = $(b.dataset.same);
+      b.hidden = !twin || twin.hidden;
+      b.disabled = !!twin && twin.disabled;
+    });
+    const anyTop = [...top.querySelectorAll('button')].some((b) => !b.hidden);
+    top.hidden = !anyTop;
+    /* A hidden tab measures 0 high — no foot, and it is measured again when
+       the tab shows (the observer sees the list gain its size). */
+    const span = host.getBoundingClientRect().bottom - top.getBoundingClientRect().top;
+    foot.hidden = !anyTop || !host.offsetHeight || span <= window.innerHeight;
+  });
+}
+document.addEventListener('click', (e) => {
+  const b = e.target.closest('.foot-actions [data-same]');
+  if (b && !b.disabled) $(b.dataset.same).click();
+});
+(function wireFootRows() {
+  let queued = false;
+  const later = () => {
+    if (queued) return;
+    queued = true;
+    requestAnimationFrame(() => { queued = false; footRows(); });
+  };
+  if (typeof ResizeObserver === 'function') {
+    const ro = new ResizeObserver(later);
+    FOOT_ROWS.forEach(([topId, hostId]) => { ro.observe($(hostId)); ro.observe($(topId)); });
+  }
+  window.addEventListener('resize', later);
+})();
+
 /* ── Opened One ─────────────────────────────────────────────────────────────── */
 /* One window, three jobs:
    - Opened One (`drinkingId`) takes a bottle off a Cellar wine's count and
@@ -8529,6 +8593,7 @@ async function boot() {
       const el = $(id);
       if (el) el.hidden = true;
     });
+    footRows();
   }
   /* Find STAYS in a shared view — it writes nothing, and searching somebody
      else's snapshot is a reasonable thing to want. goToSearchHit() already
