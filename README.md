@@ -16,7 +16,9 @@ cellar on your other devices.
   next), sortable, filterable, with Copy and CSV; then Cellar Makeup. Every tab reads the same way:
   its dashboard tiles first, then the list you work in, then the tables that group it.
 - **Cellar Makeup** (under the Cellar list) — what your cellar is made of right now: every wine with
-  bottles left, grouped by **grape**, **region**, **sub-region** and **colour**, with how many
+  bottles left, grouped by **grape**, **region**, **sub-region**, **colour**, **Drink By** (the year
+  the window closes, soonest first — when bottles start running out of time) and **Where It Is**
+  (the place you keep them), with how many
   wines and bottles, each one's **share** of the cellar, and how many of those bottles are
   **ready** to open this year (Ready, Drink Soon or Past Window). Most bottles first; every heading
   sorts; the same **Grouped / As written** switch as What You Like (one setting for all three

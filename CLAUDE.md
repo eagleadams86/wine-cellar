@@ -125,7 +125,11 @@ the family doesn't.
   and under 30rem the cells lose half their side padding and the headings their letter spacing;
   measured: all four tables fit 313px exactly. Don't add a sixth column without re-measuring.
   Grouped / As written is ONE setting (`likeGrouped`) across What You Like, What Pairs Well and
-  this — each switch redraws all three.
+  this — each switch redraws all three. **Six tables on purpose** (Charles, same day: Colour sat
+  alone on a second row with four): + Drink By (`drinkTo` as a year; its OWN order is the calendar,
+  soonest first — it stands in for the removed Drinking Windows chart) and Where It Is (`location`,
+  case-blind). Six fills 3-across and 2-across evenly; keep the count divisible by 6 or re-check.
+  `MAKE_TABLES[f][3]` is what a left-out bottle lacks, for the warn line and the empty table.
 - **Pair a Meal + the Pairings tab (SCHEMA 15, 2026-10-26, a friend of Charles's idea).**
   `buildPairRequest` is pure and pinned: Opus 5.5 effort `low` (Charles chose it over Sonnet),
   ONE strict tool `recommend_wines`, **no web search and no `cache_control`** (a cache write costs

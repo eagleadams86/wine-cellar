@@ -1804,12 +1804,14 @@ html[data-booting] footer { visibility: hidden; }
           <button type="button" class="btn-small" data-like-view="written">As written</button>
         </span>
       </h2>
-      <p class="chart-title">The bottles you have now by grape, region, sub-region and colour, most first — and how many of them are ready to open.</p>
+      <p class="chart-title">The bottles you have now by grape, region, sub-region, colour, the year their window closes and where they are — and how many of them are ready to open.</p>
       <div class="likes">
         <div class="table-scroll" id="makeGrapes"></div>
         <div class="table-scroll" id="makeRegions"></div>
         <div class="table-scroll" id="makeSubregions"></div>
         <div class="table-scroll" id="makeColours"></div>
+        <div class="table-scroll" id="makeDrinkBy"></div>
+        <div class="table-scroll" id="makeWhere"></div>
       </div>
       <p class="warn-line" id="makeWarn" role="status"></p>
     </div>
@@ -3830,7 +3832,9 @@ function makeupGroups(wines, field, grouped, yr, soon) {
   const groups = new Map();
   let blank = 0;
   wines.forEach((w) => {
+    /* Drink By is the year the window closes; an open end has none. */
     const written = field === 'color' ? (COLOR_LABEL[w.color] || '')
+      : field === 'drinkTo' ? (w.drinkTo == null ? '' : String(w.drinkTo))
       : String(w[field] || '').trim().replace(/\s+/g, ' ');
     const name = written ? fold(written) || written : '';
     if (!name) { blank += w.qty; return; }
@@ -3863,6 +3867,7 @@ function computeMakeup(st, yr, grouped) {
     bottles: wines.reduce((a, w) => a + w.qty, 0),
     grapes: makeupGroups(wines, 'grape', g, yr, soon), regions: makeupGroups(wines, 'region', g, yr, soon),
     subregions: makeupGroups(wines, 'subregion', g, yr, soon), colours: makeupGroups(wines, 'color', g, yr, soon),
+    drinkBy: makeupGroups(wines, 'drinkTo', g, yr, soon), places: makeupGroups(wines, 'location', g, yr, soon),
   };
 }
 
@@ -4326,8 +4331,15 @@ function renderOpenedDash(c) {
   renderLikeTables(c);
 }
 /* ── Cellar Makeup ────────────────────────────────────────────────────────── */
-const MAKE_TABLES = { grape: ['makeGrapes', 'Grape', 'grapes'], region: ['makeRegions', 'Region', 'regions'],
-  subregion: ['makeSubregions', 'Sub-region', 'subregions'], color: ['makeColours', 'Colour', 'colours'] };
+/* [host, heading, computeMakeup key, what a bottle left out of it lacks].
+   Six tables, so they fill three across and two across alike (Charles,
+   2026-10-26: Colour sat alone on a second row with four). */
+const MAKE_TABLES = { grape: ['makeGrapes', 'Grape', 'grapes', 'no grape recorded'],
+  region: ['makeRegions', 'Region', 'regions', 'no region recorded'],
+  subregion: ['makeSubregions', 'Sub-region', 'subregions', 'no sub-region recorded'],
+  color: ['makeColours', 'Colour', 'colours', 'no colour set'],
+  drinkTo: ['makeDrinkBy', 'Drink By', 'drinkBy', 'no end to its window'],
+  location: ['makeWhere', 'Where It Is', 'places', 'no place recorded'] };
 const makeColumns = (label) => [
   { key: 'name',    label: label,       desc: false },
   { key: 'wines',   label: 'Wines',     desc: true, num: true },
@@ -4337,7 +4349,8 @@ const makeColumns = (label) => [
 ];
 /* View state, never saved; null is the table's own order (most bottles first). */
 const makeSort = { grape: { key: null, dir: 'desc' }, region: { key: null, dir: 'desc' },
-  subregion: { key: null, dir: 'desc' }, color: { key: null, dir: 'desc' } };
+  subregion: { key: null, dir: 'desc' }, color: { key: null, dir: 'desc' },
+  drinkTo: { key: null, dir: 'desc' }, location: { key: null, dir: 'desc' } };
 function renderMakeup(c) {
   $('makeupCard').hidden = !c.bottles;
   if (!c.bottles) return;
@@ -4347,21 +4360,24 @@ function renderMakeup(c) {
   const blanks = [];
   Object.keys(MAKE_TABLES).forEach((f) => {
     const n = c[MAKE_TABLES[f][2]].blank, label = MAKE_TABLES[f][1];
-    if (n) blanks.push(plural(n, 'bottle') + ' with no ' + label.toLowerCase() + ' recorded '
+    if (n) blanks.push(plural(n, 'bottle') + ' with ' + MAKE_TABLES[f][3] + ' '
       + (n === 1 ? 'is' : 'are') + ' left out of the ' + label + ' table.');
   });
   $('makeWarn').textContent = blanks.join(' ');
 }
 function renderMakeTable(field, c) {
-  const [hostId, label, k] = MAKE_TABLES[field];
+  const [hostId, label, k, lacks] = MAKE_TABLES[field];
   const g = c[k], srt = makeSort[field], host = $(hostId);
-  const key = srt.key || 'bottles', sign = (srt.key ? srt.dir : 'desc') === 'asc' ? 1 : -1;
+  /* Drink By's own order is the calendar, soonest first — the question it
+     answers is when bottles run out of time. The rest: most bottles first. */
+  const own = field === 'drinkTo' ? ['name', 1] : ['bottles', -1];
+  const key = srt.key || own[0], sign = srt.key ? (srt.dir === 'asc' ? 1 : -1) : own[1];
   const val = (r) => key === 'share' ? r.bottles : r[key];
   const rows = g.rows.slice().sort((a, b) =>
     (key === 'name' ? a.name.localeCompare(b.name) * sign : (val(a) - val(b)) * sign)
     || b.bottles - a.bottles || a.name.localeCompare(b.name));
   if (!rows.length) {
-    host.innerHTML = '<p class="empty">No ' + label.toLowerCase() + ' recorded on any wine in the cellar.</p>';
+    host.innerHTML = '<p class="empty">Every bottle in the cellar has ' + lacks + '.</p>';
     return;
   }
   host.innerHTML = '<table data-make="' + field + '"><thead><tr>' + sortHead(makeColumns(label), srt.key, srt.dir)
@@ -8626,8 +8642,9 @@ const HELP = {
   likes: ['How These Tables Are Worked Out', `<p>Every opened bottle, grouped by its <strong>grape</strong> and, separately, by its <strong>region</strong>, as they were recorded when it was opened. <strong>Grouped</strong> (the usual view) folds names written different ways: a region becomes its area and state or country — “Stags Leap District, Napa Valley, CA” counts as Napa Valley, California — and a grape becomes the first grape named, so “75% Cabernet Sauvignon, 18.2% Cabernet Franc” counts as Cabernet Sauvignon — except a classic blend, which keeps its name: a Bordeaux, Meritage or “Bordeaux-style” wine counts as <strong>Bordeaux blend</strong>, and the same for Rhône, Port and Champagne blends. Point at a row to see what it took in. The first grape named isn’t always the most of the blend, so <strong>As written</strong> counts every spelling apart, ignoring only capitals and extra spaces.</p>
     <p><strong>Sub-region</strong> counts the narrower place inside a region — Stags Leap District inside Napa Valley — for the bottles that have one; it is counted as written in either view.</p>
     <p><strong>Bottles</strong> counts them all. <strong>Rated</strong> is how many you gave stars to, and <strong>Avg ★</strong> is the average of those stars, out of 5 — a bottle you didn’t rate never pulls it down. Best-rated comes first, with the most bottles breaking a tie; press a heading to sort by it instead.</p>`],
-  makeup: ['How These Tables Are Worked Out', `<p>Every wine you still have bottles of, grouped by its <strong>grape</strong>, its <strong>region</strong>, its <strong>sub-region</strong> and its <strong>colour</strong>. <strong>Grouped</strong> folds names written different ways, as What You Like on the Opened tab does — “Stags Leap District, Napa Valley, CA” counts as Napa Valley, California, and a grape counts as the first one named, except a classic blend such as a Bordeaux blend, which keeps its name. <strong>As written</strong> counts every spelling apart. Point at a row to see what it took in. The switch is one setting for this card, What You Like and What Pairs Well.</p>
-    <p><strong>Wines</strong> is how many different wines, <strong>Bottles</strong> how many bottles of them, and <strong>Share</strong> that as a part of every bottle in the cellar. <strong>Ready</strong> counts the bottles you could open this year: Ready, Drink Soon or Past Window. Most bottles come first; press a heading to sort by it instead. Finished wines are never counted, and Find and the status tiles never change these tables.</p>`],
+  makeup: ['How These Tables Are Worked Out', `<p>Every wine you still have bottles of, grouped by its <strong>grape</strong>, its <strong>region</strong>, its <strong>sub-region</strong>, its <strong>colour</strong>, the year its window closes and where you keep it. <strong>Grouped</strong> folds names written different ways, as What You Like on the Opened tab does — “Stags Leap District, Napa Valley, CA” counts as Napa Valley, California, and a grape counts as the first one named, except a classic blend such as a Bordeaux blend, which keeps its name. <strong>As written</strong> counts every spelling apart. Point at a row to see what it took in. The switch is one setting for this card, What You Like and What Pairs Well.</p>
+    <p><strong>Drink By</strong> groups bottles by the year their drinking window closes, soonest first — the years when bottles start running out of time; a window with no end is left out and counted. <strong>Where It Is</strong> groups them by the place you keep them, as written (capitals ignored).</p>
+    <p><strong>Wines</strong> is how many different wines, <strong>Bottles</strong> how many bottles of them, and <strong>Share</strong> that as a part of every bottle in the cellar. <strong>Ready</strong> counts the bottles you could open this year: Ready, Drink Soon or Past Window. Most bottles come first (Drink By: the soonest year first); press a heading to sort by it instead. Finished wines are never counted, and Find and the status tiles never change these tables.</p>`],
 };
 const helpDialog = $('helpDialog');
 document.addEventListener('click', (e) => {
