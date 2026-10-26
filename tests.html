@@ -2647,14 +2647,14 @@ function define() {
       pairings: [{ id: '<p>', wineId: '"><x>', openedId: '<o>', meal: 'M'.repeat(200), status: 'eaten',
                    rating: 7, date: 'soon', note: 'n'.repeat(900), why: 'w', secret: 1 }] });
     const p = out.pairings[0];
-    eq(Object.keys(p).sort(), ['at', 'date', 'id', 'label', 'meal', 'note', 'openedId', 'rating', 'status', 'why', 'wineId'],
+    eq(Object.keys(p).sort(), ['at', 'date', 'id', 'label', 'log', 'meal', 'note', 'openedId', 'rating', 'status', 'why', 'wineId'],
        'a new stored field must be added to normalizeState AND bump SCHEMA');
     ok(H.ID_RE.test(p.id), 'a bad id is replaced');
     eq([p.wineId, p.openedId], [out.wines[0].id, out.opened[0].id], 'and its references follow through the same map');
     eq([p.status, p.rating, p.date, p.meal.length, p.note.length], ['planned', null, '', H.PAIR_MEAL_MAX, 600]);
     eq(p.label, 'A deleted wine', 'a pairing with no name of its wine still reads');
     eq(H.normalizeState({}).pairings, [], 'an old save has none');
-    ok(H.SCHEMA >= 15, 'SCHEMA moved on, so older code halts rather than drop them');
+    ok(H.SCHEMA >= 16, 'SCHEMA moved on, so older code halts rather than drop them (or their History)');
     eq(H.cleanLogEntry({ at: '2026-10-26T12:00:00.000Z', k: 'plan', c: [{ f: 'meal', n: 'Short ribs' }] }),
        { at: '2026-10-26T12:00:00.000Z', k: 'plan', c: [{ f: 'meal', n: 'Short ribs' }] }, 'History keeps a plan and its meal');
     ok(!('pairings' in H.buildSharePayload(H.normalizeState(H.sampleData()), { keep: 'all' })), 'a share link carries none');
@@ -2838,6 +2838,23 @@ function define() {
       eq([H.__state().pairings[0].rating, H.__state().pairings[0].note], [4, 'Lovely together'], 'the pairing is rated');
       W.undoLast();
       eq(H.__state().pairings[0].rating, null, 'Undo takes the rating back');
+      /* Charles, 2026-10-26: marked had, rated, undone — and History said nothing. */
+      const plog = H.__state().pairings[0].log;
+      eq(plog.map((e) => e.k), ['plan', 'open', 'edit', 'undo'],
+         'the pairing keeps its own History: planned, had, rated, undone');
+      ok(plog[2].c.some((d) => d.f === 'rating' && d.n === '★★★★'), 'the rating is named', JSON.stringify(plog[2]));
+      ok(plog[3].c.some((d) => d.f === 'rating' && d.o === '★★★★' && d.n === ''), 'and the Undo says what it took back');
+      ok(plog[1].c.some((d) => d.f === 'status' && d.o === 'Planned' && d.n === 'Had'), 'We Had It is logged as Planned → Had');
+      const row = H.computeHistory(H.__state()).find((r) => r.pairingId === p.id && r.e.k === 'undo');
+      ok(row && row.label === 'Lamb · pairing', 'and it is on the History tab, named by its meal');
+      W.setTab('history');
+      const btn = D.querySelector('#historyTable [data-pairing="' + p.id + '"]');
+      ok(btn, 'a History row for a pairing opens it');
+      btn.click();
+      ok(D.getElementById('pairingDialog').open && !D.getElementById('pairingHistory').hidden,
+         'into its window, which shows its History');
+      D.getElementById('pairingDialog').close();
+      W.setTab('cellar');
       /* Straight from a pick: no plan first, so a new had pairing. */
       W.openDrink('fx-hold');
       H.setDrinkPairing({ meal: 'Steak', why: 'Big' });

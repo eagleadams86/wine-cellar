@@ -1939,7 +1939,8 @@ html[data-booting] footer { visibility: hidden; }
       </h2>
       <p class="chart-title">What happened to each wine, newest first: added, changed by hand, looked up
         by Claude — what you took and what you left — opened, put back and undone. Each wine keeps its
-        last 20 entries, and so does each opened bottle — its rating, note, date and where. Press a line to open it.</p>
+        last 20 entries, and so does each opened bottle — its rating, note, date and where — and each
+        pairing: planned, had, rated and undone. Press a line to open it.</p>
       <div class="filterbar no-print">
         <div class="field" style="flex:1 1 220px">
           <label for="historyFind">Find</label>
@@ -2421,6 +2422,11 @@ html[data-booting] footer { visibility: hidden; }
               placeholder="What worked, what you’d pour next time…"></textarea>
   </div>
   <p class="hint" id="p_why" hidden></p>
+  <!-- This pairing's History, newest first — a saved pairing only (SCHEMA 16). -->
+  <details class="winehist" id="pairingHistory" hidden>
+    <summary>History</summary>
+    <ul class="histlist" id="pairingHistoryList"></ul>
+  </details>
   <p class="warn-line" id="pairingWarn" role="status"></p>
   <details class="danger-zone" id="pairingRemoveZone" hidden>
     <summary>Remove This Pairing</summary>
@@ -2713,8 +2719,10 @@ const TABS        = ['cellar', 'opened', 'pairings', 'history'];
    14 (2026-10-25): an opened line keeps its own History (`log`), and History
    names three more fields — the day it was opened, its rating and where.
    15 (2026-10-26): `pairings` — a meal and the bottle for it, planned or had,
-   with the pairing's own rating and note; History's `plan` kind and `meal`. */
-const SCHEMA = 15;
+   with the pairing's own rating and note; History's `plan` kind and `meal`.
+   16 (2026-10-26): a pairing keeps its own History (`log`), and History names
+   its wine, status and day. */
+const SCHEMA = 16;
 
 /* ── Ids from outside are not trusted ──────────────────────────────────────
    Ids reach `data-id` attributes and <option value>s in a dozen places, so an
@@ -2881,7 +2889,8 @@ const LOG_CAP = 20;
 const LOG_VAL_MAX = 60;
 const LOG_KINDS = ['add', 'paste', 'edit', 'ai', 'check', 'look', 'open', 'back', 'undo', 'revive', 'plan'];
 const LOG_CODES = ['name', 'vintage', 'color', 'region', 'subregion', 'grape', 'qty', 'location',
-  'value', 'paid', 'window', 'source', 'added', 'notes', 'photo', 'opened', 'rating', 'place', 'meal'];
+  'value', 'paid', 'window', 'source', 'added', 'notes', 'photo', 'opened', 'rating', 'place', 'meal',
+  'wine', 'status', 'day'];
 const LOG_CONF = ['high', 'medium', 'low'];
 const HOST_RE = /^[a-z0-9-]+(\.[a-z0-9-]+)+$/i;
 function cleanLogChanges(v) {
@@ -3306,6 +3315,8 @@ function normalizeState(raw) {
         /* Claude's reason for the pick, kept so it can be judged afterwards. */
         why: clipWords(it.why, BASIS_MAX),
         at: cleanChecked(it.at),
+        /* Its own History (SCHEMA 16) — the same allowlist as a wine's. */
+        log: cleanLog(it.log),
       };
     });
   const s = (raw && raw.settings) || {};
@@ -3478,7 +3489,8 @@ let undoSnapshot = JSON.stringify(state);   // the state as of the last save or 
 function coreOf(st) {
   return JSON.stringify(Object.assign({}, st, { version: null,
     wines: (st.wines || []).map((w) => Object.assign({}, w, { checkedAt: null, log: null })),
-    opened: (st.opened || []).map((o) => Object.assign({}, o, { log: null })) }));
+    opened: (st.opened || []).map((o) => Object.assign({}, o, { log: null })),
+    pairings: (st.pairings || []).map((p) => Object.assign({}, p, { log: null })) }));
 }
 let undoCore = coreOf(state);
 let undoing = false;
@@ -3521,6 +3533,7 @@ function undoLast() {
      gains an entry saying what this Undo put back (Charles, 2026-10-25). */
   const was = new Map(state.wines.map((w) => [w.id, w]));
   const wasLine = new Map(state.opened.map((o) => [o.id, o]));
+  const wasPair = new Map(state.pairings.map((p) => [p.id, p]));
   const at = nowStamp();
   state = normalizeState(raw);
   state.wines.forEach((w) => {
@@ -3540,6 +3553,15 @@ function undoLast() {
     o.log = (before.log || []).slice();
     const c = diffLine(before, o);
     if (c.length) logTo(o, { at: at, k: 'undo', c: c });
+  });
+  /* And a pairing (SCHEMA 16, Charles, 2026-10-26: an Undo of a pairing he had
+     marked had and rated left no trace). Captured BEFORE `state` is replaced. */
+  state.pairings.forEach((p) => {
+    const before = wasPair.get(p.id);
+    if (!before) { logTo(p, { at: at, k: 'revive' }); return; }
+    p.log = (before.log || []).slice();
+    const c = diffPairing(before, p);
+    if (c.length) logTo(p, { at: at, k: 'undo', c: c });
   });
   undoing = true;
   save();
@@ -4419,6 +4441,11 @@ function computeHistory(st) {
     label: o.label + ' · opened ' + fmtDate(o.date), i: i, e: e,
     what: historyWhat(e), changed: (e.c || []).map(changeText), left: (e.x || []).map(leftText),
     src: (e.src || []).join(', ') })));
+  /* And every pairing's (SCHEMA 16), named by its meal. */
+  (st.pairings || []).forEach((p) => (p.log || []).forEach((e, i) => rows.push({ pairingId: p.id,
+    label: p.meal + ' · pairing', i: i, e: e,
+    what: historyWhat(e), changed: (e.c || []).map(changeText), left: (e.x || []).map(leftText),
+    src: (e.src || []).join(', ') })));
   return rows;
 }
 const HISTORY_COLUMNS = [
@@ -4439,7 +4466,7 @@ const HISTORY_KINDS = {
   claude: isClaude,
   left: (e) => !!(e.x && e.x.length),
   opened: (e) => e.k === 'open' || e.k === 'back',
-  paired: (e) => e.k === 'plan' || (e.c || []).some((d) => d.f === 'meal'),
+  paired: (e) => e.k === 'plan' || (e.c || []).some((d) => ['meal', 'status', 'day'].indexOf(d.f) !== -1),
   undo: (e) => e.k === 'undo' || e.k === 'revive',
 };
 const HISTORY_KIND_LABEL = { added: 'Added', hand: 'Changed by Hand', claude: 'Claude', left: 'Offers Left',
@@ -4482,11 +4509,12 @@ function renderHistory() {
   wrap.innerHTML = '<table id="historyTable" class="cards"><thead><tr>'
     + sortHead(HISTORY_COLUMNS, historySortKey, historySortDir) + '</tr></thead><tbody>'
     + v.rows.map((r) => {
-      const to = r.lineId ? 'data-bottle="' + esc(r.lineId) + '"' : 'data-open="' + esc(r.wineId) + '"';
+      const to = r.pairingId ? 'data-pairing="' + esc(r.pairingId) + '"'
+        : r.lineId ? 'data-bottle="' + esc(r.lineId) + '"' : 'data-open="' + esc(r.wineId) + '"';
       return '<tr' + (viewOnly ? '' : ' class="rowlink" ' + to) + '>'
       + '<td class="nowrap cardtop" data-label="When">' + esc(fmtWhen(r.e.at)) + '</td>'
       + '<th scope="row">' + (viewOnly ? esc(r.label)
-          : '<button type="button" class="rowbtn" ' + (r.lineId ? to : 'data-edit="' + esc(r.wineId) + '"') + '>'
+          : '<button type="button" class="rowbtn" ' + (r.lineId || r.pairingId ? to : 'data-edit="' + esc(r.wineId) + '"') + '>'
             + esc(r.label) + '</button>')
       + '</th>'
       + '<td data-label="What">' + esc(r.what) + '</td>'
@@ -5832,10 +5860,19 @@ const LINE_FIELDS = [
   ['photo', 'Photo', (o) => o.photoAt || ''],
 ];
 /* Every field either list names, wines' first — the Field filter's order. */
-/* A pairing's meal, named on the wine's History when it is planned or had
-   (SCHEMA 15). Nothing diffs it — it is only ever written as it happens. */
-const PAIR_FIELDS = [['meal', 'Meal', () => '']];
-const ALL_LOG_FIELDS = LOG_FIELDS.concat(LINE_FIELDS.filter(([f]) => !LOG_FIELDS.some((d) => d[0] === f)), PAIR_FIELDS);
+/* What History can name on a pairing (SCHEMA 16). `meal` also rides on the
+   WINE's History when it is planned or opened for one. The shared codes
+   (rating, notes) print as a line's do — here the rating is the pairing's. */
+const PAIR_FIELDS = [
+  ['meal', 'Meal', (p) => p.meal || ''],
+  ['wine', 'Wine', (p) => p.label || ''],
+  ['status', 'Status', (p) => (p.status === 'had' ? 'Had' : p.status ? 'Planned' : '')],
+  ['day', 'Day', (p) => (p.date ? fmtDate(p.date) : '')],
+  ['rating', 'Rating', (p) => (p.rating ? '★'.repeat(p.rating) : '')],
+  ['notes', 'Notes', (p) => p.note || ''],
+];
+const ALL_LOG_FIELDS = LOG_FIELDS.concat(LINE_FIELDS.filter(([f]) => !LOG_FIELDS.some((d) => d[0] === f)),
+  PAIR_FIELDS.filter(([f]) => !LOG_FIELDS.some((d) => d[0] === f) && !LINE_FIELDS.some((d) => d[0] === f)));
 const LOG_LABEL = Object.fromEntries(ALL_LOG_FIELDS.map(([f, label]) => [f, label]));
 const logVal = (f, w) => LOG_FIELDS.find((d) => d[0] === f)[2](w || {});
 /* What differs between two versions of a wine, as History changes. */
@@ -5846,6 +5883,11 @@ function diffFields(before, after) {
 /* The same, between two versions of an opened line. */
 function diffLine(before, after) {
   return LINE_FIELDS.filter(([f, , val]) => val(before || {}) !== val(after || {}))
+    .map(([f, , val]) => ({ f: f, o: val(before || {}), n: val(after || {}) }));
+}
+/* The same, between two versions of a pairing. */
+function diffPairing(before, after) {
+  return PAIR_FIELDS.filter(([f, , val]) => val(before || {}) !== val(after || {}))
     .map(([f, , val]) => ({ f: f, o: val(before || {}), n: val(after || {}) }));
 }
 /* Appends one entry, trimmed to the cap, oldest dropped. */
@@ -6839,7 +6881,11 @@ $('openSave').addEventListener('click', () => {
   state.opened.push(line);
   if (dp) {
     const planned = dp.pairingId && state.pairings.find((p) => p.id === dp.pairingId);
-    if (planned) Object.assign(planned, { status: 'had', date: date, openedId: line.id });
+    if (planned) {
+      const was = Object.assign({}, planned);
+      Object.assign(planned, { status: 'had', date: date, openedId: line.id });
+      logTo(planned, { at: nowStamp(), k: 'open', c: diffPairing(was, planned) });
+    }
     else addPairing(w, { meal: dp.meal, why: dp.why, status: 'had', date: date, openedId: line.id });
   }
   save();
@@ -7780,7 +7826,10 @@ function addPairing(w, p) {
   const rec = { id: uid(), wineId: w.id, label: cleanLine(wineLabel(w), 100),
     meal: cleanLine(p.meal, PAIR_MEAL_MAX) || 'A meal', date: p.date || '', status: p.status === 'had' ? 'had' : 'planned',
     rating: p.rating || null, note: cleanLine(p.note, NOTES_MAX), openedId: p.openedId || null,
-    why: clipWords(p.why, BASIS_MAX), at: nowStamp() };
+    why: clipWords(p.why, BASIS_MAX), at: nowStamp(), log: [] };
+  /* Its own History starts with how it began: planned, opened for, or added. */
+  logTo(rec, { at: rec.at, k: rec.status === 'planned' ? 'plan' : rec.openedId ? 'open' : 'add',
+    c: diffPairing({}, rec) });
   state.pairings.push(rec);
   if (rec.status === 'planned') logTo(w, { at: rec.at, k: 'plan', c: [{ f: 'meal', n: mealWhen(rec) }] });
   return rec;
@@ -8101,6 +8150,7 @@ function openPairing(id) {
   $('pairingWarn').textContent = '';
   $('pairingRemoveZone').hidden = !p;
   $('pairingRemoveZone').open = false;
+  renderWineHistory(p, 'pairingHistory', 'pairingHistoryList');
   dressPairingHad();
   openModal($('pairingDialog'));
   if (!p) $('p_meal').focus();
@@ -8131,9 +8181,13 @@ $('pairingSave').addEventListener('click', () => {
   if (!p) {
     addPairing(w, b);
   } else {
+    const was = Object.assign({}, p);
     Object.assign(p, { meal: b.meal, status: b.status, date: b.date, rating: b.rating, note: b.note });
     /* A wine chosen again is copied again; a gone one keeps its old name. */
     if (w) { p.wineId = w.id; p.label = cleanLine(wineLabel(w), 100); }
+    /* What the window changed, as History — nothing, no entry. */
+    const hand = diffPairing(was, p);
+    if (hand.length) logTo(p, { at: nowStamp(), k: 'edit', c: hand });
   }
   save();
   toast('Saved');
@@ -8150,7 +8204,10 @@ $('pairingHad').addEventListener('click', () => {
   if (!p) return;
   const b = readPairingBoxes();
   if (!b) return;
+  const was = Object.assign({}, p);
   Object.assign(p, { meal: b.meal, rating: b.rating, note: b.note });
+  const hand = diffPairing(was, p);
+  if (hand.length) logTo(p, { at: nowStamp(), k: 'edit', c: hand });
   $('pairingDialog').close();
   openDrink(p.wineId);
   if ($('openDialog').open) setDrinkPairing({ meal: p.meal, why: p.why, pairingId: p.id });
@@ -8241,6 +8298,8 @@ $('historyWrap').addEventListener('click', (e) => {
   if (viewOnly) return;
   const line = e.target.closest('[data-bottle]');
   if (line) { openBottleEdit(line.getAttribute('data-bottle')); return; }
+  const pairing = e.target.closest('[data-pairing]');
+  if (pairing) { openPairing(pairing.getAttribute('data-pairing')); return; }
   const row = e.target.closest('[data-edit], [data-open]');
   if (row) openWine(row.getAttribute('data-edit') || row.getAttribute('data-open'));
 });

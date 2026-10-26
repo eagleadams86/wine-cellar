@@ -60,7 +60,9 @@ cellar on your other devices.
   and whether it came from your Cellar or was logged elsewhere.
 - **History tab** — what happened to every wine, newest first: added, added from a list, changed
   by hand, looked up by Claude (what you **took** and what you **left**, with Claude's confidence
-  and websites), opened, put back and undone. Each line says what changed from what to what;
+  and websites), opened, put back and undone — and every **pairing** too: planned, had, changed
+  by hand (status, day, rating, note) and undone, named by its meal, opening its pairing when
+  pressed; each pairing's window shows its own History. Each line says what changed from what to what;
   Claude's explanation of a drinking window is kept only when you took that window. **Find**
   searches the wine, the fields and the values (accents folded, so "vocal" finds Vöcal); **What**
   narrows to a kind — Added, Changed by Hand, Claude, Claude's Offers Left, Opened or Put Back,

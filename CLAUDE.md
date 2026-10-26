@@ -134,6 +134,15 @@ the family doesn't.
   cleared by `dressOpenDialog`): Save flips a planned pairing to had or writes a new had one,
   linked by `openedId`, and the wine's `open` History entry gains a `meal` change. Plan for Later
   writes a `plan` History kind (LOG_KINDS) with `meal`; History's What filter has **Pairings**.
+  **SCHEMA 16: a pairing keeps its own History** (Charles: "marked a pairing as actual and rated
+  it, then hit undo — that didn't get logged"). `p.log` via `cleanLog`; `PAIR_FIELDS` + `diffPairing`
+  (meal, wine, status, day, rating, notes; codes `wine`/`status`/`day` added to LOG_CODES).
+  Writers: `addPairing` (plan / open / add), the Opened One flip (`open`, Planned → Had), the
+  pairing window's Save and We Had It (`edit`, only when something changed), and `undoLast`
+  (`undo`/`revive`, captured in `wasPair` BEFORE `state` is replaced — the opened-line trap).
+  `coreOf` nulls pairing logs. History rows carry `pairingId` → `data-pairing` → `openPairing`;
+  `#pairingHistory` in the pairing window. **Any new record kind that Undo can touch needs the
+  same three things: a log, a diff, and an undoLast branch.**
   **Its dashboard** (same day, Charles chose tiles + Best and Worst): `computePairings(st, today)`
   is the one place its figures are worked out, over the WHOLE list. `pairingKind` splits planned /
   overdue / had (disjoint — the list's own words). The Planned, Overdue and Had tiles and the
