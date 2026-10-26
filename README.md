@@ -13,9 +13,9 @@ cellar on your other devices.
 - **Cellar tab** — tiles for bottles, value, and how many bottles are *past their window*,
   *drink soon*, *ready* and *holding*; the full cellar table, which opens in drinking order (past
   window first, then the windows that close soonest — so it doubles as the list of what to open
-  next), sortable, filterable, with Copy and CSV; and a chart of how many bottles are inside their
-  drinking window in each of the coming years.
-- **Cellar Makeup** (under At a Glance) — what your cellar is made of right now: every wine with
+  next), sortable, filterable, with Copy and CSV; then Cellar Makeup. Every tab reads the same way:
+  its dashboard tiles first, then the list you work in, then the tables that group it.
+- **Cellar Makeup** (under the Cellar list) — what your cellar is made of right now: every wine with
   bottles left, grouped by **grape**, **region**, **sub-region** and **colour**, with how many
   wines and bottles, each one's **share** of the cellar, and how many of those bottles are
   **ready** to open this year (Ready, Drink Soon or Past Window). Most bottles first; every heading

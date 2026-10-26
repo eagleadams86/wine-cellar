@@ -103,7 +103,13 @@ the family doesn't.
 
 ## Decisions — Don't Undo
 
-- **Cellar Makeup** (2026-10-26, Charles): `#makeupCard` right under At a Glance — What You
+- **Every tab is dashboard → list → groupings** (2026-10-26, Charles): Cellar = At a Glance,
+  Cellar, Cellar Makeup; Opened = timing tiles, Bottles Opened, What You Like; Pairings = Pairings
+  at a Glance, Pairings, What Pairs Well. A test pins each panel's card order. A new card goes in
+  the band it belongs to. **The Drinking Windows Ahead chart was REMOVED the same day** (Charles),
+  with its SVG, hover panel, `#chartMaxi` full-screen overlay, `computeAll().years`, `inWindow`
+  and 8 tests — so this app is no longer one of the family's ⤢ full-screen-chart apps.
+- **Cellar Makeup** (2026-10-26, Charles): `#makeupCard` under the Cellar list — What You
   Like for the cellar as it stands. `computeMakeup(st, yr, grouped)` → `makeupGroups` (likeGroups'
   folding/naming, but weighted by `qty`; counts wines, bottles, `ready` = ready/soon/past). Share is
   of EVERY bottle, blanks included. Columns Wines · Bottles · Share · Ready (5, not What You Like's
@@ -397,8 +403,7 @@ the family doesn't.
   aside). Page-life only, like the select it replaced.
 - **Folding is device-local** (`wine-folded`, a list of `data-fold` names), not in `state` as
   Money Map keeps it: it is screen layout, so it neither syncs nor rides in a share link, and
-  needs no SCHEMA bump. The full-screen chart button stays a child of `#chartCard` (it is
-  positioned against the card) and `maxiReady()` takes it away while the card is folded.
+  needs no SCHEMA bump.
 - **Opened One and Delete are in the wine window, not on the row** (2026-10-24, Charles): the
   whole row opens the window, so the Cellar table has no actions column. Both show only for a
   SAVED wine; Opened One is disabled at 0 bottles. Opened One CLOSES the wine window first — left
@@ -448,6 +453,6 @@ was a one-line version of the cellar rule.
 
 ## Tests
 
-`tests.html`, `EXPECTED = 310`. Run it headless (Playwright) rather than in the Browser pane:
+`tests.html`, `EXPECTED = 304`. Run it headless (Playwright) rather than in the Browser pane:
 the pane throttles hidden timers and its focus heuristics turn the 705px keyboard-focus check
 red on untouched code.

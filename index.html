@@ -650,171 +650,11 @@
           border-radius: var(--radius-sm); padding: 12px 14px; }
   .stat .v { font-size: var(--fs-xl); font-weight: var(--fw-semibold); }
 
-  /* ── The chart ──────────────────────────────────────────────────────────────
-     SVG rather than a canvas, deliberately, and it is worth knowing why: an SVG
-     reads its colours from CSS live, so a theme switch AND the pack's print
-     palette both reach it for free. A CANVAS is painted once from
-     getComputedStyle and print-media values are invisible to it, so a canvas app
-     owes one more thing — swap data-theme to 'light' on beforeprint, re-render,
-     put it back on afterprint, save nothing. See printForPaper() in Sprint
-     Predictability or the lottery portfolio.
-
-     PACK RULE 3, the chart-bar convention: fill = the series colour mixed ~68%
-     toward --surface (the CARD, not white, so one constant covers all four
-     themes), outline at full strength. Put the colour in the EDGE, not the fill.
-     color-mix does that here with no JS and no second token.
-
-     PACK RULE 4: several categories use --series-1…5, in numeric order, and an
-     app NEVER invents its own. Golf Handicap carried two hand-picked colours
-     across four themes until 2026-08-23, gated by nothing; the lottery portfolio
-     carried five, two of which simulated to the same colour under deuteranopia.
-     Beyond five categories the axis is full — facet the chart or group the tail,
-     don't add a sixth colour. */
-  /* A CHART BOX WITH A HEIGHT, which is what every sibling gives one: Flow
-     Metrics 300px, Sprint Predictability 320px. Without it the drawing set its
-     own height from its aspect ratio and the card grew or shrank with the window
-     — so the one card on the page whose size nothing was deciding was the chart.
-     300px, the sibling that shares this chrome. Maximised, the rule further down
-     hands the height back to the overlay. */
+  /* The sentence under a card's name, saying what it shows. The Cellar's
+     Drinking Windows Ahead chart, which this once sat under, was removed on
+     2026-10-26 (Charles) with its hover panel and full-screen button. */
   .chart-title { font-size: var(--fs-sm); color: var(--text-secondary);
                  margin: 2px 0 8px; }
-  /* THE HOVER TOOLTIP, and every value in it is the one the siblings hand
-     Chart.js: --surface-alt on a 1px --border-strong, 10px of padding, the name
-     in --text-primary and the detail under it in --text-secondary. Written as
-     CSS rather than passed to a library because this chart is an SVG — which is
-     also why it follows the palette and the print rules for free.
-
-     `pointer-events: none` is load-bearing: a panel that follows the pointer and
-     can be hovered will sit under the pointer, take the next pointermove for
-     itself, and flicker between shown and hidden for as long as you hold still. */
-  .charttip { position: absolute; z-index: 2; pointer-events: none;
-              max-width: 260px; padding: 10px; border-radius: var(--radius-sm);
-              background: var(--surface-alt); border: 1px solid var(--border-strong);
-              font-size: var(--fs-xs);
-              color: var(--text-secondary); }
-  .charttip[hidden] { display: none; }
-  .charttip .n { display: block; color: var(--text-primary); font-weight: var(--fw-semibold);
-                 margin-bottom: 2px; }
-  /* The bar under the pointer, so the tooltip is never the only thing saying
-     which one is being read — the same reason the siblings' charts highlight.
-     FULL STRENGTH, and it moved here from 55% on 2026-09-03. The resting fill
-     is what changed underneath it: it used to sit at 32% and now sits at the
-     55% this rule was using, so a hover that stayed put would have been
-     invisible. Money Map's Spending chart is the family's existing answer to
-     exactly that squeeze — its hovered bar fills solid, and nothing else on
-     that chart is — so this is that, not a new idea.
-     A transient hover state, never an encoding: it says "this one", and it
-     reuses the series colour rather than introducing one. */
-  .bar.on { fill: var(--series-1); }
-  .chart-wrap { overflow-x: auto; position: relative; height: 300px; }
-  /* Fills its box exactly, because renderChart draws the viewBox at the box's own
-     measured size — so one unit is one pixel and nothing is scaled. */
-  svg.chart { display: block; width: 100%; height: 100%; min-width: 320px; }
-  /* Pack rule 3: a tint fill plus a full-strength edge, mixed toward the CARD
-     rather than toward white, which is the one constant covering all four
-     themes. 55% of the colour, not 32%, and the difference is the rule's own:
-     a TEXTURED series can travel further from its colour because the texture
-     puts full strength back over part of the bar, while a SOLID one has
-     nothing but its outline and washes out on the white Light card. These bars
-     are solid, so they keep more of their colour.
-     They sat at 32% — the textured strength — until 2026-09-03, which bought
-     the hover state above a place to stand and cost the resting bars the
-     contrast the rule exists to protect. The hover went to full strength
-     instead; see the note on `.bar.on`. */
-  .bar { fill: color-mix(in srgb, var(--series-1) 55%, var(--surface)); stroke: var(--series-1); stroke-width: 2; }
-  .gridline { stroke: var(--chart-grid); stroke-width: 1; }
-  .axisline { stroke: var(--chart-tick); stroke-width: 1; }
-  .ticktext { fill: var(--chart-tick); font-size: var(--fs-xs); }
-  /* ── One chart, filling the window ─────────────────────────────────────────
-     Flow Metrics' feature, inherited from the family starter. A chart card is
-     the right size for reading a page and the wrong
-     size for looking hard at one chart.
-
-     It is NOT the Fullscreen API and NOT a modal <dialog>, and the same reason
-     rules both out: the header has to stay visible and usable. requestFullscreen()
-     takes the browser's own chrome away with the page's, and a modal dialog is
-     promoted to the top layer, which paints over the header and makes it inert.
-     What is here is an ordinary fixed overlay starting below the sticky header —
-     z-index 15 against the header's 20 — so the theme picker and the rest of the
-     menu stay live while a chart fills the space under them.
-
-     The ground is the page's own --bg, not a translucent scrim: the card covers
-     all but a margin, and a scrim over that margin leaves a band of the chart
-     underneath ghosting through at the bottom edge, right where the eye goes to
-     read an axis. The margin stays, because it is what a click-outside lands on. */
-  .chart-max { position: absolute; top: 13px; right: 13px; z-index: 1;
-               display: flex; align-items: center; justify-content: center;
-               width: 26px; height: 26px; padding: 0; min-height: 0;
-               border-radius: var(--radius-sm); border: 1px solid var(--border-control);
-               background: transparent; color: var(--text-secondary); cursor: pointer; }
-  .chart-max:hover { color: var(--text-primary); background: var(--surface-alt);
-                     border-color: var(--text-secondary); }
-  /* The icon is never the thing that was clicked. Pressing this button rewrites
-     its own innerHTML to the arrows-in icon, which DETACHES whatever the pointer
-     actually landed on — and a detached node answers null to every `closest()` a
-     delegated handler further up might ask. Nothing here acts on a null answer
-     today; Money Map's card heading did, and pressing the button there folded
-     the card instead of filling the window (2026-08-30, reported within the
-     hour). One line closes the class, in every app that carries this. */
-  .chart-max svg { pointer-events: none; }
-  /* ── A hidden button must actually GO ───────────────────────────────────────
-     `.chart-max` declares `display: flex`, and an AUTHOR rule beats the browser's
-     own `[hidden] { display: none }` whatever their specificities — so
-     `btn.hidden = true` set the attribute, read back true, and left the button on
-     screen. Reported by Charles on 2026-08-30: a folded card still offered a
-     full-screen button, and pressing it did nothing, because maxiReady() had
-     correctly said there was nothing to show. A button that does nothing is
-     worse than no button.
-
-     The same trap is written up against `.mrow[hidden]` in Money Map, for the
-     same reason and with the same one-line answer. A test that asserts
-     `btn.hidden` is asserting the attribute, which was never the thing in doubt;
-     the assertion has to read the COMPUTED DISPLAY. */
-  .chart-max[hidden] { display: none; }
-  /* The card is the positioning context, and its heading keeps clear of the
-     button so a long chart name never runs under it. */
-  #chartCard { position: relative; }
-  #chartCard > h2 { padding-right: 34px; }
-  /* On the fold band the heading carries its own padding, so the button keeps
-     clear of the band's edge as well as the title. */
-  #chartCard > h2.boxhead { padding-right: 52px; }
-  #chartCard > .chart-max { top: 9px; }
-  #chartMaxi { position: fixed; left: 0; right: 0; bottom: 0; top: var(--maxi-top, 0px);
-               z-index: 15; background: var(--bg); padding: 20px; display: none; }
-  #chartMaxi.open { display: flex; }
-  @media (max-width: 640px) { #chartMaxi { padding: 10px; } }
-  /* The card fills what is left and the chart fills the card. min-height:0 is
-     what lets a flex child actually shrink rather than pushing the card past the
-     bottom of the window; min-width:0 is the same word for the other axis. The
-     overlay is a flex ROW, so without it the card's automatic minimum size is
-     its MIN-CONTENT width — and a Chart.js canvas carries a width in its own
-     style attribute, so a card that arrives remembering a wider box keeps it and
-     hangs over the padding, taking the ⤢ with it. Money Map and Sprint
-     Predictability both did that on 2026-09-03. One chart here means nothing to
-     step onto, so this is the word an app copying this file should already
-     have. */
-  #chartMaxi > .card { flex: 1 1 auto; display: flex; flex-direction: column;
-                       min-height: 0; min-width: 0; width: auto; margin: 0; }
-  /* height:auto undoes the 300px; min-height:0 is what lets a flex child actually
-     shrink inside its parent rather than pushing the card past the window. */
-  #chartMaxi > .card > .chart-wrap { flex: 1 1 auto; height: auto; min-height: 0; }
-  /* Keeps the page still behind the overlay: scrolling what you cannot see reads
-     as the window having lost its place when the chart comes back down. */
-  body.maxi-open { overflow: hidden; }
-  .legend { display: flex; gap: var(--sp-5); flex-wrap: wrap; font-size: var(--fs-xs);
-            color: var(--text-secondary); margin-top: var(--sp-4); }
-  .legend .li { display: flex; align-items: center; gap: var(--sp-3); }
-  /* The swatch is a picture of the BAR, so it carries the bar's own arrangement
-     and its own numbers — 55% under a 2px full-strength edge. It moved with the
-     bars on 2026-09-03; leaving it at 32% would have made the key a picture of a
-     mark the chart no longer draws, which is the one thing a key must not be.
-     Kept as a tint rather than filled solid, unlike Money Map's: the pack's
-     carve-out is about swatches that have to be told apart from EACH OTHER, and
-     there are two here under edges that are most of a 22x10 box — where Money
-     Map's Where It's Held has five accounts to separate. */
-  .legend .sw { width: 22px; height: 10px; border-radius: 2px; flex: none;
-                border: 2px solid var(--series-1);
-                background: color-mix(in srgb, var(--series-1) 55%, var(--surface)); }
 
   /* ── Tables ─────────────────────────────────────────────────────────────────
      Rows are --fs-sm, headings --fs-xs with the label letter-spacing.
@@ -1613,7 +1453,7 @@
        pickers by name (rule 13). What is left is an app's OWN furniture, tagged
        .no-print rather than left for the pack to guess at class names it cannot
        see. Both panels print: on paper there are no tabs to press. */
-    .no-print, .chart-max, #chartMaxi { display: none !important; }
+    .no-print { display: none !important; }
     [data-tab] #openedPanel, [data-tab] #cellarPanel { display: block !important; }
     /* The pack hides the tablist itself; its row goes too, or it prints as an
        empty 20px gap above the first panel. */
@@ -1823,30 +1663,6 @@ html[data-booting] footer { visibility: hidden; }
       <p class="warn-line" id="overviewWarn" role="status"></p>
     </div>
 
-    <!-- What You Like, for the cellar as it stands (Charles, 2026-10-26): every
-         wine with bottles left, by grape, region, sub-region and colour. Worked
-         out by computeMakeup over the WHOLE cellar — Find and the status tiles
-         narrow the list, never this. -->
-    <div class="card" id="makeupCard" data-fold="makeup">
-      <h2>Cellar Makeup
-        <button class="tile-help" type="button" data-help="makeup"
-                aria-label="How these tables are worked out">i</button>
-        <span class="spacer"></span>
-        <span class="likeview no-print" role="group" aria-label="How names are counted">
-          <button type="button" class="btn-small" data-like-view="grouped">Grouped</button>
-          <button type="button" class="btn-small" data-like-view="written">As written</button>
-        </span>
-      </h2>
-      <p class="chart-title">The bottles you have now by grape, region, sub-region and colour, most first — and how many of them are ready to open.</p>
-      <div class="likes">
-        <div class="table-scroll" id="makeGrapes"></div>
-        <div class="table-scroll" id="makeRegions"></div>
-        <div class="table-scroll" id="makeSubregions"></div>
-        <div class="table-scroll" id="makeColours"></div>
-      </div>
-      <p class="warn-line" id="makeWarn" role="status"></p>
-    </div>
-
     <div class="card" id="cellarCard" data-fold="cellar">
       <h2>Cellar
         <span class="spacer"></span>
@@ -1913,21 +1729,28 @@ html[data-booting] footer { visibility: hidden; }
       </div>
     </div>
 
-    <div class="card" id="chartCard" data-fold="chart">
-      <h2>Drinking Windows Ahead
-        <button class="tile-help" type="button" data-help="chart"
-                aria-label="How this chart is drawn">i</button>
+    <!-- What You Like, for the cellar as it stands (Charles, 2026-10-26): every
+         wine with bottles left, by grape, region, sub-region and colour. Worked
+         out by computeMakeup over the WHOLE cellar — Find and the status tiles
+         narrow the list, never this. -->
+    <div class="card" id="makeupCard" data-fold="makeup">
+      <h2>Cellar Makeup
+        <button class="tile-help" type="button" data-help="makeup"
+                aria-label="How these tables are worked out">i</button>
         <span class="spacer"></span>
-        <span class="pill" id="chartCount"></span>
+        <span class="likeview no-print" role="group" aria-label="How names are counted">
+          <button type="button" class="btn-small" data-like-view="grouped">Grouped</button>
+          <button type="button" class="btn-small" data-like-view="written">As written</button>
+        </span>
       </h2>
-      <p class="chart-title">How many of your bottles are inside their drinking window in each
-        year, from this one on. A bar that shrinks is bottles running out of time.</p>
-      <div class="chart-wrap" id="chartWrap"></div>
-      <div class="legend" aria-hidden="true">
-        <span class="li"><span class="sw"></span> Bottles ready that year</span>
+      <p class="chart-title">The bottles you have now by grape, region, sub-region and colour, most first — and how many of them are ready to open.</p>
+      <div class="likes">
+        <div class="table-scroll" id="makeGrapes"></div>
+        <div class="table-scroll" id="makeRegions"></div>
+        <div class="table-scroll" id="makeSubregions"></div>
+        <div class="table-scroll" id="makeColours"></div>
       </div>
-      <p class="hint" style="margin-top:var(--sp-4)">Every bar names its wines when you point at it
-        — tap on a touch screen — and the windows themselves are in the table above.</p>
+      <p class="warn-line" id="makeWarn" role="status"></p>
     </div>
   </div>
 
@@ -1944,27 +1767,6 @@ html[data-booting] footer { visibility: hidden; }
       </h2>
       <div class="stats" id="openedStats"></div>
       <p class="warn-line" id="timingWarn" role="status"></p>
-    </div>
-
-    <div class="card" id="likeCard" data-fold="likes">
-      <h2>What You Like
-        <button class="tile-help" type="button" data-help="likes"
-                aria-label="How these tables are worked out">i</button>
-        <span class="spacer"></span>
-        <!-- Grouped folds names written different ways; As written counts each
-             spelling apart. aria-pressed, the timing tiles' pattern. -->
-        <span class="likeview no-print" role="group" aria-label="How names are counted">
-          <button type="button" class="btn-small" data-like-view="grouped">Grouped</button>
-          <button type="button" class="btn-small" data-like-view="written">As written</button>
-        </span>
-      </h2>
-      <p class="chart-title">Your opened bottles by grape, by region and by sub-region, best-rated first.</p>
-      <div class="likes">
-        <div class="table-scroll" id="likeGrapes"></div>
-        <div class="table-scroll" id="likeRegions"></div>
-        <div class="table-scroll" id="likeSubregions"></div>
-      </div>
-      <p class="warn-line" id="likeWarn" role="status"></p>
     </div>
 
     <div class="card" id="openedCard" data-fold="opened">
@@ -2016,6 +1818,27 @@ html[data-booting] footer { visibility: hidden; }
         <button type="button" class="primary" data-same="logBtn">＋ Log a Bottle</button>
       </div>
     </div>
+
+    <div class="card" id="likeCard" data-fold="likes">
+      <h2>What You Like
+        <button class="tile-help" type="button" data-help="likes"
+                aria-label="How these tables are worked out">i</button>
+        <span class="spacer"></span>
+        <!-- Grouped folds names written different ways; As written counts each
+             spelling apart. aria-pressed, the timing tiles' pattern. -->
+        <span class="likeview no-print" role="group" aria-label="How names are counted">
+          <button type="button" class="btn-small" data-like-view="grouped">Grouped</button>
+          <button type="button" class="btn-small" data-like-view="written">As written</button>
+        </span>
+      </h2>
+      <p class="chart-title">Your opened bottles by grape, by region and by sub-region, best-rated first.</p>
+      <div class="likes">
+        <div class="table-scroll" id="likeGrapes"></div>
+        <div class="table-scroll" id="likeRegions"></div>
+        <div class="table-scroll" id="likeSubregions"></div>
+      </div>
+      <p class="warn-line" id="likeWarn" role="status"></p>
+    </div>
   </div>
 
   <!-- ── Pairings (Charles, 2026-10-26) ────────────────────────────────────
@@ -2030,23 +1853,6 @@ html[data-booting] footer { visibility: hidden; }
       <h2>Pairings at a Glance</h2>
       <div class="stats" id="pairStats"></div>
       <p class="warn-line" id="pairGlanceWarn" role="status"></p>
-    </div>
-
-    <!-- What You Like, for pairings (Charles, 2026-10-26): how well each grape
-         went with food, by the PAIRING ratings. It replaced a Best and Worst
-         list that had to pick three of five 5★ pairings — ties are normal on
-         a 1–5 scale, and grouping has none to break. -->
-    <div class="card" id="pairLikeCard" data-fold="pairlike">
-      <h2>What Pairs Well
-        <span class="spacer"></span>
-        <span class="likeview no-print" role="group" aria-label="How names are counted">
-          <button type="button" class="btn-small" data-like-view="grouped">Grouped</button>
-          <button type="button" class="btn-small" data-like-view="written">As written</button>
-        </span>
-      </h2>
-      <p class="chart-title">The pairings you have had, by the wine’s grape, best-rated first — how each one went with food.</p>
-      <div class="likes"><div class="table-scroll" id="pairLikeGrapes"></div></div>
-      <p class="warn-line" id="pairLikeWarn" role="status"></p>
     </div>
 
     <div class="card" id="pairingCard" data-fold="pairings">
@@ -2095,6 +1901,23 @@ html[data-booting] footer { visibility: hidden; }
         <button type="button" class="primary" data-same="pairTabBtn"><span aria-hidden="true">✦</span> Pair a Meal</button>
         <button type="button" data-same="pairingAdd">＋ Add a Pairing</button>
       </div>
+    </div>
+
+    <!-- What You Like, for pairings (Charles, 2026-10-26): how well each grape
+         went with food, by the PAIRING ratings. It replaced a Best and Worst
+         list that had to pick three of five 5★ pairings — ties are normal on
+         a 1–5 scale, and grouping has none to break. -->
+    <div class="card" id="pairLikeCard" data-fold="pairlike">
+      <h2>What Pairs Well
+        <span class="spacer"></span>
+        <span class="likeview no-print" role="group" aria-label="How names are counted">
+          <button type="button" class="btn-small" data-like-view="grouped">Grouped</button>
+          <button type="button" class="btn-small" data-like-view="written">As written</button>
+        </span>
+      </h2>
+      <p class="chart-title">The pairings you have had, by the wine’s grape, best-rated first — how each one went with food.</p>
+      <div class="likes"><div class="table-scroll" id="pairLikeGrapes"></div></div>
+      <p class="warn-line" id="pairLikeWarn" role="status"></p>
     </div>
   </div>
 
@@ -2810,10 +2633,6 @@ html[data-booting] footer { visibility: hidden; }
   <div id="searchResults" class="searchresults"></div>
 </dialog>
 
-<!-- Where a maximised chart card is moved to. Empty until then, and role
-     "dialog" rather than a real <dialog> for the reason the CSS records: the top
-     layer would paint over the header this exists to keep. -->
-<div id="chartMaxi" role="dialog"></div>
 
 <!-- The help window. ONE window for the whole app, filled from the HELP table
      by whichever info dot was pressed — that is the shape every sibling uses,
@@ -3803,19 +3622,12 @@ function statusOf(w, yr, soon) {
   if (t != null && t - yr <= soon) return 'soon';
   return 'ready';
 }
-/* Is a wine inside its window in year `y`? An open-ended window ("from 2030")
-   counts from its start on; "by 2029" counts up to its end. */
-function inWindow(w, y) {
-  if (w.drinkFrom == null && w.drinkTo == null) return false;
-  return (w.drinkFrom == null || w.drinkFrom <= y) && (w.drinkTo == null || y <= w.drinkTo);
-}
-const CHART_YEARS = 15;   /* this year and the fourteen after it, at most */
 
 /* ── When a bottle was opened, against its window ─────────────────────────
    DERIVED, never stored, like a wine's status: the year on the line's date
    against the window the line carries — the wine's window on the day it was
-   opened (SCHEMA 6), so editing the wine later never rewrites history. Open-
-   ended windows follow inWindow's rules. The words carry the verdict; the
+   opened (SCHEMA 6), so editing the wine later never rewrites history. An
+   open end has no limit on that side. The words carry the verdict; the
    classes are the Cellar's, so no colour is invented here. */
 const TIMING = {
   early: { label: 'Early',     cls: 'hold', rank: 0 },
@@ -3971,8 +3783,8 @@ function computeMakeup(st, yr, grouped) {
   };
 }
 
-/* computeAll() is the ONLY place the figures are worked out. Every tile, the
-   chart and the Cellar's status filter read from it, so no two parts of the screen can
+/* computeAll() is the ONLY place the figures are worked out. Every tile and
+   the Cellar's status filter read from it, so no two parts of the screen can
    disagree. Pure: the year is an argument, so a test can pin any year. Only
    wines with bottles left count — a finished wine is history, not cellar. */
 function computeAll(st, yr) {
@@ -3990,20 +3802,9 @@ function computeAll(st, yr) {
     high += q * (r.w.valueHigh == null ? r.w.valueLow : r.w.valueHigh);
     if (r.w.valueEst) estimated += q;
   });
-  /* The chart's years run from this one to the last window's end, capped. A
-     cellar of open-ended windows stops at the cap rather than running forever. */
-  const lastEnd = rows.reduce((m, r) => Math.max(m,
-    r.w.drinkTo != null ? r.w.drinkTo : (r.w.drinkFrom != null ? yr + CHART_YEARS - 1 : -1)), -1);
-  const years = [];
-  for (let y = yr; y <= Math.min(lastEnd, yr + CHART_YEARS - 1); y++) {
-    const inside = rows.filter((r) => inWindow(r.w, y));
-    years.push({ year: y, bottles: inside.reduce((a, r) => a + r.w.qty, 0),
-                 wines: inside.map((r) => r.w) });
-  }
   return {
     rows: rows, wines: rows.length, bottles: bottles,
     value: { low: low, high: high, unvalued: unvalued, estimated: estimated },
-    years: years,
   };
 }
 
@@ -4036,10 +3837,6 @@ function render() {
   renderViewbar();
   renderStats(c);
   renderMakeup(computeMakeup(state, thisYear(), likeGrouped));
-  renderChart(c);
-  /* Last, and after the chart: it asks whether there is anything under the
-     button, and brings the window back down if what was filling it has gone. */
-  syncMaxiButton();
   renderList();
   renderOpenedDash(computeOpened(state, likeGrouped));
   renderOpened();
@@ -4196,88 +3993,6 @@ function openedFacts(o, shown) {
 }
 const openedTip = (o, shown) => rowTip('',
   [openedFacts(o, shown), viewOnly ? '' : 'Click to edit'].filter(Boolean).join('\n\n'));
-
-
-/* The chart is SVG, so it follows a theme change and the print palette with no
-   help from script. Everything is drawn from computeAll(), never from a second
-   pass over the data. */
-let lastChart = null;   /* the figures the chart was last drawn from */
-
-function renderChart(c) {
-  lastChart = c;
-  const wrap = document.getElementById('chartWrap');
-  /* innerHTML replaces everything in the wrap, the tooltip panel included, so it
-     is lifted out here and put back on every path out of this function. */
-  const tipEl = wrap.querySelector('.charttip');
-  const putTipBack = () => {
-    if (!tipEl) return;
-    tipEl.hidden = true;
-    wrap.appendChild(tipEl);
-    wrap.dispatchEvent(new Event('chartredraw'));
-  };
-  const yrs = c.years;
-  document.getElementById('chartCount').textContent = yrs.length
-    ? yrs[0].year + '–' + yrs[yrs.length - 1].year : 'no windows';
-  if (!yrs.length) {
-    wrap.innerHTML = '<p class="empty">No wine with bottles left has a drinking window that '
-      + 'reaches this year or later.</p>';
-    putTipBack();
-    return;
-  }
-  /* DRAWN AT THE BOX'S OWN SIZE, so one SVG unit is one CSS pixel and nothing
-     is scaled. A hidden panel measures 0x0, so the fallback is the card's shape
-     on a laptop; the ResizeObserver redraws the moment the panel is shown. */
-  const box = wrap.getBoundingClientRect();
-  const W = Math.max(320, Math.round(box.width) || 720);
-  const H = Math.max(180, Math.round(box.height) || 300);
-  const PAD_L = 44, PAD_R = 12, PAD_T = 12, PAD_B = 34;
-  const plotW = W - PAD_L - PAD_R, plotH = H - PAD_T - PAD_B;
-  /* A bottle count is a whole number, so the axis is too: its top is the
-     largest count rounded up to an even number, which keeps the middle tick
-     whole as well. */
-  const most = yrs.reduce((m, y) => Math.max(m, y.bottles), 0);
-  const top = Math.max(2, most + (most % 2));
-  const y = (v) => PAD_T + plotH - (v / top) * plotH;
-  const bw = plotW / yrs.length;
-  const barW = Math.max(4, Math.min(56, bw * 0.62));
-
-  const ticks = [0, top / 2, top];
-  const grid = ticks.map((t) =>
-    '<line class="gridline" x1="' + PAD_L + '" x2="' + (W - PAD_R) + '" y1="' + y(t).toFixed(1)
-    + '" y2="' + y(t).toFixed(1) + '"/>'
-    + '<text class="ticktext" x="' + (PAD_L - 8) + '" y="' + (y(t) + 4).toFixed(1)
-    + '" text-anchor="end">' + esc(t) + '</text>').join('');
-
-  const bars = yrs.map((r, i) => {
-    const cx = PAD_L + bw * i + bw / 2;
-    const h = y(0) - y(r.bottles);
-    /* WHAT THE BAR IS, carried on the rect for the tooltip to read — never an
-       SVG <title>, which is the browser's own late, unstyled tooltip. */
-    const names = r.wines.map(wineLabel);
-    const detail = plural(r.bottles, 'bottle') + ' ready'
-      + (names.length ? ': ' + names.slice(0, 6).join(', ')
-        + (names.length > 6 ? ' and ' + (names.length - 6) + ' more' : '') : '');
-    return '<rect class="bar" x="' + (cx - barW / 2).toFixed(1)
-      + '" y="' + y(r.bottles).toFixed(1) + '" width="' + barW.toFixed(1)
-      + '" height="' + Math.max(1, h).toFixed(1) + '" rx="2"'
-      + ' data-name="' + esc(r.year) + '" data-detail="' + esc(detail) + '"></rect>';
-  }).join('');
-
-  /* Labels only where they fit — an axis of overlapping years is worse than
-     one with a few gaps. */
-  const every = Math.ceil(yrs.length / Math.max(4, Math.floor(plotW / 48)));
-  const labels = yrs.map((r, i) => (i % every) ? '' :
-    '<text class="ticktext" x="' + (PAD_L + bw * i + bw / 2).toFixed(1) + '" y="' + (H - 12)
-    + '" text-anchor="middle">' + esc(r.year) + '</text>').join('');
-
-  wrap.innerHTML = '<svg class="chart" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="'
-    + esc('Bottles inside their drinking window each year from ' + yrs[0].year + ' to '
-          + yrs[yrs.length - 1].year + ': ' + yrs.map((r) => r.year + ' ' + r.bottles).join(', ') + '.')
-    + '">' + grid
-    + '<line class="axisline" x1="' + PAD_L + '" x2="' + (W - PAD_R) + '" y1="' + y(0).toFixed(1)
-    + '" y2="' + y(0).toFixed(1) + '"/>' + bars + labels + '</svg>';
-  putTipBack();
-}
 
 /* ── Sorting ────────────────────────────────────────────────────────────────
    THREE STATES, not two: the column's own natural direction, then reversed,
@@ -5262,8 +4977,8 @@ function setTheme(theme) {
   try { localStorage.setItem(THEME_KEY, theme); } catch (e) {}
   document.getElementById('themeSel').value = theme;
   applyThemeColor();
-  /* Nothing else needs redrawing: the chart is SVG and follows the palette on
-     its own. A CANVAS chart would have to be re-rendered here. */
+  /* Nothing else needs redrawing: every colour on the page is CSS and follows
+     the palette on its own. A CANVAS chart would have to be re-rendered here. */
 }
 
 /* On Auto the palette can change with nobody touching the picker — the reader's
@@ -8704,8 +8419,6 @@ const HELP = {
     <p><strong>Hold</strong> — the window hasn’t opened yet. <strong>Ready</strong> — inside the window, with time to spare. <strong>Drink Soon</strong> — inside the window, and it closes within the time set in Settings (a year, to start with). <strong>Past Window</strong> — the window closed in an earlier year; it may still be lovely, but it is the one to open next. <strong>No Window</strong> — none was recorded, so nothing can be said.</p>
     <p>Press <strong>Past Window</strong>, <strong>Drink Soon</strong>, <strong>Ready</strong> or <strong>Holding</strong> to show just those wines in the Cellar list; press it again to take it off. You can press several, and the Status box in the Cellar ticks the same ones.</p>
     <p>The tiles count <strong>bottles</strong>, not wines, and only bottles you still have. The value is each wine’s value per bottle times its count, shown as a range when the value is one; a wine with no value is left out and the line under the tiles says how many bottles that is.</p>`],
-  chart: ['How This Chart Is Drawn', `<p>One bar per year, from this one on: how many of your bottles are <strong>inside their drinking window</strong> that year. A wine counts in every year of its window, so the bars overlap on purpose — the shape shows when the cellar is at its best and when bottles start running out of time.</p>
-    <p>A window with no end counts in every year shown; a wine with no window is not drawn at all. Bottles are counted as they stand today, so the chart does not know what you will open between now and then. Each bar is a tint with the colour itself on the edge, from the shared palette.</p>`],
   timing: ['How a Bottle’s Timing Is Decided', `<p>Each opened bottle is set against the <strong>drinking window its wine had on the day you opened it</strong> — the year on the date, against the window’s years. Editing the wine later does not change it.</p>
     <p><strong>Early</strong> — opened before the window started. <strong>In Window</strong> — opened inside it. <strong>Late</strong> — opened after it closed. A bottle whose wine had no window is in no timing count, and the line under the tiles says how many.</p>
     <p>Press <strong>Early</strong>, <strong>In Window</strong> or <strong>Late</strong> to show just those bottles in the list below; press it again to take it off. The <strong>Timing</strong> box beside Find ticks the same ones, and has <strong>No Window</strong> too. <strong>Average Age</strong> is the years from vintage to the year it was opened, over every bottle with a vintage. Every figure counts the whole log — Find never changes them.</p>`],
@@ -9097,88 +8810,6 @@ KEEPS_PLACE.forEach((id) => {
   }).observe($(id), { attributes: true, attributeFilter: ['open'] });
 });
 
-/* ── The hover tooltip ───────────────────────────────────────────────────────
-   Every sibling's chart answers a hover with a panel naming what is under the
-   pointer; this one had only an SVG <title>, which is the browser's own tooltip
-   — about a second late, in the OS's colours, and never shown on a touch screen
-   at all. What follows is the siblings' behaviour for an SVG.
-
-   ONE listener on the wrap, not one per bar: the chart is rebuilt on every
-   render and on every resize, so per-bar listeners would have to be re-attached
-   each time and one missed rebuild would leave a dead chart. Delegation survives
-   any number of redraws.
-
-   `pointerover`/`pointerout` rather than mouseenter, so a pen and a finger are
-   the same event. On touch the first tap shows the panel and the next tap
-   anywhere takes it away, which is how a tooltip on a touch screen has to work
-   if it is to work at all. */
-(() => {
-  const wrap = $('chartWrap');
-  const tip = document.createElement('div');
-  tip.className = 'charttip';
-  tip.hidden = true;
-  wrap.appendChild(tip);
-  let onBar = null;
-
-  const hide = () => {
-    if (onBar) { onBar.classList.remove('on'); onBar = null; }
-    tip.hidden = true;
-  };
-
-  const show = (bar, ev) => {
-    if (bar !== onBar) {
-      if (onBar) onBar.classList.remove('on');
-      onBar = bar;
-      bar.classList.add('on');
-      /* textContent on both halves, never innerHTML: the name is the reader's
-         own and arrives from a share link as readily as from the form. */
-      tip.textContent = '';
-      const n = document.createElement('span');
-      n.className = 'n';
-      n.textContent = bar.getAttribute('data-name');
-      tip.appendChild(n);
-      tip.appendChild(document.createTextNode(bar.getAttribute('data-detail')));
-    }
-    tip.hidden = false;
-    /* Placed against the WRAP, which is the positioned ancestor, and clamped
-       inside it: a panel that runs off the right edge of the card is a panel
-       that makes the page scroll sideways. 14px clear of the pointer so it is
-       never under the finger that summoned it. */
-    const box = wrap.getBoundingClientRect();
-    const x = ev.clientX - box.left + wrap.scrollLeft;
-    const y = ev.clientY - box.top;
-    const w = tip.offsetWidth, h = tip.offsetHeight;
-    tip.style.left = Math.max(0, Math.min(x + 14, wrap.scrollLeft + box.width - w - 2)) + 'px';
-    tip.style.top = Math.max(0, Math.min(y - h - 14, box.height - h - 2)) + 'px';
-  };
-
-  const barAt = (ev) => {
-    const t = ev.target;
-    return (t && t.classList && t.classList.contains('bar')) ? t : null;
-  };
-
-  wrap.addEventListener('pointermove', (ev) => {
-    const bar = barAt(ev);
-    if (bar) show(bar, ev); else hide();
-  });
-  wrap.addEventListener('pointerdown', (ev) => {
-    const bar = barAt(ev);
-    if (bar) show(bar, ev); else hide();
-  });
-  /* NOT FOR TOUCH. A finger leaves the screen the moment the tap ends, and the
-     browser fires pointerleave to say the pointer no longer exists — so on iOS
-     the panel appeared and vanished inside the same tap, which reads as the tap
-     having done nothing. A tap has to leave it up until something else takes it
-     down: the next tap (handled above, which hides when it lands off a bar),
-     Escape, or a redraw. Found on a real iPhone; a desktop pointer never does
-     this. */
-  wrap.addEventListener('pointerleave', (ev) => { if (ev.pointerType !== 'touch') hide(); });
-  /* A redraw throws away the rect the panel was describing. */
-  wrap.addEventListener('chartredraw', hide);
-  /* Escape closes it, like everything else here that covers something. */
-  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') hide(); });
-})();
-
 /* ── The rows' hover text ──────────────────────────────────────────────────
    Money Map's wireGridTip, without its zoom arithmetic (this app has none).
    ONE zone, <main>, which outlives every render, so the listeners are hung
@@ -9240,185 +8871,10 @@ KEEPS_PLACE.forEach((id) => {
   }, true);
 })();
 
-/* ── One chart, filling the window ───────────────────────────────────────────
-   Flow Metrics' feature, inherited from the family starter.
-   The CSS above records why it is an overlay rather than the Fullscreen API or a
-   modal <dialog>; what follows is the behaviour.
-
-   THE CARD IS MOVED, NOT COPIED, and that is the load-bearing decision. Every
-   render draws into #chartWrap by id, and a second copy of the card up here
-   would leave those renders painting the one left behind on the page while the
-   chart you are looking at quietly went stale. Moving the real card means an
-   edit made while it is up simply redraws in front of you. A hidden placeholder
-   holds its seat so it goes back exactly where it came from.
-
-   Three ways out, because a thing covering the window must never feel like a
-   trap: the same button (now an arrows-in icon), Escape, and a click on the
-   backdrop — this app's rule for every dialog, and the reason the overlay keeps
-   a margin round the card rather than filling the window edge to edge. */
-
-/* Inline SVG rather than a glyph: ⤢ is drawn by whatever font the platform picks
-   and is a different size on every one, and an <img> would be a file fetch on a
-   page that ships its own CSP. `currentColor`, so both icons take the button's
-   colour in all four themes. */
-const MAXI_ICON = {
-  out: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor"'
-     + ' stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"'
-     + ' focusable="false"><path d="M15 3h6v6"/><path d="M9 21H3v-6"/><path d="M21 3l-7 7"/>'
-     + '<path d="M3 21l7-7"/></svg>',
-  in:  '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor"'
-     + ' stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"'
-     + ' focusable="false"><path d="M20 10h-6V4"/><path d="M4 14h6v6"/><path d="M14 10l7-7"/>'
-     + '<path d="M10 14l-7 7"/></svg>'
-};
-
-let maxiUp = false;     /* is the chart card filling the window? */
-let maxiSlot = null;    /* the hidden placeholder holding its seat on the page */
-let maxiScrollY = 0;    /* where the page was, to put it back on the way out */
-
-/* Worth maximising only when there is really a chart under it — an empty state
-   is a sentence, and a bigger box shows no more of it. */
-function maxiReady() {
-  return !!(lastChart && lastChart.years.length && $('chartWrap').querySelector('svg'))
-    && !$('chartCard').classList.contains('boxshut');
-}
-
-function dressMaxiBtn() {
-  const btn = $('chartCard').querySelector('.chart-max');
-  if (!btn) return;
-  btn.innerHTML = maxiUp ? MAXI_ICON.in : MAXI_ICON.out;
-  btn.setAttribute('aria-label', maxiUp
-    ? 'Leave full screen — Drinking Windows Ahead'
-    : 'Fill the window with the Drinking Windows Ahead chart');
-  btn.title = maxiUp ? 'Leave full screen (Esc)' : 'Fill the window with this chart';
-}
-
-/* Called at the end of every render that can change what is drawable: take the
-   button away when there is nothing under it, and bring the window back down if
-   what was filling it has just gone — deleting the last entry does exactly that. */
-function syncMaxiButton() {
-  if (maxiUp && !maxiReady()) { closeMaxi(); return; }
-  const btn = $('chartCard').querySelector('.chart-max');
-  if (btn) btn.hidden = !maxiReady();
-  dressMaxiBtn();
-}
-
-/* The header wraps to two or three rows on a phone, and its height is the one
-   number this layout is pinned to — so it is measured, never guessed. */
-function measureMaxiTop() {
-  const h = document.querySelector('header').getBoundingClientRect().height;
-  document.documentElement.style.setProperty('--maxi-top', Math.round(h) + 'px');
-}
-
-function openMaxi() {
-  if (maxiUp) { closeMaxi(); return; }        /* the button toggles */
-  if (!maxiReady()) return;
-  const card = $('chartCard');
-
-  maxiSlot = document.createElement('div');
-  maxiSlot.hidden = true;
-  card.parentNode.insertBefore(maxiSlot, card);
-
-  /* THE PAGE GOES TO THE TOP FIRST, and this is an iOS fix, not tidiness. The
-     overlay starts below the sticky header so the menu stays usable — but
-     `body { overflow: hidden }` below stops the body being a scroll container,
-     and a `position: sticky` header in a container that no longer scrolls goes
-     back to its place in the document flow. Maximise from halfway down a phone
-     screen and the header is then off-screen above, leaving the strip this
-     overlay deliberately kept clear showing page content instead of the menu.
-     At scroll 0 the header's natural place IS the top of the viewport, so it
-     stays exactly where the layout assumes it is. The scroll is put back on the
-     way out. Visible only on a real iOS device — Chromium keeps the header
-     pinned either way — and found in the Simulator on 2026-08-23. */
-  maxiScrollY = window.scrollY;
-  window.scrollTo(0, 0);
-
-  const ov = $('chartMaxi');
-  ov.appendChild(card);
-  maxiUp = true;
-  measureMaxiTop();
-  ov.classList.add('open');
-  ov.setAttribute('aria-label', 'Drinking Windows Ahead, full screen');
-  document.body.classList.add('maxi-open');
-  /* The page underneath leaves the tab order while it is out of sight. The
-     header is NOT inside .wrap, so it stays reachable — which is the point. */
-  document.querySelector('.wrap').inert = true;
-  dressMaxiBtn();
-  /* No redraw here: the box just changed, so the ResizeObserver below draws it
-     once. Doing it from both places drew the same chart twice on every open. */
-  if (maxiHeaderWatch) maxiHeaderWatch.observe(document.querySelector('header'));
-  card.querySelector('.chart-max').focus();
-}
-
-function closeMaxi() {
-  if (!maxiUp) return;
-  const card = $('chartCard');
-  maxiUp = false;
-  if (maxiSlot && maxiSlot.parentNode) maxiSlot.parentNode.insertBefore(card, maxiSlot);
-  if (maxiSlot) maxiSlot.remove();
-  maxiSlot = null;
-
-  const ov = $('chartMaxi');
-  ov.classList.remove('open');
-  ov.removeAttribute('aria-label');
-  document.body.classList.remove('maxi-open');
-  /* After the overflow comes off, or the body is not a scroll container yet and
-     the position is dropped on the floor. */
-  window.scrollTo(0, maxiScrollY);
-  document.querySelector('.wrap').inert = false;
-  if (maxiHeaderWatch) maxiHeaderWatch.disconnect();
-  dressMaxiBtn();                             /* the observer redraws it */
-  /* Back to the button that opened it, which is now back in its card — a
-     keyboard user who pressed it must not be dropped at the top of the page. */
-  const btn = card.querySelector('.chart-max');
-  if (btn && !btn.hidden) btn.focus();
-}
-
-/* A ResizeObserver on the header rather than a window resize listener: that row
-   wraps for reasons that are not a window resize at all — a longer theme name is
-   enough — and the observer sees the box change however it happened. It runs
-   only while the chart is up. */
-/* THE CHART IS REDRAWN WHEN ITS BOX CHANGES, because it is now drawn at that
-   box's own pixel size rather than scaled to fit it. A window resize, a panel
-   being shown for the first time, the overlay opening — all of them are the same
-   event to a ResizeObserver, and none of them is a window resize event on its
-   own. rAF-batched so a drag of the window edge draws once a frame rather than
-   once a pixel. This is what Chart.js does for the siblings' canvases. */
-(() => {
-  if (!('ResizeObserver' in window)) return;
-  let queued = false;
-  new ResizeObserver(() => {
-    if (queued || !lastChart || !lastChart.years.length) return;
-    queued = true;
-    requestAnimationFrame(() => { queued = false; if (lastChart) renderChart(lastChart); });
-  }).observe($('chartWrap'));
-})();
-
-const maxiHeaderWatch = ('ResizeObserver' in window) ? new ResizeObserver(() => {
-  if (!maxiUp) return;
-  measureMaxiTop();                           /* the observer redraws it */
-}) : null;
-
-/* Built once and then only re-dressed. Appended to the CARD rather than to its
-   heading, because that heading's contents are rewritten on every render and a
-   button inside it would be thrown away and rebuilt on every keystroke. */
-(() => {
-  const btn = document.createElement('button');
-  btn.type = 'button';
-  btn.className = 'chart-max';
-  btn.hidden = true;                           /* until a render says otherwise */
-  $('chartCard').appendChild(btn);
-  dressMaxiBtn();
-  btn.addEventListener('click', openMaxi);
-})();
-
 /* ── Folding a card up ──────────────────────────────────────────────────────
    Money Map's wireBoxes(), for cards that are drawn once in the markup: the
    heading's words go into a toggle button, everything under the heading goes
-   into a `.card-body` that folding hides. The full-screen button stays a child
-   of the CARD — it is positioned against it — and is taken away while the card
-   is folded, through maxiReady(). The chart under a folded card measures 0x0;
-   its ResizeObserver redraws it the moment the card opens. */
+   into a `.card-body` that folding hides. */
 function foldedList() {
   try {
     const v = JSON.parse(localStorage.getItem(FOLD_KEY) || '[]');
@@ -9432,7 +8888,6 @@ function setFold(card, shut) {
   set[shut ? 'add' : 'delete'](card.dataset.fold);
   try { localStorage.setItem(FOLD_KEY, JSON.stringify([...set].sort())); }
   catch (e) { /* it just won't be remembered */ }
-  syncMaxiButton();
 }
 (() => {
   const shut = foldedList();
@@ -9447,9 +8902,7 @@ function setFold(card, shut) {
     const body = document.createElement('div');
     body.className = 'card-body';
     body.id = 'fold-' + card.dataset.fold;
-    [...card.childNodes].forEach((n) => {
-      if (n !== h2 && !(n.nodeType === 1 && n.classList.contains('chart-max'))) body.appendChild(n);
-    });
+    [...card.childNodes].forEach((n) => { if (n !== h2) body.appendChild(n); });
     card.insertBefore(body, h2.nextSibling);
     const toggle = document.createElement('button');
     toggle.type = 'button';
@@ -9471,39 +8924,6 @@ function setFold(card, shut) {
   });
 })();
 
-/* A click on the backdrop closes, the same as every dialog here — and with the
-   same two details: the hit test is against the card's box rather than
-   `e.target`, and the press has to have STARTED outside, so dragging a selection
-   off the edge of the chart doesn't slam it shut. */
-(() => {
-  const ov = $('chartMaxi');
-  const outside = (e) => {
-    if (!maxiUp) return false;
-    const r = $('chartCard').getBoundingClientRect();
-    return e.clientX < r.left || e.clientX > r.right
-        || e.clientY < r.top  || e.clientY > r.bottom;
-  };
-  let startedOutside = false;
-  ov.addEventListener('mousedown', (e) => { startedOutside = outside(e); });
-  ov.addEventListener('click', (e) => {
-    if (startedOutside && outside(e)) closeMaxi();
-    startedOutside = false;
-  });
-})();
-
-/* Escape closes — unless a dialog is open on top of it, in which case Escape
-   belongs to the dialog. The chart's info-dot help window opened over a
-   maximised chart is exactly that case. */
-document.addEventListener('keydown', (e) => {
-  if (e.key !== 'Escape' || !maxiUp) return;
-  if (document.querySelector('dialog[open]')) return;
-  e.preventDefault();
-  closeMaxi();
-});
-
-/* For tests.html: the two doors and the state, so the suite drives the real
-   thing rather than a copy of its reasoning. */
-window.wcMaxi = { open: openMaxi, close: closeMaxi, up: () => maxiUp, ready: maxiReady };
 
 /* ═══════════════════════════════ Cloud sync ════════════════════════════════
    The sync module at the foot of the page is Golf Handicap's, ported whole. It
