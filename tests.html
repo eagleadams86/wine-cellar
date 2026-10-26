@@ -2145,7 +2145,12 @@ function define() {
        .test(src),
      'with a DOMContentLoaded backstop, so a script that dies on the way to the '
        + 'release can never leave the page blank');
-  ok(/render\(\);\s*document\.documentElement\.removeAttribute\('data-booting'\);/.test(src)
+  /* Wine Cellar settles the card fit, the foot row and the kept scroll place
+     between the two, still in the same task (Charles, 2026-10-26: a refresh at
+     the foot of the Cellar landed three places in 50ms). */
+  ok(/render\(\);\s*fitCards\(\);\s*footRows\(\);\s*restoreScroll\(\);\s*document\.documentElement\.removeAttribute\('data-booting'\);/.test(src),
+     'the list fit, the foot row and the place are settled BEFORE the reveal, not a frame after it');
+  ok(/render\(\);(\s*\w+\(\);)*\s*document\.documentElement\.removeAttribute\('data-booting'\);/.test(src)
      || /\}\s*document\.documentElement\.removeAttribute\('data-booting'\);/.test(src),
      'and the release sits with the first render, in the SAME task — a frame later '
        + 'and the reveal is itself the flash');

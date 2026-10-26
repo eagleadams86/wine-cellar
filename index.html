@@ -9326,6 +9326,15 @@ async function boot() {
   /* Undo's baseline is the cellar as loaded — nothing behind it yet. */
   undoStartOver();
   render();
+  /* Settled in THIS task, under the gate, rather than a frame after the reveal
+     (Charles, 2026-10-26: a refresh at the foot of the Cellar flickered). The
+     list's table-or-cards fit and the foot button row were both left to an
+     observer's next frame, so the page grew 56px after it was shown and the
+     browser's own scroll restore jumped twice — three positions in 50ms at a
+     half-screen width. Then the page's place is put back BEFORE it is seen. */
+  fitCards();
+  footRows();
+  restoreScroll();
   /* The page is now drawn where it belongs, so let it be seen. In the SAME TASK
      as the render above — a frame later and the reveal is itself the flash. The
      head script explains what was flashing before it. */
@@ -9333,6 +9342,36 @@ async function boot() {
   /* Photos past Undo are deleted now — never from a shared view (its cellar is
      somebody else's, and every photo here would look orphaned) or the tests. */
   if (!viewOnly && !inTests()) sweepPhotos();
+}
+
+/* ── Where a refresh puts you ────────────────────────────────────────────────
+   The browser restores the scroll position on a reload, but only after it has
+   painted the page once at the TOP, and before this page has finished growing —
+   so a refresh far down a tab showed the top for a frame and then landed short.
+   The app does it instead: the place is kept for this browser tab alone
+   (sessionStorage — a number and a tab name, nothing else) as the page goes, and
+   put back under the boot gate, so the first frame anyone sees is already there.
+   Only for a reload or back/forward to the SAME tab; a fresh visit starts at the
+   top, as it always did. Never in the test harness, which writes no storage. */
+const SCROLL_KEY = 'wine-scroll';
+if (!inTests() && 'scrollRestoration' in history) history.scrollRestoration = 'manual';
+addEventListener('pagehide', () => {
+  if (inTests() || viewOnly) return;
+  try {
+    sessionStorage.setItem(SCROLL_KEY, JSON.stringify({ y: Math.round(window.scrollY),
+      tab: document.documentElement.getAttribute('data-tab') }));
+  } catch (e) { /* the place just won't be kept */ }
+});
+function restoreScroll() {
+  if (inTests() || viewOnly) return;
+  let kept = null;
+  try { kept = JSON.parse(sessionStorage.getItem(SCROLL_KEY) || 'null'); sessionStorage.removeItem(SCROLL_KEY); }
+  catch (e) { kept = null; }
+  const nav = performance.getEntriesByType ? performance.getEntriesByType('navigation')[0] : null;
+  if (!kept || !nav || (nav.type !== 'reload' && nav.type !== 'back_forward')) return;
+  if (kept.tab !== document.documentElement.getAttribute('data-tab')) return;
+  const y = Number(kept.y);
+  if (Number.isFinite(y) && y > 0) window.scrollTo(0, y);
 }
 
 boot();

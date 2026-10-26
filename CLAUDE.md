@@ -111,6 +111,16 @@ the family doesn't.
   `.pinbtn` needs `min-height: 0` here, or the page's button floor stretches it to 26×38.5. A change
   belongs in all five pin apps. Tests set `data-pin` + `measure()` rather than `applyPin()`, which
   writes storage; a sticky test needs its spacer INSIDE `<main>` (the row only sticks in its parent).
+- **A refresh lands in one place** (2026-10-26, Charles: "refreshing the Cellar while scrolled to
+  the bottom flickers more"). Measured frame by frame: the browser painted the TOP for a frame,
+  restored short, then `footRows()` (a rAF later) grew the page 56px and it jumped again — three
+  positions in ~50ms at 756px, the Cellar worst because of its foot row and card fit. Now `boot()`
+  runs `fitCards(); footRows(); restoreScroll();` between `render()` and the gate release, and
+  `history.scrollRestoration = 'manual'` with the place kept in sessionStorage `wine-scroll`
+  (`{y, tab}`, written on pagehide, only for a reload/back-forward to the SAME tab; never in
+  tests or a shared view). Re-measured: first visible frame is the final place on every tab, in
+  Chromium and WebKit iPhone. Anything that changes page height after first render belongs
+  before that release. Other family apps were not checked.
 - **Every tab is dashboard → list → groupings** (2026-10-26, Charles): Cellar = At a Glance,
   Cellar, Cellar Makeup; Opened = timing tiles, Bottles Opened, What You Like; Pairings = Pairings
   at a Glance, Pairings, What Pairs Well. A test pins each panel's card order. A new card goes in
