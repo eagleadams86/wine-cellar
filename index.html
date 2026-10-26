@@ -158,7 +158,16 @@
 
     var tab = localStorage.getItem('wine-tab');
     document.documentElement.setAttribute('data-tab',
-      ['cellar', 'opened', 'history'].indexOf(tab) === -1 ? 'cellar' : tab);
+      ['cellar', 'opened', 'pairings', 'history'].indexOf(tab) === -1 ? 'cellar' : tab);
+
+    /* THE PINNED TAB ROW, for the theme's reason: decided at the foot of the
+       file it arrives after the first paint, and the page visibly jumps as the
+       row takes its 20px margin back as padding. OFF unless the reader turned
+       it on. */
+    try {
+      if (localStorage.getItem('wine-pin') === '1')
+        document.documentElement.setAttribute('data-pin', 'on');
+    } catch (e) {}
 
     /* A shared view is somebody else's snapshot and never shows the welcome. */
     try {
@@ -290,11 +299,13 @@
      window starts below the bar. The height is MEASURED (`--head-h`, written by
      a ResizeObserver beside `wireScrollRow()`), because the bar changes depth
      with the window, the zoom and the name wrapping; +8px keeps the focus ring
-     clear of its edge. Golf Handicap 8935363 is the reference. An app that
-     pins more chrome under the bar (Money Map's 📌) measures that too, as one
-     `--pin-clear`, and must not ALSO give controls a `scroll-margin-top` —
-     the two add together. */
-  html { scroll-padding-top: calc(var(--head-h, 0px) + 8px); }
+     clear of its edge. Golf Handicap 8935363 is the reference. Since the 📌
+     (2026-10-26) the clearance is `--pin-clear`: everything ACTUALLY stuck —
+     the header where it is sticky, plus the tab row while pinned — plus 8px,
+     written by measurePinTop() pinned or not, and 0 where nothing is stuck (a
+     phone, unpinned). Never ALSO a `scroll-margin-top` on controls — the two
+     add together. */
+  html { scroll-padding-top: var(--pin-clear, 0px); }
   .headbar { max-width: var(--page-w); margin: 0 auto; padding: 0 16px;
              display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
   /* The app name is --fs-md in EVERY app. That is the role contract (pack rule
@@ -457,6 +468,53 @@
      header's reasons. `position: relative` because a scroll box without it has
      iOS count its full width in the page's own scroll area. */
   .tabrow { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
+
+  /* ── Pinning the tab row (Charles, 2026-10-26: "like my other apps") ──────
+     The family's 📌 — Money Map, Flow Metrics, Sprint Predictability and
+     League Night have it, and a change belongs in all five. The tab row held
+     at the top of the window while the page scrolls under it. OFF by default:
+     pinned chrome is bought with vertical space, a trade only the reader makes.
+
+     THE OFFSET IS MEASURED, NEVER WRITTEN DOWN. `top` reads `--pin-top`,
+     which measurePinTop() writes from the header's real rectangle — and on a
+     phone, where the header is NOT sticky (560px and under), from the notch
+     band's, so the row stops under the clock rather than under a header that
+     has scrolled away.
+
+     THE MARGIN BECOMES PADDING: the same 20px and the same total height, so
+     the toggle costs no reflow, but owned by the box that paints it — a margin
+     is transparent, and pinned the page would scroll through a 20px window
+     under the row.
+
+     `--bg`, NEVER `--surface`: the row sits ON the page and shows `--bg`
+     through today, so pinning changes nothing but "content no longer shows
+     through". Z-INDEX 12: under the header's 20 and the notch band's 25, under
+     the toast's 50. */
+  .pinbtn {
+    flex: 0 0 auto; align-self: center;
+    display: flex; align-items: center; justify-content: center;
+    width: 26px; height: 26px; padding: 0; border-radius: var(--radius-sm);
+    /* Out from under this page's button floor, or the square stretches to a
+       26×38.5 slab — Money Map's, which has no floor, is the shape. */
+    min-height: 0;
+    border: 1px solid var(--border-control); background: transparent;
+    color: var(--text-secondary); cursor: pointer;
+  }
+  .pinbtn:hover { color: var(--text-primary); background: var(--surface-alt);
+                  border-color: var(--text-secondary); }
+  /* Pinned, the button wears the accent — but the ICON changes with it, so the
+     state never rests on a hue. */
+  html[data-pin] .pinbtn { color: var(--accent); border-color: var(--accent); }
+  /* The button rewrites its own icon on press, which DETACHES the <path> a
+     real pointer landed on — so the icon must never be what was clicked. */
+  .pinbtn svg { pointer-events: none; }
+  @media (pointer: coarse) { .pinbtn { width: 40px; height: 40px; } }
+
+  html[data-pin] .tabrow {
+    position: sticky; top: var(--pin-top, 0px); z-index: 12;
+    background: var(--bg);
+    margin-bottom: 0; padding-bottom: 20px;
+  }
   .tabs { display: flex; gap: 12px; flex: 1 1 auto; min-width: 0; flex-wrap: nowrap;
     overflow-x: auto; position: relative; padding: 4px; margin: -4px; scrollbar-width: none; }
   .tabs::-webkit-scrollbar { display: none; }
@@ -1124,9 +1182,8 @@
        (It wrapped to three lines here until 2026-09-14; it is the name above
        one scrolling line of controls now, and still not worth pinning.) */
     header { position: static; }
-    /* Nothing is pinned here, so nothing to clear: the header's height would
-       only push every focus that much further down the screen. */
-    html { scroll-padding-top: 0; }
+    /* Nothing to clear here unless the tab row is pinned, and measurePinTop()
+       works that out from the rectangles: it writes 0 when nothing is stuck. */
   }
 
   fieldset.formpanel { border: 1px solid var(--border); border-radius: var(--radius-sm);
@@ -1621,6 +1678,10 @@ html[data-booting] footer { visibility: hidden; }
   <div class="rownav no-print" hidden><button type="button" tabindex="-1" aria-hidden="true"
     title="Scroll the tabs left">‹</button><button type="button" tabindex="-1"
     aria-hidden="true" title="Scroll the tabs right">›</button></div>
+  <!-- The 📌, a sibling of the tablist and never a child: a non-tab child of a
+       tablist is a lie about what the thing is. Dressed by dressPinBtn() —
+       icon, name and title change together, with no aria-pressed on top. -->
+  <button type="button" class="no-print pinbtn" id="pinBtn"></button>
 </div>
 
   <!-- ── The welcome card ─────────────────────────────────────────────────────
@@ -3853,7 +3914,12 @@ function renderWelcome() {
 }
 
 function render() {
-  if (renderWelcome()) return;
+  /* The welcome card takes the tab row off the page, and the observer is
+     delivered with the next rendering step, which a background window has not
+     got — so the offset is written from here as well. */
+  const welcome = renderWelcome();
+  measurePinTop();
+  if (welcome) return;
 
   const c = computeAll(state, thisYear());
   renderViewbar();
@@ -5142,17 +5208,93 @@ function wireScrollRow(row, nav) {
 }
 wireScrollRow(document.querySelector('.headctl'), document.querySelector('.headrow > .rownav'));
 wireScrollRow(document.querySelector('.tabs'), document.querySelector('.tabrow > .rownav'));
-/* The pinned header's height, for `html { scroll-padding-top }` — see the note
-   beside that rule. Observed rather than read once: the bar changes depth with
-   the window, the zoom and the name wrapping, and nothing calls this. Golf
-   Handicap's, verbatim. */
-(() => {
+/* ── Pinning the tab row ───────────────────────────────────────────────────
+   The CSS is up in "Pinning the tab row"; this is the one measurement it reads
+   and the button that turns it on. League Night's, which came by way of Sprint
+   Predictability, Flow Metrics and Money Map.
+
+   ONE ATTRIBUTE, ONE MEASURED OFFSET. `data-pin` on <html> is the whole state —
+   the head script sets it before first paint — and `--pin-top` / `--pin-clear`
+   are where the row stops and how far the root's scroll padding keeps a focus
+   clear of everything stuck. Both are measured pinned or not: the clearance is
+   the header's alone while unpinned, and it replaces the old `--head-h`. */
+const PIN_ICON = {
+  pin:   '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor"'
+       + ' stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"'
+       + ' focusable="false"><path d="M7 4h10"/><path d="M9 4v6l-3 3v2h12v-2l-3-3V4"/>'
+       + '<path d="M12 17v5"/></svg>',
+  unpin: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor"'
+       + ' stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"'
+       + ' focusable="false"><path d="M7 4h10"/><path d="M9 4v6l-3 3v2h12v-2l-3-3V4"/>'
+       + '<path d="M12 17v5"/><path d="M3 3l18 18"/></svg>',
+};
+
+/* Asked of the RECTANGLE as well as the cascade: a row that is not on the page
+   (the welcome card, print) still COMPUTES `position: sticky`. */
+function stuckBox(el) {
+  return !!el && el.getClientRects().length > 0 && getComputedStyle(el).position === 'sticky';
+}
+/* Declarations, not `const` arrows: render() calls measurePinTop() and can run
+   from boot ABOVE this block, where a `const` is still in its dead zone. */
+function pinStuck() { return stuckBox(document.querySelector('.tabrow')); }
+
+function measurePinTop() {
+  const root = document.documentElement;
   const head = document.querySelector('header');
-  if (!head || !('ResizeObserver' in window)) return;
-  new ResizeObserver(() => {
-    document.documentElement.style.setProperty('--head-h', Math.ceil(head.getBoundingClientRect().height) + 'px');
-  }).observe(head);
-})();
+  const headStuck = stuckBox(head);
+  /* Where the header is not sticky (a phone), the row stops under the notch
+     band instead — body::before, zero tall wherever there is no notch. */
+  const h = headStuck ? head.getBoundingClientRect().height
+    : parseFloat(getComputedStyle(document.body, '::before').height) || 0;
+  const b = pinStuck() ? document.querySelector('.tabrow').getBoundingClientRect().height : 0;
+  root.style.setProperty('--pin-top', Math.round(h) + 'px');
+  /* 0 when nothing is stuck: then the header's height would only push every
+     focus that much further down the screen. +8 keeps the ring clear. */
+  root.style.setProperty('--pin-clear', (headStuck || b) ? Math.ceil(h + b + 8) + 'px' : '0px');
+}
+
+const PIN_KEY = 'wine-pin';
+function savedPin() {
+  try { return localStorage.getItem(PIN_KEY) === '1'; }
+  catch (e) { return false; }   /* private mode: the app draws, just unpinned */
+}
+
+/* Named by what pressing does NEXT, and the icon says the same. */
+function dressPinBtn() {
+  const btn = document.getElementById('pinBtn');
+  if (!btn) return;
+  const on = !!document.documentElement.dataset.pin;
+  btn.innerHTML = on ? PIN_ICON.unpin : PIN_ICON.pin;
+  btn.setAttribute('aria-label', on
+    ? 'Unpin the tabs — let them scroll with the page'
+    : 'Pin the tabs to the top of the page');
+  btn.title = on ? 'Unpin the tabs' : 'Pin the tabs to the top';
+}
+
+/* The header always (sticky or not, it re-wraps and the clearance reads it);
+   the row only while pinned — unpinned it adds nothing. */
+const pinWatch = ('ResizeObserver' in window)
+  ? new ResizeObserver(() => measurePinTop()) : null;
+function applyPin(on) {
+  try { localStorage.setItem(PIN_KEY, on ? '1' : '0'); } catch (e) {}
+  if (on) document.documentElement.dataset.pin = 'on';
+  else delete document.documentElement.dataset.pin;
+  measurePinTop();
+  dressPinBtn();
+  if (pinWatch) {
+    pinWatch.disconnect();
+    pinWatch.observe(document.querySelector('header'));
+    if (on) pinWatch.observe(document.querySelector('.tabrow'));
+  }
+  /* NO render(): this is paint and position only, so the reader keeps their
+     scroll place and their focus. */
+}
+document.getElementById('pinBtn').addEventListener('click',
+  () => applyPin(!document.documentElement.dataset.pin));
+/* The header turns sticky or static across 560px whether or not it resizes. */
+addEventListener('resize', measurePinTop);
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(measurePinTop);
+applyPin(savedPin());
 
 /* ═══════════════════════════════ Share links ═══════════════════════════════
    The figures travel INSIDE the link. Nothing is uploaded and no copy is kept —
@@ -9192,6 +9334,8 @@ boot();
    this suite is read-only about storage and has to stay that way: it runs
    against the reader's own copy of the app. */
 window.__wineTestHooks = {
+  pin: { on: () => !!document.documentElement.dataset.pin, apply: applyPin,
+         stuck: pinStuck, measure: measurePinTop, dress: dressPinBtn, KEY: PIN_KEY },
   __plant: function (next) {
     state = normalizeState(next); undoStartOver();
     checkFound.clear(); checkFailed.clear(); checkTicks.clear(); checkPicks.clear();   /* a planted cellar is a new one */

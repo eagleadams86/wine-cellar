@@ -138,6 +138,11 @@ cellar on your other devices.
   undoing past their work would overwrite it.
 - **Accents don't matter when you search.** Every Find — the Cellar's, the Opened list's and ⌘K —
   matches "resonance" to Résonance, "coeur" to Cœur and "rebel's" to Rebel’s, in either direction.
+- **📌 Pin the tabs** — the pin at the right-hand end of the tab row holds Cellar, Opened,
+  Pairings and History at the top of the window while the page scrolls under them, as in Money
+  Map, Flow Metrics, Sprint Predictability and League Night. Off until you turn it on, and
+  remembered on this device. On a phone, where the header scrolls away, the row sticks at the very
+  top instead. Tabbing back up the page never leaves a control hidden under it.
 - **Find** (⌘K), **Settings**, **Back Up** (JSON and CSV, Restore, Delete All — which keeps
   your settings, theme and Claude key), **Share**
   (a read-only link with the data inside it — Cellar and Opened only, since History never

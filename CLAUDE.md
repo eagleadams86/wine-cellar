@@ -103,6 +103,14 @@ the family doesn't.
 
 ## Decisions — Don't Undo
 
+- **The 📌 pins the tab row** (2026-10-26, Charles: "like my other apps") — League Night's shape:
+  `data-pin` set by the head script (`wine-pin`), `.pinbtn` a sibling of the tablist, `--pin-top` /
+  `--pin-clear` MEASURED by `measurePinTop()` (which replaced the old `--head-h` observer; the root's
+  `scroll-padding-top` reads `--pin-clear`). Unlike League Night it pins on a phone too: the header is
+  `position: static` under 560px, so the row stops under the notch band (`body::before`) instead.
+  `.pinbtn` needs `min-height: 0` here, or the page's button floor stretches it to 26×38.5. A change
+  belongs in all five pin apps. Tests set `data-pin` + `measure()` rather than `applyPin()`, which
+  writes storage; a sticky test needs its spacer INSIDE `<main>` (the row only sticks in its parent).
 - **Every tab is dashboard → list → groupings** (2026-10-26, Charles): Cellar = At a Glance,
   Cellar, Cellar Makeup; Opened = timing tiles, Bottles Opened, What You Like; Pairings = Pairings
   at a Glance, Pairings, What Pairs Well. A test pins each panel's card order. A new card goes in

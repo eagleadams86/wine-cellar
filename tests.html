@@ -51,7 +51,7 @@
    go MISSING look exactly like tests that pass — a suite that quietly shrank to
    three checks still says "all 3 tests pass". RAISE THIS when you add tests, and
    lower it only when you retire one deliberately. */
-const EXPECTED = 304;
+const EXPECTED = 307;
 
 /* ── It refuses to run anywhere but localhost, and that is load-bearing ──────
    GitHub Pages publishes this page BESIDE the app, where the iframe below would
@@ -420,6 +420,51 @@ async function runAsync() {
           spacer.remove();
           FW.scrollTo(0, 0);
           await settle(FW);
+        }
+        /* The 📌 (2026-10-26), pinned in this frame — by the attribute and a
+           measure, never applyPin(), which would write the reader's storage.
+           Scrolled well past the row, it must sit flush under the header (or,
+           on a phone, where the header is not sticky, at the window's top),
+           and a control put half under it, focused, must land clear of it. */
+        if (w === 1600 || w === 360) {
+          const head = D.querySelector('header'), row = D.querySelector('.tabrow');
+          /* Inside <main>: a sticky row only sticks within its parent's box. */
+          const spacer = D.createElement('div');
+          spacer.style.height = '3000px';
+          D.getElementById('main').appendChild(spacer);
+          const read = () => [Math.round(row.getBoundingClientRect().top + FW.scrollY),
+            Math.round(D.getElementById('cellarPanel').getBoundingClientRect().top + FW.scrollY),
+            D.documentElement.scrollHeight];
+          await settle(FW);
+          const off = read();
+          D.documentElement.dataset.pin = 'on';
+          FH.pin.measure();
+          await settle(FW);
+          const on = read();
+          FW.scrollTo(0, 1500);
+          await settle(FW);
+          const rb = row.getBoundingClientRect(), hr = head.getBoundingClientRect();
+          const p = { noReflow: JSON.stringify(off) === JSON.stringify(on), off: off, on: on,
+            stuck: FH.pin.stuck(), rowTop: +rb.top.toFixed(1),
+            headBottom: hr.top <= 1 && hr.bottom > 0 ? +hr.bottom.toFixed(1) : 0,
+            headSticky: FW.getComputedStyle(head).position === 'sticky' };
+          const target = [...D.querySelectorAll('#cellarPanel button')].find((el) => vis(el)
+            && el.getBoundingClientRect().height < rb.height - 6);
+          if (target) {
+            const h = target.getBoundingClientRect().height;
+            FW.scrollBy(0, target.getBoundingClientRect().top - (rb.bottom - h / 2));
+            p.covered = target.getBoundingClientRect().top < row.getBoundingClientRect().bottom;
+            target.focus();
+            p.focused = D.activeElement === target;
+            p.room = +(target.getBoundingClientRect().top - row.getBoundingClientRect().bottom).toFixed(1);
+            target.blur();
+          }
+          delete D.documentElement.dataset.pin;
+          FH.pin.measure();
+          spacer.remove();
+          FW.scrollTo(0, 0);
+          await settle(FW);
+          m.pinned = p;
         }
         if (m.headNavShown) {
           next.click();
@@ -1199,13 +1244,66 @@ function define() {
          'top ' + r.top + ' vs header bottom ' + r.headBottom);
     });
     const css = stripComments(APP_SRC);
-    ok(/html \{ scroll-padding-top: calc\(var\(--head-h, 0px\) \+ 8px\); \}/.test(css),
-       'the clearance is the header’s MEASURED height, plus room for the ring');
-    ok(/new ResizeObserver\(\(\) => \{\s*document\.documentElement\.style\.setProperty\('--head-h'/.test(css),
-       'written by an observer on the header, since nothing calls it when the bar changes depth');
-    ok(/header \{ position: static; \}\s*html \{ scroll-padding-top: 0; \}/.test(css),
-       'and where the header is not pinned (560px and under) there is nothing to clear');
+    ok(/html \{ scroll-padding-top: var\(--pin-clear, 0px\); \}/.test(css),
+       'the clearance is what is MEASURED as stuck, plus room for the ring');
+    ok(/pinWatch\.observe\(document\.querySelector\('header'\)\);\s*if \(on\) pinWatch\.observe\(document\.querySelector\('\.tabrow'\)\);/.test(css),
+       'written by an observer on the header always and the row while pinned, since nothing calls it when the bar changes depth');
+    ok(/'--pin-clear', \(headStuck \|\| b\) \?/.test(css) && !/scroll-padding-top: 0;/.test(css),
+       'and where nothing is stuck (a phone, unpinned) the measure writes 0 — no hand-written phone rule beside it');
     ok(!/scroll-margin-top/.test(css), 'no per-control scroll-margin-top as well — the two would add together');
+  });
+  t('the 📌 pins the tab row by ONE attribute, decided before first paint', () => {
+    const head = APP_SRC.split('</head>')[0], css = stripComments(APP_SRC);
+    ok(/setAttribute\('data-pin', 'on'\)/.test(head) && /'wine-pin'/.test(head),
+       'the head script sets it, or the row visibly takes its margin back as padding');
+    ok(/\['cellar', 'opened', 'pairings', 'history'\]\.indexOf\(tab\)/.test(head),
+       'and the head script knows every tab, or a remembered Pairings boots as Cellar for a frame');
+    ok(/html\[data-pin\] \.tabrow \{[\s\S]*?position: sticky; top: var\(--pin-top, 0px\)/.test(css));
+    ok(/html\[data-pin\] \.tabrow \{[\s\S]*?background: var\(--bg\)/.test(css),
+       '--bg and never --surface: pinning must change nothing but "content no longer shows through"');
+    ok(/html\[data-pin\] \.tabrow \{[\s\S]*?margin-bottom: 0; padding-bottom: 20px/.test(css),
+       'the margin becomes padding, so the band is inside the box that paints it');
+    eq(H.pin.KEY, 'wine-pin');
+    ok(/catch \(e\) \{ return false; \}/.test(css.split('function savedPin')[1] || ''),
+       'off unless a stored 1 says so, and a browser that refuses storage draws it unpinned');
+    ok(/function render\(\) \{\s*const welcome = renderWelcome\(\);\s*measurePinTop\(\);/.test(css),
+       'render() measures as well as the observer — a background window gets no rendering step');
+  });
+  t('the 📌 is a sibling of the tablist, and its icon and name change together', () => {
+    const D = W.document, btn = D.getElementById('pinBtn');
+    ok(btn, 'it exists');
+    eq(btn.parentElement.className, 'tabrow', 'a non-tab child of a tablist is a lie about what the thing is');
+    eq(btn.closest('[role="tablist"]'), null);
+    ok(btn.classList.contains('no-print'));
+    ok(/\.pinbtn svg \{ pointer-events: none; \}/.test(stripComments(APP_SRC)),
+       'the icon is redrawn on press, so it must never be the thing that was clicked');
+    const root = D.documentElement, was = root.dataset.pin;
+    try {
+      delete root.dataset.pin; H.pin.dress();
+      const off = btn.getAttribute('aria-label'), offIcon = btn.innerHTML;
+      root.dataset.pin = 'on'; H.pin.dress();
+      ok(/^Pin/.test(off) && /^Unpin/.test(btn.getAttribute('aria-label')), 'the name says what pressing it will DO next');
+      ok(offIcon && btn.innerHTML !== offIcon, 'and the icon changes with it, so the state is never only a hue');
+      eq(btn.getAttribute('aria-pressed'), null, 'no aria-pressed on top of a name that already carries the state');
+    } finally {
+      if (was) root.dataset.pin = was; else delete root.dataset.pin;
+      H.pin.dress(); H.pin.measure();
+    }
+  });
+  t('pinned, the row costs no reflow, sticks under the header, and a focus clears it', () => {
+    for (const [label, w] of [['1600px', 'wide'], ['360px phone', 'narrow']]) {
+      const p = rowVerdict(w).pinned;
+      ok(p, label + ': measured', JSON.stringify(rowVerdict(w)).slice(0, 200));
+      ok(p.noReflow, label + ': the row, the panel under it and the document stay where they were',
+         JSON.stringify(p.off) + ' vs ' + JSON.stringify(p.on));
+      ok(p.stuck, label + ': pinStuck() says it is stuck');
+      ok(Math.abs(p.rowTop - p.headBottom) <= 1, label + ': scrolled past, it sits flush under '
+         + (p.headSticky ? 'the header' : 'the window top — the header is not sticky here'), p.rowTop + ' vs ' + p.headBottom);
+      ok(p.covered && p.focused, label + ': set up — a control half under the row takes the focus', JSON.stringify(p));
+      ok(p.room >= 4, label + ': focused, it is scrolled wholly below the row with room for its ring', p.room + 'px');
+    }
+    eq(rowVerdict('wide').pinned.headSticky, true, 'the 1600px case really had a sticky header');
+    eq(rowVerdict('narrow').pinned.headSticky, false, 'and the phone really did not');
   });
   t('the tab bar is one row that scrolls, with its arrows OUTSIDE the tablist', () => {
     eq(rowVerdict('narrow').tabLines, 1, 'one row at 360px');
