@@ -293,7 +293,8 @@ dinner. Type a dish — "grilled lamb chops with rosemary" — or paste a whole 
 - **The Pairings tab** opens on two dashboard cards. **Pairings at a Glance** has tiles for
   **Planned**, **Coming Up** (the next dated meal), **Overdue** (a planned day gone by), **Had**
   and your average **Pairing Rating**; press Planned, Overdue or Had to narrow the list to those
-  (several at once; **Clear** lets them go). **Best and Worst** lists your top-rated pairings
+  (several at once). The list's **Status** box is the same filter as tick boxes, as on the Cellar
+  and Opened tabs — a tile and its box always agree — and **Clear** lets them all go. **Best and Worst** lists your top-rated pairings
   under *Do Again* and your 1–2★ ones under *Give It a Miss*; press one to open it. Both count the
   whole list, whatever the filter shows.
 - **The list** has every pairing: planned ones first (soonest day first, undecided

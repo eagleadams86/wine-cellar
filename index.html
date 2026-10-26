@@ -2041,6 +2041,20 @@ html[data-booting] footer { visibility: hidden; }
           <input type="search" id="pairingFind" maxlength="60" placeholder="meal, wine, note…"
                  autocomplete="off" data-keep-caret>
         </div>
+        <!-- The Cellar's Status box, for pairings: the same tick boxes the
+             Planned, Overdue and Had tiles press. -->
+        <div class="field">
+          <label id="pairingPickLabel">Status</label>
+          <details class="statuspick" id="pairingPickBox">
+            <summary aria-labelledby="pairingPickLabel pairingPickSum"><span id="pairingPickSum">Every Status</span>
+              <span class="pickchev" aria-hidden="true">▾</span></summary>
+            <div class="pickpanel" role="group" aria-labelledby="pairingPickLabel">
+              <label class="checkline"><input type="checkbox" value="planned">Planned</label>
+              <label class="checkline"><input type="checkbox" value="overdue">Overdue</label>
+              <label class="checkline"><input type="checkbox" value="had">Had</label>
+            </div>
+          </details>
+        </div>
         <button type="button" class="link" id="clearPairingFind">Clear</button>
         <p class="hint" id="pairingFindNote" role="status"></p>
       </div>
@@ -8007,9 +8021,14 @@ function renderPairingDash(c) {
   $('pairBest').innerHTML = best ? '<div class="pairbest">' + best + '</div>'
     : '<p class="empty">Rate a pairing you have had and it shows here.</p>';
 }
+const PAIRING_KINDS = { planned: 'Planned', overdue: 'Overdue', had: 'Had' };
 function setPairingPick(keys) {
   pairingPick.clear();
-  keys.forEach((k) => { if (['planned', 'overdue', 'had'].indexOf(k) !== -1) pairingPick.add(k); });
+  keys.forEach((k) => { if (PAIRING_KINDS[k]) pairingPick.add(k); });
+  const on = Object.keys(PAIRING_KINDS).filter((k) => pairingPick.has(k));
+  $('pairingPickSum').textContent = !on.length ? 'Every Status'
+    : on.length <= 2 ? on.map((k) => PAIRING_KINDS[k]).join(', ') : 'All three';
+  $('pairingPickBox').querySelectorAll('input[type="checkbox"]').forEach((b) => { b.checked = pairingPick.has(b.value); });
   document.querySelectorAll('#pairStats [data-pairing-pick]').forEach((b) =>
     b.setAttribute('aria-pressed', String(pairingPick.has(b.dataset.pairingPick))));
   renderPairingList();
@@ -8021,6 +8040,13 @@ $('pairStats').addEventListener('click', (e) => {
   next[next.has(k) ? 'delete' : 'add'](k);
   /* A filter behind a folded card would change nothing you can see. */
   if ($('pairingCard').classList.contains('boxshut')) setFold($('pairingCard'), false);
+  setPairingPick([...next]);
+});
+$('pairingPickBox').addEventListener('change', (e) => {
+  const box = e.target.closest('input[type="checkbox"]');
+  if (!box) return;
+  const next = new Set(pairingPick);
+  next[box.checked ? 'add' : 'delete'](box.value);
   setPairingPick([...next]);
 });
 $('pairBest').addEventListener('click', (e) => {
@@ -8126,7 +8152,12 @@ $('pairingWrap').addEventListener('click', (e) => {
   if (row) openPairing(row.getAttribute('data-pairing'));
 });
 $('pairingFind').addEventListener('input', renderPairingList);
-$('clearPairingFind').addEventListener('click', () => { $('pairingFind').value = ''; setPairingPick([]); });
+$('clearPairingFind').addEventListener('click', () => {
+  $('pairingFind').value = '';
+  $('pairingPickBox').open = false;
+  setPairingPick([]);
+  $('pairingFind').focus();
+});
 
 /* ── One pairing's window ────────────────────────────────────────────────── */
 let editingPairingId = null;
@@ -8423,7 +8454,7 @@ $('stats').addEventListener('click', (e) => {
   setStatusPick([...next]);
 });
 /* Escape and a press anywhere else close the dropdown, as a select would. */
-['statusPick', 'timingPickBox', 'historyKindBox', 'historyFieldBox'].forEach((id) => {
+['statusPick', 'timingPickBox', 'pairingPickBox', 'historyKindBox', 'historyFieldBox'].forEach((id) => {
   const pick = $(id);
   pick.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape' || !pick.open) return;

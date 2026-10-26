@@ -2780,7 +2780,7 @@ function define() {
       eq(rows[2].querySelector('[data-label="When"]').textContent, 'No day yet', 'an undecided day sorts last of the planned');
       ok(D.querySelectorAll('#pairingTable td:not([data-label])').length === 0, 'every td has data-label');
       ok(/★{5}/.test(rows[3].textContent), 'a had pairing shows its own stars');
-      ok(!D.querySelector('[data-pairing-show]'), 'no Planned / Had buttons — the tiles are the filter');
+      ok(D.getElementById('pairingPickBox'), 'a Status box, like the Cellar’s and the Opened tab’s');
     } finally { W.setTab('cellar'); H.__plant(FIXTURE); }
   });
   t('the dashboard’s figures come from the whole list, worked out in one place', () => {
@@ -2821,9 +2821,16 @@ function define() {
       tile('overdue').click();
       eq(D.querySelectorAll('#pairingTable tbody tr').length, 4, 'two tiles at once');
       ok(/never the figures above/.test(D.getElementById('pairingFindNote').textContent), 'the note says the figures stay whole');
+      const box = (k) => D.querySelector('#pairingPickBox input[value="' + k + '"]');
+      ok(box('had').checked && box('overdue').checked && !box('planned').checked, 'the Status box shows what the tiles pressed');
+      eq(D.getElementById('pairingPickSum').textContent, 'Overdue, Had');
+      box('had').checked = false;
+      box('had').dispatchEvent(new W.Event('change', { bubbles: true }));
+      eq(D.querySelectorAll('#pairingTable tbody tr').length, 1, 'and unticking a box narrows the list');
+      eq(tile('had').getAttribute('aria-pressed'), 'false', 'and lifts its tile — one filter, two ways to press it');
       D.getElementById('clearPairingFind').click();
       eq(D.querySelectorAll('#pairingTable tbody tr').length, 6, 'Clear lets them all go');
-      eq(tile('had').getAttribute('aria-pressed'), 'false');
+      eq([tile('overdue').getAttribute('aria-pressed'), D.getElementById('pairingPickSum').textContent], ['false', 'Every Status']);
       H.__plant(FIXTURE);
       ok(D.getElementById('pairGlanceCard').hidden && D.getElementById('pairBestCard').hidden, 'no pairings, no dashboard');
     } finally { W.setTab('cellar'); H.__plant(FIXTURE); }

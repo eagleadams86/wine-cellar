@@ -121,9 +121,12 @@ the family doesn't.
   writes a `plan` History kind (LOG_KINDS) with `meal`; History's What filter has **Pairings**.
   **Its dashboard** (same day, Charles chose tiles + Best and Worst): `computePairings(st, today)`
   is the one place its figures are worked out, over the WHOLE list. `pairingKind` splits planned /
-  overdue / had (disjoint — the list's own words). The Planned, Overdue and Had tiles are the
-  list's ONLY filter (`pairingPick`, pressed through `setPairingPick`, which repaints aria-pressed
-  and redraws the list alone — never the tile markup); the old Planned/Had buttons are gone. Best =
+  overdue / had (disjoint — the list's own words). The Planned, Overdue and Had tiles and the
+  list's **Status box** (`#pairingPickBox`) are ONE filter, `pairingPick`, pressed only through
+  `setPairingPick` (repaints aria-pressed + the box, redraws the list alone — never the tile
+  markup) — the Cellar's tiles + Status box and the Opened tab's tiles + Timing box, the same shape.
+  The tiles were first shipped as a REPLACEMENT for a filter (wrong; Charles caught it): every tab
+  keeps its dropdown beside its tiles. Best =
   had 4–5★, Worst = 1–2★, three each, newest breaks ties.
 
 - **Lookup `confidence` is WHICH bottle, nothing else** (2026-10-25, Charles). The schema and
