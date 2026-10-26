@@ -119,6 +119,9 @@ cellar on your other devices.
 - **Paste a List** — the **paste a list** link in the Add Wine window — reads the table Claude writes
   when you ask it to look wines up — see below.
 - **✦ Check Wines** looks up the wines you pick with Claude in one go — see below.
+- **✦ Pair a Meal** — type or paste what you're eating and Claude picks up to three bottles from
+  your cellar for it; plan one for later or open it, and rate the pairing on the **Pairings** tab —
+  see below.
 - **↩ Undo** (⌘Z / Ctrl+Z) walks back through this sitting's changes, one Save at a time —
   Money Map's undo, ported. Up to twenty steps; an edit, an Opened One, a pasted list, a
   restore and even Delete All Data are each one step. The button asks first, because there
@@ -271,6 +274,38 @@ more for each such wine; the cost shown up front doesn't count it).
 Only the wine's vintage, name, region and grape are sent, and only when you press the button.
 The page calls `https://api.anthropic.com` directly — the one host added to its security policy
 for this, as a data call only, never a script.
+
+## Pair a Meal and the Pairings Tab
+
+**✦ Pair a Meal** (at the top of the Cellar and the Pairings tab) asks Claude what to open with
+dinner. Type a dish — "grilled lamb chops with rosemary" — or paste a whole recipe, and press
+**Find Pairings** (⌘/Ctrl+Enter in the box).
+
+- **What comes back:** the classic styles for the dish ("Northern Rhône Syrah", "Chablis"), then
+  up to three bottles **from your cellar**, best first, each with a sentence on why. Bottles in
+  their window are preferred; a Hold bottle is only picked when it is clearly the best match, and
+  is marked *still young*. If nothing you own suits the dish, it says so and what to buy instead —
+  it never pads the list with weak matches.
+- **Each pick has three buttons:** **Plan for Later** (name the meal, optionally pick a day — it
+  goes on the Pairings tab and in the wine's window as "Planned for: …"), **Opened One** (takes the
+  bottle off the count and records the pairing as had) and **Open Wine**. The last answer stays
+  for the page's life, so you can come back to it after opening a wine.
+- **The Pairings tab** lists every pairing: planned ones first (soonest day first, undecided
+  last, a day gone by marked *Was planned*), then the ones you've had, newest first. **Planned**
+  and **Had** narrow the list; Find searches meals, wines, notes and Claude's reasons. Press a line
+  to change it, **rate how the pairing went** (separate from the bottle's own rating on the Opened
+  tab) and add a note. A planned pairing has **We Had It — Opened One**, which opens the bottle
+  and marks the pairing had, linked to that opened line. **＋ Add a Pairing** notes one without
+  asking Claude.
+- **Cheap on purpose: about 1.5¢ a meal** (measured 2026-10-26 on four real meals, Opus 5.5 at
+  low effort, 5–10 seconds each). There is no web search — pairing is knowledge Claude already
+  has — and the cellar goes as one short line per wine with bottles left, never notes, prices,
+  photos or History. A pasted recipe is cut at 4,000 characters. Prompt caching is deliberately
+  off: a cache write costs more than plain input and only pays back if you ask again within five
+  minutes.
+- Uses the same API key as Look Up. The recipe is never stored; a pairing keeps only the meal's
+  short name. Pairings sync and back up with the rest of the cellar but never go in a share link,
+  and a shared snapshot shows no Pairings tab.
 
 ## How a Status Is Decided
 

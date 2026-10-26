@@ -51,7 +51,7 @@
    go MISSING look exactly like tests that pass — a suite that quietly shrank to
    three checks still says "all 3 tests pass". RAISE THIS when you add tests, and
    lower it only when you retire one deliberately. */
-const EXPECTED = 301;
+const EXPECTED = 307;
 
 /* ── It refuses to run anywhere but localhost, and that is load-bearing ──────
    GitHub Pages publishes this page BESIDE the app, where the iframe below would
@@ -478,6 +478,7 @@ async function runAsync() {
     SD.getElementById('tab-opened').dispatchEvent(new S.KeyboardEvent('keydown', { key: 'End', bubbles: true }));
     asyncResults.sharedTabs = {
       historyHidden: SD.getElementById('tab-history').hidden,
+      pairingsHidden: SD.getElementById('tab-pairings').hidden,
       historyDrawn: !!SD.getElementById('tab-history').getClientRects().length,
       othersShown: !SD.getElementById('tab-cellar').hidden && !SD.getElementById('tab-opened').hidden,
       landed: landed, wrote: wrote.slice(),
@@ -1915,6 +1916,7 @@ function define() {
   t('a shared snapshot has no History tab, and asking for one lands on the Cellar', () => {
     const r = asyncResults.sharedTabs || {};
     ok(r.historyHidden && !r.historyDrawn, 'the History tab is not shown', JSON.stringify(r));
+    ok(r.pairingsHidden, 'nor Pairings — a link never carries them');
     ok(r.othersShown, 'Cellar and Opened still are');
     eq(r.landed, 'cellar', 'a remembered History opens the snapshot on the Cellar');
     eq(r.wrote, [], 'without making the reader’s own copy forget the tab they were on');
@@ -2690,6 +2692,151 @@ function define() {
     eq(row[hdr.indexOf('Paid')], '18.5');
     const got = H.parseWineList('Wine,Price Paid,Value\n2019 Sample Hill Reserva,$18.99,$20–$25', 2026).rows[0];
     eq([got.paid, got.valueLow, got.valueHigh], [18.99, 20, 25], '"Price paid" is what you paid, not the value');
+  });
+
+  group('Pair a Meal');
+  t('a pairing keeps only its declared fields, cleaned at the boundary', () => {
+    const out = H.normalizeState({ wines: [{ id: '"><x>', name: 'W' }],
+      opened: [{ id: '<o>', wineId: '"><x>', date: '2026-01-01' }],
+      pairings: [{ id: '<p>', wineId: '"><x>', openedId: '<o>', meal: 'M'.repeat(200), status: 'eaten',
+                   rating: 7, date: 'soon', note: 'n'.repeat(900), why: 'w', secret: 1 }] });
+    const p = out.pairings[0];
+    eq(Object.keys(p).sort(), ['at', 'date', 'id', 'label', 'meal', 'note', 'openedId', 'rating', 'status', 'why', 'wineId'],
+       'a new stored field must be added to normalizeState AND bump SCHEMA');
+    ok(H.ID_RE.test(p.id), 'a bad id is replaced');
+    eq([p.wineId, p.openedId], [out.wines[0].id, out.opened[0].id], 'and its references follow through the same map');
+    eq([p.status, p.rating, p.date, p.meal.length, p.note.length], ['planned', null, '', H.PAIR_MEAL_MAX, 600]);
+    eq(p.label, 'A deleted wine', 'a pairing with no name of its wine still reads');
+    eq(H.normalizeState({}).pairings, [], 'an old save has none');
+    ok(H.SCHEMA >= 15, 'SCHEMA moved on, so older code halts rather than drop them');
+    eq(H.cleanLogEntry({ at: '2026-10-26T12:00:00.000Z', k: 'plan', c: [{ f: 'meal', n: 'Short ribs' }] }),
+       { at: '2026-10-26T12:00:00.000Z', k: 'plan', c: [{ f: 'meal', n: 'Short ribs' }] }, 'History keeps a plan and its meal');
+    ok(!('pairings' in H.buildSharePayload(H.normalizeState(H.sampleData()), { keep: 'all' })), 'a share link carries none');
+  });
+  t('the request is the cellar as short numbered lines and the meal — no search, no cache', () => {
+    const st = H.normalizeState(FIXTURE);
+    const wines = H.pairWines(st, 2026, 1);
+    eq(wines.map((w) => w.id), ['fx-past', 'fx-ready', 'fx-hold'], 'bottles left, in drinking order');
+    eq(H.pairWines(H.normalizeState({ wines: [{ id: 'a', name: 'x', qty: 0 }] }), 2026, 1), [], 'none left, none sent');
+    const b = H.buildPairRequest('Roast lamb', wines, '2026-10-26', { planned: { 'fx-ready': 1 } });
+    const text = b.messages[0].content;
+    eq([b.model, b.output_config.effort], ['claude-opus-5-5', 'low'], 'Opus at low effort (Charles, 2026-10-26)');
+    eq(b.tools.map((x) => x.name), ['recommend_wines'], 'no web search — pairing is knowledge Claude has');
+    ok(b.tools[0].strict === true && b.tools[0].input_schema.additionalProperties === false, 'one strict tool');
+    ok(!/cache_control/.test(JSON.stringify(b)), 'no caching: a write costs more and a second meal rarely follows in 5 minutes');
+    ok(/^1\. 2010 Bravo Bianco — White · Friulano · Friuli · Past Window/m.test(text), 'numbered, with colour and status');
+    ok(/^3\. 2021 Charlie Cabernet .* Hold \(drink 2099–2110\)/m.test(text), 'Hold is labelled so Claude can prefer ready ones');
+    ok(/2 bottles, 1 planned for another meal/.test(text), 'a planned bottle is said');
+    ok(/The meal:\nRoast lamb/.test(text) && /2026-10-26/.test(text), 'the meal and today are in it');
+    ok(!/Rack|1250|With dinner/.test(text), 'never where it is, its value or an opened note');
+    const long = H.buildPairRequest('x'.repeat(9000), wines, '2026-10-26').messages[0].content;
+    ok(long.length < H.PAIR_TEXT_MAX + 1000, 'a pasted recipe is cut, not billed in full', long.length);
+    ok(!/sk-ant|x-api-key/i.test(JSON.stringify(b)), 'the key is never in the body');
+  });
+  t('a pick is a number from the list sent — anything else is dropped', () => {
+    const r = H.readPairing({ meal_name: 'Lamb', classic_pairings: ['Syrah', '<b>Rioja</b>', 'a', 'b', 'c'],
+      picks: [{ wine: 2, why: 'Good', young: false }, { wine: 0, why: 'zero' }, { wine: 9, why: 'out' },
+              { wine: 1.5, why: 'half' }, { wine: '1', why: 'text' }, { wine: 2, why: 'again' },
+              { wine: 3, why: 'x'.repeat(400), young: true }, { wine: 1, why: 'third' }, { wine: 4, why: 'fourth' }],
+      if_none: 'Buy Syrah' }, ['a', 'b', 'c', 'd']);
+    eq(r.picks.map((p) => p.wineId), ['b', 'c', 'a'], 'mapped to the ids sent, repeats and strays gone, at most three');
+    eq(r.picks[1].young, true);
+    ok(r.picks[1].why.length <= 250 && /…$/.test(r.picks[1].why), 'a long reason is clipped');
+    eq(r.classic.length, 4, 'four classic styles at most');
+    eq(r.ifNone, '', 'no buying advice once something in the cellar fits');
+    eq(H.readPairing({ picks: [], if_none: 'Buy Syrah' }, []).ifNone, 'Buy Syrah');
+    eq(H.readPairing(null, null), { meal: '', classic: [], picks: [], ifNone: '' }, 'nothing back reads as nothing');
+  });
+  t('a silent finish is asked once, and the answer comes back with the ids sent', async () => {
+    const replies = [
+      { stop_reason: 'end_turn', content: [{ type: 'text', text: 'Hmm.' }], usage: { input_tokens: 40, output_tokens: 5 } },
+      { stop_reason: 'tool_use', content: [{ type: 'tool_use', id: 't', name: 'recommend_wines', input: { meal_name: 'X' } }],
+        usage: { input_tokens: 60, output_tokens: 30 } },
+    ];
+    const sent = [];
+    const fake = async (url, init) => { sent.push(JSON.parse(init.body)); const r = replies.shift();
+      return { ok: true, status: 200, json: async () => r }; };
+    const st = H.normalizeState(FIXTURE);
+    const got = await H.pairMeal('Lamb', 'sk-ant-test', { fetch: fake, wines: H.pairWines(st, 2026, 1) });
+    eq(got.found, { meal_name: 'X' });
+    eq(got.sent, ['fx-past', 'fx-ready', 'fx-hold']);
+    eq(sent.length, 2, 'one nudge');
+    eq([got.usage.input, got.usage.output], [100, 35], 'and the cost is counted');
+    const bad = async () => ({ ok: false, status: 401, json: async () => ({}) });
+    let msg = '';
+    try { await H.pairMeal('Lamb', 'k', { fetch: bad, wines: [] }); } catch (e) { msg = e.message; }
+    ok(/did not accept the API key/.test(msg), msg);
+  });
+  t('the Pairings tab lists planned first, then had, and every cell names itself', () => {
+    const D = W.document;
+    H.__plant(H.sampleData());
+    W.setTab('pairings');
+    try {
+      ok(H.TABS.indexOf('pairings') === 2, 'its own tab, after Opened');
+      const rows = [...D.querySelectorAll('#pairingTable tbody tr')];
+      eq(rows.length, 5);
+      eq(rows.map((r) => r.querySelector('[data-label="Status"]').textContent),
+         ['Planned', 'Planned', 'Had', 'Had', 'Had'], 'planned first');
+      eq(rows[1].querySelector('[data-label="When"]').textContent, 'No day yet', 'an undecided day sorts last of the planned');
+      ok(D.querySelectorAll('#pairingTable td:not([data-label])').length === 0, 'every td has data-label');
+      ok(/★{5}/.test(rows[2].textContent), 'a had pairing shows its own stars');
+      D.querySelector('[data-pairing-show="had"]').click();
+      eq(D.querySelectorAll('#pairingTable tbody tr').length, 3, 'Had shows had only');
+      D.getElementById('clearPairingFind').click();
+      eq(D.querySelectorAll('#pairingTable tbody tr').length, 5, 'Clear shows them all again');
+    } finally { W.setTab('cellar'); H.__plant(FIXTURE); }
+  });
+  t('Opened One for a meal makes a had pairing; We Had It turns a planned one had', () => {
+    const D = W.document, proto = W.Storage.prototype, realStore = proto.setItem;
+    proto.setItem = function () {};
+    try {
+      H.__plant(FIXTURE);
+      H.__pairLast({ r: H.readPairing({ meal_name: 'Lamb', classic_pairings: [], picks: [{ wine: 1, why: 'Fits', young: false }] },
+        ['fx-ready']), planned: [] });
+      W.openPair();
+      D.querySelector('[data-pair-plan="fx-ready"]').click();
+      D.getElementById('pp_date').value = '2026-12-01';
+      D.querySelector('[data-pair-save="fx-ready"]').click();
+      let p = H.__state().pairings[0];
+      eq([p.status, p.meal, p.date, p.why, p.wineId], ['planned', 'Lamb', '2026-12-01', 'Fits', 'fx-ready'], 'Plan for Later');
+      const wine = () => H.__state().wines.find((w) => w.id === 'fx-ready');
+      eq(wine().log.slice(-1)[0].k, 'plan', 'and the wine’s History says so');
+      ok(/Planned/.test(D.getElementById('pairResults').textContent), 'the pick says it is planned');
+      D.getElementById('pairDialog').close();
+      W.openWine('fx-ready');
+      ok(/Planned for: Lamb/.test(D.getElementById('winePlanned').textContent), 'the wine window names the meal');
+      D.getElementById('wineDialog').close();
+      W.openPairing(p.id);
+      ok(!D.getElementById('pairingHad').hidden, 'a planned pairing offers We Had It');
+      D.getElementById('pairingHad').click();
+      ok(D.getElementById('openDialog').open && /With: Lamb/.test(D.getElementById('openBody').textContent), 'Opened One opens for it');
+      D.getElementById('openSave').click();
+      p = H.__state().pairings[0];
+      const line = H.__state().opened.slice(-1)[0];
+      eq([H.__state().pairings.length, p.status, p.openedId], [1, 'had', line.id], 'the same pairing is had, linked to the line');
+      eq(wine().qty, 1, 'one bottle off the count');
+      ok(wine().log.slice(-1)[0].c.some((d) => d.f === 'meal' && d.n === 'Lamb'), 'the opening names the meal');
+      W.openPairing(p.id);
+      D.getElementById('p_rating').value = '4';
+      D.getElementById('p_note').value = 'Lovely together';
+      D.getElementById('pairingSave').click();
+      eq([H.__state().pairings[0].rating, H.__state().pairings[0].note], [4, 'Lovely together'], 'the pairing is rated');
+      W.undoLast();
+      eq(H.__state().pairings[0].rating, null, 'Undo takes the rating back');
+      /* Straight from a pick: no plan first, so a new had pairing. */
+      W.openDrink('fx-hold');
+      H.setDrinkPairing({ meal: 'Steak', why: 'Big' });
+      D.getElementById('openSave').click();
+      const q = H.__state().pairings.find((x) => x.meal === 'Steak');
+      ok(q && q.status === 'had' && q.openedId === H.__state().opened.slice(-1)[0].id, 'a pick drunk now is a had pairing');
+      W.openDrink('fx-hold');
+      D.getElementById('openSave').click();
+      eq(H.__state().pairings.length, 2, 'and a plain Opened One makes none');
+    } finally {
+      proto.setItem = realStore;
+      ['pairDialog', 'pairingDialog', 'openDialog', 'wineDialog'].forEach((id) => { if (D.getElementById(id).open) D.getElementById(id).close(); });
+      H.__plant(FIXTURE);
+    }
   });
 
   group('Look Up with Claude');
@@ -4053,12 +4200,12 @@ function define() {
   t('the card buttons sit above the list; a copy turns up under it only once it is long', () => {
     const D = W.document, $ = (id) => D.getElementById(id);
     const many = Array.from({ length: 40 }, (_, i) => ({ id: 'ft-' + i, name: 'Foot Test ' + i, qty: 1 }));
-    const top = ['addBtn', 'checkBtn', 'sampleBtn'];
+    const top = ['addBtn', 'checkBtn', 'pairBtn', 'sampleBtn'];
     try {
       W.setTab('cellar');
       const card = $('cellarCard');
       ok($('cellarTop').compareDocumentPosition($('listWrap')) & W.Node.DOCUMENT_POSITION_FOLLOWING, 'the top row comes before the list');
-      ok(top.every((id) => $('cellarTop').contains($(id))), 'Add, Check and Sample are all in it');
+      ok(top.every((id) => $('cellarTop').contains($(id))), 'Add, Check, Pair a Meal and Sample are all in it');
       ok(!$('pasteBtn') && !D.querySelector('[data-same="pasteBtn"]'), 'no Paste a List button — the Add window links to it');
       ok($('wineToPaste'), 'and that link is still there');
       ok($('openedTop').contains($('logBtn')), 'and Log a Bottle leads the Opened card');
@@ -4070,7 +4217,7 @@ function define() {
       W.footRows();
       eq($('cellarFoot').hidden, false, 'a list taller than the window: the second row shows');
       eq([...$('cellarFoot').querySelectorAll('[data-same]')].map((b) => b.dataset.same).join(),
-        'addBtn,checkBtn', 'with Add and Check — Sample only ever shows on an empty cellar');
+        'addBtn,checkBtn,pairBtn', 'with Add, Check and Pair a Meal — Sample only ever shows on an empty cellar');
       let pressed = 0;
       const count = () => { pressed++; };
       $('addBtn').addEventListener('click', count);

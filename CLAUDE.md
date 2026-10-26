@@ -10,7 +10,7 @@ the family doesn't.
 - **Dev port 8025** — in both `.claude/launch.json` and `~/.claude/launch.json`.
 - Storage keys `wine-state`, `wine-theme`, `wine-tab`, `wine-folded`, `wine-updated`, `wine-sync-live`,
   `wine-sync-uid`; service-worker cache prefix `wine-shell-`.
-- State is `{ version, wines[], opened[], settings }`. `normalizeState()` is the allowlist:
+- State is `{ version, wines[], opened[], pairings[], settings }`. `normalizeState()` is the allowlist:
   **a new stored field goes there and SCHEMA is bumped in the same commit**, or it is
   stripped. Tests pin the exact key lists of a wine and an opened bottle.
 - Absent is not zero: `cleanYear` / `cleanMoney` test `== null` / `''` before `Number()`,
@@ -102,6 +102,23 @@ the family doesn't.
   fires no paste event; test pastes in headful Playwright with a pasteboard built in JXA.
 
 ## Decisions — Don't Undo
+
+- **Pair a Meal + the Pairings tab (SCHEMA 15, 2026-10-26, a friend of Charles's idea).**
+  `buildPairRequest` is pure and pinned: Opus 5.5 effort `low` (Charles chose it over Sonnet),
+  ONE strict tool `recommend_wines`, **no web search and no `cache_control`** (a cache write costs
+  1.25× and a dinner question is almost never followed by another inside 5 minutes — don't "fix"
+  the missing cache). The cellar goes as numbered lines (`pairWines`: qty > 0, drinking order, cap
+  150) — Claude answers by NUMBER and `readPairing` maps it back to the id sent, dropping strays,
+  repeats and anything past 3. Recipe cut at `PAIR_TEXT_MAX` 4000 and never stored; `pairLast` is
+  page-life. Measured on 4 real meals: ~1600 in / ~450 out, **$0.013–0.017**, 5–10 s.
+  `state.pairings[]` `{id, wineId, label, meal ≤PAIR_MEAL_MAX 60, date '' or day, status
+  planned|had, rating, note, openedId, why, at}` — `label` snapshots the wine like an opened line;
+  the PAIRING's rating is how the food and wine went together, never the bottle's. Pairings tab is
+  fourth in `TABS` (before History), hidden in a shared view like History, not in share links.
+  Opened One for a meal goes through `drinkPairing` (set by `setDrinkPairing` AFTER `openDrink`,
+  cleared by `dressOpenDialog`): Save flips a planned pairing to had or writes a new had one,
+  linked by `openedId`, and the wine's `open` History entry gains a `meal` change. Plan for Later
+  writes a `plan` History kind (LOG_KINDS) with `meal`; History's What filter has **Pairings**.
 
 - **Lookup `confidence` is WHICH bottle, nothing else** (2026-10-25, Charles). The schema and
   `LOOKUP_SYSTEM` both say so; how firm the value/window are lives in `value_is_estimate` and
@@ -408,6 +425,6 @@ was a one-line version of the cellar rule.
 
 ## Tests
 
-`tests.html`, `EXPECTED = 301`. Run it headless (Playwright) rather than in the Browser pane:
+`tests.html`, `EXPECTED = 307`. Run it headless (Playwright) rather than in the Browser pane:
 the pane throttles hidden timers and its focus heuristics turn the 705px keyboard-focus check
 red on untouched code.
