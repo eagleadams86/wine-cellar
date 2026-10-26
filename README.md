@@ -387,9 +387,14 @@ line before anything is added.
 
 Sign-in uses Google Identity Services (a popup straight to `accounts.google.com`), and the
 cellar is one Firestore document per Google account: `winecellar/{uid}` holding
-`{ state, updatedAt }`. The module is Golf Handicap's, ported whole — including the two rules
+`{ state, updatedAt, rev }`. The module is Golf Handicap's, ported whole — including the two rules
 the family learned the hard way: the first sign-in with data on both sides **asks** which copy
-to keep, and an empty copy never overwrites one with data in it. Nothing from Google is
+to keep, and an empty copy never overwrites one with data in it. **An edit made offline never
+overwrites a newer copy from another device** (2026-10-26): every save carries a version number
+that goes up by one, a save is sent only if the cloud is still the version this device last saw,
+and if another device saved in between you are asked which copy to keep. An offline edit waits
+on this device and goes up, through the same check, when the connection comes back. Device
+clocks no longer decide anything. Nothing from Google is
 fetched until you reach for the sync button (or were already signed in on this device).
 
 Firebase project **`winecellar-fa733`** (free Spark plan). Set up 2026-10-23:
@@ -440,7 +445,7 @@ characters, opened-bottle notes too.
 python3 -m http.server 8025
 ```
 
-Open `http://localhost:8025/` for the app and `/tests.html` for the suite (319 tests; the
+Open `http://localhost:8025/` for the app and `/tests.html` for the suite (327 tests; the
 `EXPECTED` floor in the file fails the run if any go missing). CI runs the same page headless
 on every push, plus CodeQL.
 

@@ -272,7 +272,14 @@ the family doesn't.
   `my-shipment-*.json` (gitignored) and are loaded through Back Up → Restore, or pasted.
 - **Sync is Golf Handicap's module, ported whole** (GIS sign-in, `shouldBootSync`, the push
   gate, `syncDecision`, `forCloud`, `describeSyncError`, the relisten timer). A fix to sync
-  starts in Golf Handicap or is mirrored there. The CSP's external hosts are exactly Golf's
+  starts in Golf Handicap or is mirrored there. **Since 2026-10-26 that includes Golf's
+  offline-overwrite fix, verbatim**: `cloudTag`/`sameTag`/`syncPlan`/`makeCloudSync` in the
+  classic script, every cellar push a `runTransaction` that writes only while the cloud is
+  still this device's base (`wine-cloud-base`, `{uid, rev, at}`; dirty = `wine-updated` ≠
+  `wine-cloud-sent`), the which-copy question when both sides moved, and `catchUp()` on
+  `online` / visible / a minute after a failed push. The doc carries `rev`. The suite runs
+  Golf's `runSyncSim` verbatim. Golf's CLAUDE.md has the full note. Photos still `setDoc` their
+  own small docs — they are keyed per record and re-sent from the unsent list. The CSP's external hosts are exactly Golf's
   list, and a test pins them.
 - **Paste reads by header NAME when there is a header row** (`headerMap`), else positionally
   as Claude's lookup table (wine, value, window). The separator is decided ONCE from the first
@@ -492,6 +499,6 @@ was a one-line version of the cellar rule.
 
 ## Tests
 
-`tests.html`, `EXPECTED = 319`. Run it headless (Playwright) rather than in the Browser pane:
+`tests.html`, `EXPECTED = 327`. Run it headless (Playwright) rather than in the Browser pane:
 the pane throttles hidden timers and its focus heuristics turn the 705px keyboard-focus check
 red on untouched code.
