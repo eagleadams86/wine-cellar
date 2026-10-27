@@ -2973,6 +2973,10 @@ function define() {
       eq(listRows(), wines, 'the list shows that row’s wines and nothing else');
       ok(/narrowed to Region:/.test(D.getElementById('findNote').textContent), 'the note says what it is narrowed to');
       ok(!D.querySelector('#makeupCard [data-facet-clear]').hidden, 'Clear shows');
+      const others = [...D.querySelectorAll('#makeRegions tbody tr')].filter((r) => r !== btn.closest('tr'));
+      ok(others.length > 0 && others.every((r) => r.classList.contains('unpicked')),
+         'the rest of the picked table fades, still there to add');
+      ok(!D.querySelector('#makeGrapes tr.unpicked'), 'a table with no pick does not fade');
       const grapes = [...D.querySelectorAll('#makeGrapes tbody tr')];
       eq(grapes.reduce((a, r) => a + Number(r.querySelector('td').textContent), 0) <= wines, true,
          'the Grape table counts only the picked wines');

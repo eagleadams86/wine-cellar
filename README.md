@@ -26,7 +26,8 @@ cellar on your other devices.
 - **The grouping tables are filters too.** Press a row in Cellar Makeup — Napa Valley, say — and
   the Cellar list shows only those wines, while the other five tables recount to them (Grape now
   lists Napa's grapes, with Napa's bottles and shares). Press a row in another table to narrow
-  further (wines in both); press a second row in the same table to add it (either one). A row with
+  further (wines in both). The other rows of the table you picked from fade but stay — press one to
+  add it (either one). A row with
   none of the picked wines drops out of its table. A picked row is marked with a ✓; press it again,
   or **Clear** on the card or in the list, to let it go. Switching Grouped / As written lets every
   pick go. The At a Glance tiles always count the whole cellar. **What You Like** (Opened tab) and

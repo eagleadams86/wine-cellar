@@ -141,7 +141,8 @@ the family doesn't.
   across** (Charles chose it). `facetWritten` / `facetName` / `facetKey` are the ONE place a
   record's group is worked out — `makeupGroups`, `likeGroups` and every list filter read them, so a
   row and the list can't disagree. Each table is counted over what the OTHER tables' picks leave
-  (`facetMatch(…, skip)`), so its siblings stay pressable; a row that pool empties DROPS OUT
+  (`facetMatch(…, skip)`), so its siblings stay pressable — and FADE (`tr.unpicked`, --text-muted)
+  once the table has a pick (Charles, same day: undimmed they read as "this table didn't filter"); a row that pool empties DROPS OUT
   (Charles: hide, not highlight) — except a picked row, kept at 0 so it can be pressed off. Share
   is of the table's own pool (`g.total`). The tiles and every other dashboard figure stay
   whole-set; the list notes say so ("always counts …"), and a source test pins the three phrases.

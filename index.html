@@ -827,6 +827,9 @@
   tr.facetrow:hover th, tr.facetrow:hover td, tr.facetrow.picked th, tr.facetrow.picked td { background: var(--surface-alt); }
   tr.facetrow.picked th { box-shadow: inset 3px 0 0 var(--accent); }
   .facetbtn[aria-pressed="true"] { font-weight: var(--fw-semibold); }
+  /* The rest of a picked table: muted, not gone — still a press away. */
+  tr.facetrow.unpicked :is(th, td) { color: var(--text-muted); }
+  tr.facetrow.unpicked:hover :is(th, td) { color: inherit; }
   .facetbtn[aria-pressed="true"]::after { content: ' ✓'; }
   h2 [data-facet-clear] { margin-right: 6px; }
   .likeview button[aria-pressed="true"] { background: var(--btn-bg); border-color: var(--btn-bg);
@@ -4468,8 +4471,12 @@ const facetNote = (picks, labels) => facetAny(picks) ? ', narrowed to ' + facetS
    list's pattern) and its name is the button that reaches the keyboard and
    says aria-pressed. A picked row says so with a ✓ and the accent edge, never
    colour alone. */
-function facetRowOpen(r, tip) {
-  return '<tr class="facetrow' + (r.picked ? ' picked' : '') + '"' + tip + '>';
+function facetRowOpen(r, rows, tip) {
+  /* Once a table has a pick, its other rows fade but stay pressable — a
+     second row ADDS (Charles, 2026-10-27: hiding them read as "this table
+     didn't filter", and hidden rows could not be added). */
+  const dim = !r.picked && rows.some((x) => x.picked);
+  return '<tr class="facetrow' + (r.picked ? ' picked' : dim ? ' unpicked' : '') + '"' + tip + '>';
 }
 function facetHead(field, r) {
   return '<th scope="row"><button type="button" class="rowbtn facetbtn" data-facet="' + esc(field) + '" data-key="'
@@ -4518,7 +4525,7 @@ function renderMakeTable(field, c) {
   }
   host.innerHTML = '<table data-make="' + field + '"><thead><tr>' + sortHead(makeColumns(label), srt.key, srt.dir)
     + '</tr></thead><tbody>'
-    + rows.map((r) => facetRowOpen(r, likeGrouped && (r.from.length > 1 || r.from[0] !== r.name)
+    + rows.map((r) => facetRowOpen(r, rows, likeGrouped && (r.from.length > 1 || r.from[0] !== r.name)
         ? rowTip('', 'Grouped from:\n' + r.from.join('\n')) : '') + facetHead(field, r)
       + '<td class="num">' + r.wines + '</td>'
       + '<td class="num">' + r.bottles + '</td>'
@@ -4563,7 +4570,7 @@ function renderLike(field, g, label) {
   }
   host.innerHTML = '<table data-like="' + field + '"><thead><tr>' + sortHead(cols, srt.key, srt.dir)
     + '</tr></thead><tbody>'
-    + rows.map((r) => facetRowOpen(r, likeGrouped && (r.from.length > 1 || r.from[0] !== r.name)
+    + rows.map((r) => facetRowOpen(r, rows, likeGrouped && (r.from.length > 1 || r.from[0] !== r.name)
         ? rowTip('', 'Grouped from:\n' + r.from.join('\n')) : '') + facetHead(field, r)
       + '<td class="num">' + r.bottles + '</td>'
       + '<td class="num">' + r.rated + '</td>'
@@ -8269,7 +8276,7 @@ function renderPairLike(c) {
   host.innerHTML = !rows.length ? '<p class="empty">' + (c.count.had
       ? 'No pairing you have had has a grape recorded.' : 'No pairing has been had yet.') + '</p>'
     : '<table data-pair-like><thead><tr>' + sortHead(PAIR_LIKE_COLUMNS, srt.key, srt.dir) + '</tr></thead><tbody>'
-      + rows.map((r) => facetRowOpen(r, likeGrouped && (r.from.length > 1 || r.from[0] !== r.name)
+      + rows.map((r) => facetRowOpen(r, rows, likeGrouped && (r.from.length > 1 || r.from[0] !== r.name)
           ? rowTip('', 'Grouped from:\n' + r.from.join('\n')) : '') + facetHead('grape', r)
         + '<td class="num">' + r.bottles + '</td>'
         + '<td class="num">' + r.rated + '</td>'
