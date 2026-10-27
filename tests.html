@@ -2931,9 +2931,12 @@ function define() {
     const napa = 'napa valley, california';
     eq(H.facetKey(st.wines[0], 'region', true), napa, 'the key is the grouped name, lower-cased');
     const pick = (o) => Object.fromEntries(Object.keys(o).map((f) => [f, new Map(o[f].map((k) => [k, k]))]));
-    const names = (g) => g.rows.map((r) => [r.name, r.bottles, r.picked]).sort();
+    const names = (g) => g.rows.filter((r) => !r.dead).map((r) => [r.name, r.bottles, r.picked]).sort();
     let c = H.computeMakeup(st, 2026, true, pick({ region: [napa] }));
     eq(names(c.grapes), [['Cabernet Sauvignon', 3, false], ['Merlot', 2, false]], 'Grape recounts to Napa');
+    const pinot = c.grapes.rows.find((r) => r.key === 'pinot noir');
+    eq([c.grapes.rows.length, pinot.bottles, pinot.dead], [3, 0, true],
+       'a grape Napa has none of stays, at 0 and dead — no table changes height');
     eq([c.grapes.total, c.grapes.blank], [7, 2], 'its Share is of Napa’s bottles, blanks counted aloud');
     eq(c.regions.rows.length, 3, 'Region keeps its siblings, so a second region can still be pressed');
     ok(c.regions.rows.find((r) => r.key === napa).picked, 'and marks the picked one');
@@ -2941,10 +2944,12 @@ function define() {
     c = H.computeMakeup(st, 2026, true, pick({ region: [napa, 'sonoma county, california'] }));
     eq(names(c.grapes), [['Cabernet Sauvignon', 3, false], ['Merlot', 3, false]], 'two rows in one table: either');
     c = H.computeMakeup(st, 2026, true, pick({ region: [napa, 'sonoma county, california'], grape: ['merlot'] }));
-    eq(c.regions.rows.map((r) => [r.name, r.bottles]).sort(),
-       [['Napa Valley, California', 2], ['Sonoma County, California', 1]], 'two tables: both — Oregon drops out');
+    eq(c.regions.rows.map((r) => [r.name, r.bottles, r.dead]).sort(),
+       [['Napa Valley, California', 2, false], ['Sonoma County, California', 1, false],
+        ['Willamette Valley, Oregon', 0, true]], 'two tables: both — Oregon goes dead');
     c = H.computeMakeup(st, 2026, true, pick({ region: [napa], grape: ['pinot noir'] }));
-    eq(c.regions.rows.find((r) => r.key === napa).bottles, 0, 'a picked row the other table empties stays, at 0');
+    const np = c.regions.rows.find((r) => r.key === napa);
+    eq([np.bottles, np.dead], [0, false], 'a picked row the other table empties is never dead');
     ok(c.grapes.rows.find((r) => r.key === 'pinot noir').picked, 'so it can still be pressed off');
     ok(H.facetMatch(st.wines[1], pick({ region: [napa], grape: ['merlot'] }), true), 'facetMatch: in both');
     ok(!H.facetMatch(st.wines[2], pick({ region: [napa], grape: ['merlot'] }), true), 'facetMatch: not in one');
@@ -2953,7 +2958,7 @@ function define() {
       { id: '1', date: '2026-01-01', grape: 'Merlot', region: 'Napa Valley, CA', rating: 4 },
       { id: '2', date: '2026-01-02', grape: 'Merlot', region: 'Bordeaux, France', rating: 2 },
       { id: '3', date: '2026-01-03', grape: 'Syrah', region: 'Napa Valley, CA' }] }), true, pick({ region: [napa] }));
-    eq(o.grapes.rows.map((r) => [r.name, r.bottles, r.avg]).sort(), [['Merlot', 1, 4], ['Syrah', 1, null]],
+    eq(o.grapes.rows.filter((r) => !r.dead).map((r) => [r.name, r.bottles, r.avg]).sort(), [['Merlot', 1, 4], ['Syrah', 1, null]],
        'What You Like recounts the same way');
     eq(o.all, 3, 'the timing figures still count every bottle');
   });
@@ -2964,6 +2969,8 @@ function define() {
     try {
       const listRows = () => D.querySelectorAll('#cellarTable tbody tr').length;
       const all = listRows();
+      const tableRows = () => [...D.querySelectorAll('#makeupCard tbody')].map((b) => b.rows.length).join();
+      const shape = tableRows();
       const first = D.querySelector('#makeRegions tbody tr');
       const wines = Number(first.querySelector('td').textContent), key = first.querySelector('[data-facet]').dataset.key;
       first.querySelector('td.num').click();
@@ -2972,19 +2979,24 @@ function define() {
       eq(D.activeElement, btn, 'and the focus stays on its name');
       eq(listRows(), wines, 'the list shows that row’s wines and nothing else');
       ok(/narrowed to Region:/.test(D.getElementById('findNote').textContent), 'the note says what it is narrowed to');
-      ok(!D.querySelector('#makeupCard [data-facet-clear]').hidden, 'Clear shows');
+      eq(D.querySelector('#makeupCard [data-facet-clear]').style.visibility, '', 'Clear shows');
       const others = [...D.querySelectorAll('#makeRegions tbody tr')].filter((r) => r !== btn.closest('tr'));
       ok(others.length > 0 && others.every((r) => r.classList.contains('unpicked')),
          'the rest of the picked table fades, still there to add');
       ok(!D.querySelector('#makeGrapes tr.unpicked'), 'a table with no pick does not fade');
-      const grapes = [...D.querySelectorAll('#makeGrapes tbody tr')];
+      eq(tableRows(), shape, 'no table gains or loses a row — the page holds still on a phone');
+      const dead = D.querySelector('#makeupCard tr.dead');
+      ok(dead && dead.querySelector('[data-facet]').disabled, 'an emptied row is dimmed and locked');
+      dead.click();
+      eq(listRows(), wines, 'pressing it changes nothing');
+      const grapes = [...D.querySelectorAll('#makeGrapes tbody tr:not(.dead)')];
       eq(grapes.reduce((a, r) => a + Number(r.querySelector('td').textContent), 0) <= wines, true,
          'the Grape table counts only the picked wines');
       grapes[0].click();
       ok(listRows() <= wines && listRows() > 0, 'a second table narrows further, never to nothing');
       D.querySelector('#makeupCard [data-facet-clear]').click();
       eq([listRows(), D.querySelectorAll('#makeupCard [aria-pressed="true"][data-facet]').length], [all, 0], 'Clear lets go');
-      ok(D.querySelector('#makeupCard [data-facet-clear]').hidden, 'and hides');
+      eq(D.querySelector('#makeupCard [data-facet-clear]').style.visibility, 'hidden', 'and hides, keeping its place');
       D.querySelector('#makeRegions tbody tr').click();
       D.getElementById('clearFind').click();
       eq(listRows(), all, 'the list’s own Clear lets the picks go too');

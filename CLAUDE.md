@@ -142,8 +142,13 @@ the family doesn't.
   record's group is worked out — `makeupGroups`, `likeGroups` and every list filter read them, so a
   row and the list can't disagree. Each table is counted over what the OTHER tables' picks leave
   (`facetMatch(…, skip)`), so its siblings stay pressable — and FADE (`tr.unpicked`, --text-muted)
-  once the table has a pick (Charles, same day: undimmed they read as "this table didn't filter"); a row that pool empties DROPS OUT
-  (Charles: hide, not highlight) — except a picked row, kept at 0 so it can be pressed off. Share
+  once the table has a pick (Charles, same day: undimmed they read as "this table didn't filter"); a row that pool empties stays at 0,
+  `dead`: dimmed (opacity .4) and its button `disabled` — it USED to drop out, and on a phone a press
+  moved the page ~140px (Charles, same day: "dim and make unclickable"). A picked row is never dead.
+  **No row may change height on a press**: the ✓'s room is reserved on every row
+  (`.facetbtn::after` hidden) and the name doesn't turn bold; the Clear button hides by
+  `visibility`, not `hidden`. Measured at iPhone 13 size: the pressed row moves 0px in every table;
+  only the warn line under the last table changes. Share
   is of the table's own pool (`g.total`). The tiles and every other dashboard figure stay
   whole-set; the list notes say so ("always counts …"), and a source test pins the three phrases.
   Grouped / As written empties every pick (`setLikeView` — a key means another group in the other

@@ -28,7 +28,7 @@ cellar on your other devices.
   lists Napa's grapes, with Napa's bottles and shares). Press a row in another table to narrow
   further (wines in both). The other rows of the table you picked from fade but stay — press one to
   add it (either one). A row with
-  none of the picked wines drops out of its table. A picked row is marked with a ✓; press it again,
+  none of the picked wines stays in its table at 0, dimmed and locked, so the page never jumps. A picked row is marked with a ✓; press it again,
   or **Clear** on the card or in the list, to let it go. Switching Grouped / As written lets every
   pick go. The At a Glance tiles always count the whole cellar. **What You Like** (Opened tab) and
   **What Pairs Well** (Pairings tab) work the same way on their lists.

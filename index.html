@@ -826,11 +826,21 @@
   tr.facetrow { cursor: pointer; }
   tr.facetrow:hover th, tr.facetrow:hover td, tr.facetrow.picked th, tr.facetrow.picked td { background: var(--surface-alt); }
   tr.facetrow.picked th { box-shadow: inset 3px 0 0 var(--accent); }
-  .facetbtn[aria-pressed="true"] { font-weight: var(--fw-semibold); }
+  /* The ✓'s room is kept on EVERY row and the name never turns bold, so a
+     pick can't re-wrap a name and change its row's height (on a phone a press
+     moved the page ~140px before rows stopped coming and going). */
+  .facetbtn::after { content: '\00a0✓'; visibility: hidden; }
+  .facetbtn[aria-pressed="true"]::after { visibility: visible; }
   /* The rest of a picked table: muted, not gone — still a press away. */
   tr.facetrow.unpicked :is(th, td) { color: var(--text-muted); }
   tr.facetrow.unpicked:hover :is(th, td) { color: inherit; }
-  .facetbtn[aria-pressed="true"]::after { content: ' ✓'; }
+  /* A row the other picks have emptied: still there at 0, so nothing moves,
+     but faded further than an unpicked one and locked — its button is
+     disabled, so it leaves the tab order too. */
+  tr.facetrow.dead { cursor: default; }
+  tr.facetrow.dead :is(th, td) { opacity: .4; }
+  tr.facetrow.dead:hover :is(th, td) { background: none; }
+  tr.facetrow.dead .facetbtn:disabled { opacity: 1; cursor: default; }
   h2 [data-facet-clear] { margin-right: 6px; }
   .likeview button[aria-pressed="true"] { background: var(--btn-bg); border-color: var(--btn-bg);
                                           color: var(--btn-text); font-weight: var(--fw-semibold); }
@@ -1747,7 +1757,7 @@ html[data-booting] footer { visibility: hidden; }
         <button class="tile-help" type="button" data-help="makeup"
                 aria-label="How these tables are worked out">i</button>
         <span class="spacer"></span>
-        <button type="button" class="link no-print" data-facet-clear hidden>Clear</button>
+        <button type="button" class="link no-print" data-facet-clear style="visibility: hidden">Clear</button>
         <span class="likeview no-print" role="group" aria-label="How names are counted">
           <button type="button" class="btn-small" data-like-view="grouped">Grouped</button>
           <button type="button" class="btn-small" data-like-view="written">As written</button>
@@ -1856,7 +1866,7 @@ html[data-booting] footer { visibility: hidden; }
         <span class="spacer"></span>
         <!-- Grouped folds names written different ways; As written counts each
              spelling apart. aria-pressed, the timing tiles' pattern. -->
-        <button type="button" class="link no-print" data-facet-clear hidden>Clear</button>
+        <button type="button" class="link no-print" data-facet-clear style="visibility: hidden">Clear</button>
         <span class="likeview no-print" role="group" aria-label="How names are counted">
           <button type="button" class="btn-small" data-like-view="grouped">Grouped</button>
           <button type="button" class="btn-small" data-like-view="written">As written</button>
@@ -1943,7 +1953,7 @@ html[data-booting] footer { visibility: hidden; }
     <div class="card" id="pairLikeCard" data-fold="pairlike">
       <h2>What Pairs Well
         <span class="spacer"></span>
-        <button type="button" class="link no-print" data-facet-clear hidden>Clear</button>
+        <button type="button" class="link no-print" data-facet-clear style="visibility: hidden">Clear</button>
         <span class="likeview no-print" role="group" aria-label="How names are counted">
           <button type="button" class="btn-small" data-like-view="grouped">Grouped</button>
           <button type="button" class="btn-small" data-like-view="written">As written</button>
@@ -3880,9 +3890,9 @@ function likeGroups(lines, field, grouped, picks) {
     const counted = facetMatch(o, picks, grouped, field);
     if (!name) { if (counted) blank += 1; return; }
     const k = name.toLowerCase();
-    /* A record the other tables have narrowed away makes no row — unless
-       its row is picked, which stays so it can be pressed off again. */
-    if (!counted && !(mine && mine.has(k))) return;
+    /* A record the other tables have narrowed away still makes its row —
+       at 0, dimmed and locked (`dead`) — so no table changes height under
+       the finger that pressed (Charles, 2026-10-27, on the phone). */
     if (!groups.has(k)) groups.set(k, { key: k, spellings: new Map(), from: new Set(), bottles: 0, rated: 0, sum: 0 });
     const g = groups.get(k);
     g.from.add(written);
@@ -3892,6 +3902,7 @@ function likeGroups(lines, field, grouped, picks) {
     if (o.rating != null) { g.rated += 1; g.sum += o.rating; }
   });
   const rows = [...groups.values()].map((g) => ({ key: g.key, picked: !!(mine && mine.has(g.key)),
+    dead: !g.bottles && !(mine && mine.has(g.key)),
     /* The spelling used most; on a tie, one with capitals over one without. */
     name: [...g.spellings].sort((a, b) => b[1] - a[1]
       || (a[0] === a[0].toLowerCase()) - (b[0] === b[0].toLowerCase()) || a[0].localeCompare(b[0]))[0][0],
@@ -3934,8 +3945,7 @@ function makeupGroups(wines, field, grouped, yr, soon, picks) {
     if (counted) total += w.qty;
     if (!name) { if (counted) blank += w.qty; return; }
     const k = name.toLowerCase();
-    /* likeGroups' rule: narrowed away, no row — unless it is picked. */
-    if (!counted && !(mine && mine.has(k))) return;
+    /* likeGroups' rule: narrowed away, the row stays at 0. */
     if (!groups.has(k)) groups.set(k, { key: k, spellings: new Map(), from: new Set(), wines: 0, bottles: 0, ready: 0 });
     const g = groups.get(k);
     g.from.add(written);
@@ -3949,7 +3959,7 @@ function makeupGroups(wines, field, grouped, yr, soon, picks) {
     /* The spelling with the most bottles; on a tie, one with capitals. */
     name: [...g.spellings].sort((a, b) => b[1] - a[1]
       || (a[0] === a[0].toLowerCase()) - (b[0] === b[0].toLowerCase()) || a[0].localeCompare(b[0]))[0][0],
-    key: g.key, picked: !!(mine && mine.has(g.key)),
+    key: g.key, picked: !!(mine && mine.has(g.key)), dead: !g.bottles && !(mine && mine.has(g.key)),
     wines: g.wines, bottles: g.bottles, ready: g.ready, from: [...g.from].sort(),
   }));
   /* total: the bottles this table is counted over — its Share's whole. */
@@ -4476,11 +4486,11 @@ function facetRowOpen(r, rows, tip) {
      second row ADDS (Charles, 2026-10-27: hiding them read as "this table
      didn't filter", and hidden rows could not be added). */
   const dim = !r.picked && rows.some((x) => x.picked);
-  return '<tr class="facetrow' + (r.picked ? ' picked' : dim ? ' unpicked' : '') + '"' + tip + '>';
+  return '<tr class="facetrow' + (r.picked ? ' picked' : r.dead ? ' dead' : dim ? ' unpicked' : '') + '"' + tip + '>';
 }
 function facetHead(field, r) {
   return '<th scope="row"><button type="button" class="rowbtn facetbtn" data-facet="' + esc(field) + '" data-key="'
-    + esc(r.key) + '" aria-pressed="' + r.picked + '">' + esc(r.name) + '</button></th>';
+    + esc(r.key) + '" aria-pressed="' + r.picked + '"' + (r.dead ? ' disabled' : '') + '>' + esc(r.name) + '</button></th>';
 }
 const makeColumns = (label) => [
   { key: 'name',    label: label,       desc: false },
@@ -4499,7 +4509,9 @@ function renderMakeup(c) {
   document.querySelectorAll('[data-like-view]').forEach((b) =>
     b.setAttribute('aria-pressed', String((b.dataset.likeView === 'grouped') === likeGrouped)));
   Object.keys(MAKE_TABLES).forEach((f) => renderMakeTable(f, c));
-  $('makeupCard').querySelector('[data-facet-clear]').hidden = !facetAny(makePick);
+  /* Kept in its place while hidden, so it appearing never re-wraps the
+     card's heading on a phone and moves the tables under it. */
+  $('makeupCard').querySelector('[data-facet-clear]').style.visibility = facetAny(makePick) ? '' : 'hidden';
   const blanks = [];
   Object.keys(MAKE_TABLES).forEach((f) => {
     const n = c[MAKE_TABLES[f][2]].blank, label = MAKE_TABLES[f][1];
@@ -4520,7 +4532,7 @@ function renderMakeTable(field, c) {
     (key === 'name' ? a.name.localeCompare(b.name) * sign : (val(a) - val(b)) * sign)
     || b.bottles - a.bottles || a.name.localeCompare(b.name));
   if (!rows.length) {
-    host.innerHTML = '<p class="empty">Every bottle ' + (facetAny(makePick) ? 'picked' : 'in the cellar') + ' has ' + lacks + '.</p>';
+    host.innerHTML = '<p class="empty">Every bottle in the cellar has ' + lacks + '.</p>';
     return;
   }
   host.innerHTML = '<table data-make="' + field + '"><thead><tr>' + sortHead(makeColumns(label), srt.key, srt.dir)
@@ -4543,7 +4555,9 @@ function renderLikeTables(c) {
   renderLike('grape', c.grapes, 'Grape');
   renderLike('region', c.regions, 'Region');
   renderLike('subregion', c.subregions, 'Sub-region');
-  $('likeCard').querySelector('[data-facet-clear]').hidden = !facetAny(likePick);
+  /* Kept in its place while hidden, so it appearing never re-wraps the
+     card's heading on a phone and moves the tables under it. */
+  $('likeCard').querySelector('[data-facet-clear]').style.visibility = facetAny(likePick) ? '' : 'hidden';
   const blanks = [];
   [[c.grapes.blank, 'grape', 'Grape'], [c.regions.blank, 'region', 'Region'],
    [c.subregions.blank, 'sub-region', 'Sub-region']].forEach((b) => {
@@ -4564,8 +4578,7 @@ function renderLike(field, g, label) {
       : (a[key] - b[key]) * sign)
     || b.bottles - a.bottles || a.name.localeCompare(b.name));
   if (!rows.length) {
-    host.innerHTML = '<p class="empty">No ' + label.toLowerCase() + ' recorded on any '
-      + (facetAny(likePick) ? 'bottle picked' : 'opened bottle') + '.</p>';
+    host.innerHTML = '<p class="empty">No ' + label.toLowerCase() + ' recorded on any opened bottle.</p>';
     return;
   }
   host.innerHTML = '<table data-like="' + field + '"><thead><tr>' + sortHead(cols, srt.key, srt.dir)
@@ -8272,7 +8285,9 @@ function renderPairLike(c) {
       : (a[key] - b[key]) * sign)
     || b.bottles - a.bottles || a.name.localeCompare(b.name));
   const host = $('pairLikeGrapes');
-  $('pairLikeCard').querySelector('[data-facet-clear]').hidden = !facetAny(pairLikePick);
+  /* Kept in its place while hidden, so it appearing never re-wraps the
+     card's heading on a phone and moves the tables under it. */
+  $('pairLikeCard').querySelector('[data-facet-clear]').style.visibility = facetAny(pairLikePick) ? '' : 'hidden';
   host.innerHTML = !rows.length ? '<p class="empty">' + (c.count.had
       ? 'No pairing you have had has a grape recorded.' : 'No pairing has been had yet.') + '</p>'
     : '<table data-pair-like><thead><tr>' + sortHead(PAIR_LIKE_COLUMNS, srt.key, srt.dir) + '</tr></thead><tbody>'
@@ -8356,7 +8371,7 @@ Object.keys(FACET_TABS).forEach((tab) => {
     }
     const row = e.target.closest('tbody tr.facetrow');
     const btn = row && row.querySelector('[data-facet]');
-    if (!btn) return;
+    if (!btn || btn.disabled) return;
     const field = btn.dataset.facet, key = btn.dataset.key;
     setFacet(tab, field, key, btn.textContent);
     const again = card.querySelector('[data-facet="' + CSS.escape(field) + '"][data-key="' + CSS.escape(key) + '"]');
@@ -8872,7 +8887,7 @@ const HELP = {
     <p><strong>Bottles</strong> counts them all. <strong>Rated</strong> is how many you gave stars to, and <strong>Avg ★</strong> is the average of those stars, out of 5 — a bottle you didn’t rate never pulls it down. Best-rated comes first, with the most bottles breaking a tie; press a heading to sort by it instead.</p>
     <p><strong>Press a row</strong> to narrow the Bottles Opened list to those bottles, and the other two tables recount to them — rows in two tables narrow to the bottles in both, two rows in one table to either. Press it again, or <strong>Clear</strong>, to let it go. The timing tiles above always count every bottle.</p>`],
   makeup: ['How These Tables Are Worked Out', `<p>Every wine you still have bottles of, grouped by its <strong>grape</strong>, its <strong>region</strong>, its <strong>sub-region</strong>, its <strong>colour</strong>, the year its window closes and where you keep it. <strong>Grouped</strong> folds names written different ways, as What You Like on the Opened tab does — “Stags Leap District, Napa Valley, CA” counts as Napa Valley, California, and a grape counts as the first one named, except a classic blend such as a Bordeaux blend, which keeps its name. <strong>As written</strong> counts every spelling apart. Point at a row to see what it took in. The switch is one setting for this card, What You Like and What Pairs Well.</p>
-    <p><strong>Press a row</strong> to narrow the cellar to those bottles: the list below shows only them, and the other tables recount to them. Press rows in two tables and it narrows to the bottles in both; press two rows in one table and either will do. A row with none of the picked bottles drops out of its table, and pressing a picked row again (or <strong>Clear</strong>) lets it go. At a Glance always counts the whole cellar.</p>
+    <p><strong>Press a row</strong> to narrow the cellar to those bottles: the list below shows only them, and the other tables recount to them. Press rows in two tables and it narrows to the bottles in both; press two rows in one table and either will do. A row with none of the picked bottles stays at 0, dimmed and locked, and pressing a picked row again (or <strong>Clear</strong>) lets it go. At a Glance always counts the whole cellar.</p>
     <p><strong>Drink By</strong> groups bottles by the year their drinking window closes, soonest first — the years when bottles start running out of time; a window with no end is left out and counted. <strong>Where It Is</strong> groups them by the place you keep them, as written (capitals ignored).</p>
     <p><strong>Wines</strong> is how many different wines, <strong>Bottles</strong> how many bottles of them, and <strong>Share</strong> that as a part of every bottle in the cellar. <strong>Ready</strong> counts the bottles you could open this year: Ready, Drink Soon or Past Window. Most bottles come first (Drink By: the soonest year first); press a heading to sort by it instead. Finished wines are never counted, and Find and the status tiles never change these tables.</p>`],
 };
