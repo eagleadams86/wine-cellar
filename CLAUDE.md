@@ -129,14 +129,30 @@ the family doesn't.
   tests or a shared view). Re-measured: first visible frame is the final place on every tab, in
   Chromium and WebKit iPhone. Anything that changes page height after first render belongs
   before that release. Other family apps were not checked.
-- **Every tab is dashboard → list → groupings** (2026-10-26, Charles): Cellar = At a Glance,
-  Cellar, Cellar Makeup; Opened = timing tiles, Bottles Opened, What You Like; Pairings = Pairings
-  at a Glance, Pairings, What Pairs Well. A test pins each panel's card order. A new card goes in
-  the band it belongs to. **The Drinking Windows Ahead chart was REMOVED the same day** (Charles),
+- **Every tab is dashboard → groupings → list** (2026-10-27, Charles — it was dashboard → list →
+  groupings from 10-26 until the groupings became filters): Cellar = At a Glance, Cellar Makeup,
+  Cellar; Opened = timing tiles, What You Like, Bottles Opened; Pairings = Pairings at a Glance,
+  What Pairs Well, Pairings. A test pins each panel's card order. A grouping that FILTERS sits
+  above what it filters; a read-only one would still go below the list.
+- **The grouping tables are filters** (2026-10-27, Charles's idea). Press a row → the tab's list
+  narrows to it. Picks are page-life maps `makePick` / `likePick` / `pairLikePick` (field →
+  Map(key → name)), pressed only through `setFacet` / `clearFacets` (`FACET_TABS` says what each
+  card narrows and redraws — that card and its list, never the tiles). **OR within a table, AND
+  across** (Charles chose it). `facetWritten` / `facetName` / `facetKey` are the ONE place a
+  record's group is worked out — `makeupGroups`, `likeGroups` and every list filter read them, so a
+  row and the list can't disagree. Each table is counted over what the OTHER tables' picks leave
+  (`facetMatch(…, skip)`), so its siblings stay pressable; a row that pool empties DROPS OUT
+  (Charles: hide, not highlight) — except a picked row, kept at 0 so it can be pressed off. Share
+  is of the table's own pool (`g.total`). The tiles and every other dashboard figure stay
+  whole-set; the list notes say so ("always counts …"), and a source test pins the three phrases.
+  Grouped / As written empties every pick (`setLikeView` — a key means another group in the other
+  view); each list's Clear empties its tab's picks; `__plant` empties them all. A pairing's grape
+  is `pairingGrape` (opened line's, else wine's), for What Pairs Well and the list alike; the list
+  filter covers planned pairings too. **The Drinking Windows Ahead chart was REMOVED the same day** (Charles),
   with its SVG, hover panel, `#chartMaxi` full-screen overlay, `computeAll().years`, `inWindow`
   and 8 tests — so this app is no longer one of the family's ⤢ full-screen-chart apps.
-- **Cellar Makeup** (2026-10-26, Charles): `#makeupCard` under the Cellar list — What You
-  Like for the cellar as it stands. `computeMakeup(st, yr, grouped)` → `makeupGroups` (likeGroups'
+- **Cellar Makeup** (2026-10-26, Charles): `#makeupCard` (above the Cellar list since 2026-10-27) — What You
+  Like for the cellar as it stands (above the list since 2026-10-27). `computeMakeup(st, yr, grouped)` → `makeupGroups` (likeGroups'
   folding/naming, but weighted by `qty`; counts wines, bottles, `ready` = ready/soon/past). Share is
   of EVERY bottle, blanks included. Columns Wines · Bottles · Share · Ready (5, not What You Like's
   4) — so the grid is 23rem min (two across only when they fit; half-screen 756px is one across)
@@ -499,6 +515,6 @@ was a one-line version of the cellar rule.
 
 ## Tests
 
-`tests.html`, `EXPECTED = 327`. Run it headless (Playwright) rather than in the Browser pane:
+`tests.html`, `EXPECTED = 329`. Run it headless (Playwright) rather than in the Browser pane:
 the pane throttles hidden timers and its focus heuristics turn the 705px keyboard-focus check
 red on untouched code.

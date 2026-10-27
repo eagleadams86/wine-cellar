@@ -13,9 +13,9 @@ cellar on your other devices.
 - **Cellar tab** — tiles for bottles, value, and how many bottles are *past their window*,
   *drink soon*, *ready* and *holding*; the full cellar table, which opens in drinking order (past
   window first, then the windows that close soonest — so it doubles as the list of what to open
-  next), sortable, filterable, with Copy and CSV; then Cellar Makeup. Every tab reads the same way:
-  its dashboard tiles first, then the list you work in, then the tables that group it.
-- **Cellar Makeup** (under the Cellar list) — what your cellar is made of right now: every wine with
+  next), sortable, filterable, with Copy and CSV. Every tab reads the same way: its dashboard
+  tiles first, then the tables that group it (which filter the list), then the list you work in.
+- **Cellar Makeup** (above the Cellar list) — what your cellar is made of right now: every wine with
   bottles left, grouped by **grape**, **region**, **sub-region**, **colour**, **Drink By** (the year
   the window closes, soonest first — when bottles start running out of time) and **Where It Is**
   (the place you keep them), with how many
@@ -23,6 +23,14 @@ cellar on your other devices.
   **ready** to open this year (Ready, Drink Soon or Past Window). Most bottles first; every heading
   sorts; the same **Grouped / As written** switch as What You Like (one setting for all three
   tables). Find and the status tiles never change it.
+- **The grouping tables are filters too.** Press a row in Cellar Makeup — Napa Valley, say — and
+  the Cellar list shows only those wines, while the other five tables recount to them (Grape now
+  lists Napa's grapes, with Napa's bottles and shares). Press a row in another table to narrow
+  further (wines in both); press a second row in the same table to add it (either one). A row with
+  none of the picked wines drops out of its table. A picked row is marked with a ✓; press it again,
+  or **Clear** on the card or in the list, to let it go. Switching Grouped / As written lets every
+  pick go. The At a Glance tiles always count the whole cellar. **What You Like** (Opened tab) and
+  **What Pairs Well** (Pairings tab) work the same way on their lists.
 - **The status tiles are filters.** Press **Past Window**, **Drink Soon**, **Ready** or
   **Holding** to show just those wines in the Cellar list, and again to take it off; several can
   be on at once, each marked with a ✓. The **Status** box in the Cellar is the same filter as a
@@ -88,7 +96,8 @@ cellar on your other devices.
   Window — in the list's **Timing** box beside Find; Clear takes them off.
 - **What You Like** — your opened bottles grouped by grape and by region, with how many you
   opened, how many you rated and the average stars of those, best-rated first. Press a heading to
-  sort. Both cards count the whole log (Find never changes them) and hide until a bottle is opened.
+  sort; press a row to narrow Bottles Opened to it (see Cellar Makeup above). Find never changes
+  either card, and both hide until a bottle is opened.
   **Grouped** (the usual view) counts names written different ways together — "Stags Leap
   District, Napa Valley, CA" as Napa Valley, California, and "75% Cabernet Sauvignon, …" as
   Cabernet Sauvignon; point at a row to see what it took in. **As written** counts every spelling
@@ -314,8 +323,8 @@ dinner. Type a dish — "grilled lamb chops with rosemary" — or paste a whole 
   and Opened tabs — a tile and its box always agree — and **Clear** lets them all go. **What Pairs Well** is the Opened tab's What You Like for
   pairings: the pairings you've had, grouped by the wine's grape, with how many, how many you
   rated and the average **pairing** rating — best first, every heading sorts, and the same
-  Grouped / As written switch (one setting for both tables). Both cards count the whole list,
-  whatever the filter shows.
+  Grouped / As written switch (one setting for both tables). Press a grape to narrow the list to
+  pairings with that grape, planned ones included. Find and the Status filter never change either card.
 - **The list** has every pairing: planned ones first (soonest day first, undecided
   last, a day gone by marked *Was planned*), then the ones you've had, newest first. Find
   searches meals, wines, notes and Claude's reasons. Press a line
@@ -445,7 +454,7 @@ characters, opened-bottle notes too.
 python3 -m http.server 8025
 ```
 
-Open `http://localhost:8025/` for the app and `/tests.html` for the suite (327 tests; the
+Open `http://localhost:8025/` for the app and `/tests.html` for the suite (329 tests; the
 `EXPECTED` floor in the file fails the run if any go missing). CI runs the same page headless
 on every push, plus CodeQL.
 
