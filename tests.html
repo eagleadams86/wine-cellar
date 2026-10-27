@@ -3006,6 +3006,13 @@ function define() {
       D.querySelector('#makeupCard [data-like-view="grouped"]').click();
 
       W.setTab('opened');
+      const late = D.querySelector('#openedStats [data-timing="late"]');
+      late.click();
+      const live = D.querySelectorAll('#likeGrapes tbody tr:not(.dead)').length;
+      ok(live > 0 && D.querySelectorAll('#likeGrapes tbody tr.dead').length > 0,
+         'a timing tile narrows What You Like', String(live));
+      late.click();
+      ok(!D.querySelector('#likeCard tr.dead'), 'and lets it go');
       const oRows = () => D.querySelectorAll('#openedTable tbody tr').length;
       const oAll = oRows(), lr = D.querySelector('#likeRegions tbody tr');
       const bottles = Number(lr.querySelector('td').textContent);
@@ -3019,6 +3026,12 @@ function define() {
       const pRows = () => D.querySelectorAll('#pairingWrap tbody tr').length;
       const pAll = pRows(), pr = D.querySelector('#pairLikeGrapes tbody tr');
       if (pr) {
+        const planned = D.querySelector('#pairStats [data-pairing-pick="planned"]');
+        planned.click();
+        ok(D.querySelectorAll('#pairLikeGrapes tbody tr').length > 0
+           && !D.querySelector('#pairLikeGrapes tbody tr:not(.dead)'),
+           'Planned alone leaves What Pairs Well all dead — it counts only had pairings');
+        planned.click();
         const had = Number(pr.querySelector('td').textContent);
         pr.click();
         ok(pRows() >= had && pRows() <= pAll, 'What Pairs Well narrows the pairings, planned ones too', pRows() + ' of ' + pAll);
@@ -3051,10 +3064,16 @@ function define() {
       eq(order('pairingsPanel'), ['pairGlanceCard', 'pairLikeCard', 'pairingCard'], 'Pairings: tiles, What Pairs Well, list');
       ok(!D.getElementById('makeupCard').hidden, 'shown with bottles in the cellar');
       const cells = () => [...D.querySelectorAll('#makeGrapes tbody tr')].map((r) => r.textContent).join('|');
-      const before = cells();
+      const shape = () => [...D.querySelectorAll('#makeupCard tbody')].map((b) => b.rows.length).join();
+      const before = cells(), rows = shape();
       D.querySelector('#stats [data-status="hold"]').click();
-      eq(cells(), before, 'a status tile narrows the list, never the makeup');
+      /* FIXTURE: only Charlie Cabernet (6 bottles) is on Hold. */
+      eq([...D.querySelectorAll('#makeGrapes tbody tr:not(.dead) th')].map((t) => t.textContent.trim()),
+         ['Cabernet Sauvignon'], 'a status tile narrows the makeup too (2026-10-27)');
+      eq(shape(), rows, 'its other rows go dead, never away');
+      ok(D.querySelectorAll('#makeGrapes tr.dead [data-facet]:disabled').length === 2, 'and are locked');
       D.querySelector('#stats [data-status="hold"]').click();
+      eq(cells(), before, 'the tile pressed off, the makeup is whole again');
       ok(D.querySelectorAll('#makeupCard td:not(.num)').length === 0, 'every count is a number column');
       const head = D.querySelector('#makeGrapes [data-sort="name"]');
       head.click();

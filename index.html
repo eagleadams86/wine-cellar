@@ -1749,8 +1749,8 @@ html[data-booting] footer { visibility: hidden; }
 
     <!-- What You Like, for the cellar as it stands (Charles, 2026-10-26): every
          wine with bottles left, by grape, region, sub-region and colour. Worked
-         out by computeMakeup — Find and the status tiles narrow the list, never
-         this. Since 2026-10-27 its rows are FILTERS (setFacet): a press narrows
+         out by computeMakeup — Find narrows the list, never this; the status
+         tiles narrow both (rows go dead, never away). Since 2026-10-27 its rows are FILTERS (setFacet): a press narrows
          the list below and the other tables, so it sits ABOVE the list. -->
     <div class="card" id="makeupCard" data-fold="makeup">
       <h2>Cellar Makeup
@@ -3880,14 +3880,14 @@ function facetMatch(rec, picks, grouped, skip) {
     || picks[f].has(facetKey(rec, f, grouped)));
 }
 const facetAny = (picks) => Object.keys(picks).some((f) => picks[f].size > 0);
-function likeGroups(lines, field, grouped, picks) {
+function likeGroups(lines, field, grouped, picks, keep) {
   const groups = new Map();
   let blank = 0;
   const mine = picks && picks[field];
   lines.forEach((o) => {
     const written = facetWritten(o, field);
     const name = facetName(written, field, grouped);
-    const counted = facetMatch(o, picks, grouped, field);
+    const counted = facetMatch(o, picks, grouped, field) && (!keep || keep(o));
     if (!name) { if (counted) blank += 1; return; }
     const k = name.toLowerCase();
     /* A record the other tables have narrowed away still makes its row —
@@ -3914,7 +3914,7 @@ function likeGroups(lines, field, grouped, picks) {
 /* computeOpened() is the ONLY place the Opened tab's figures are worked out —
    computeAll's rule. Pure, and over the WHOLE log: the list's Find and the
    timing filter narrow the list, never these. */
-function computeOpened(st, grouped, picks) {
+function computeOpened(st, grouped, picks, keep) {
   const timing = { early: 0, inwin: 0, late: 0, none: 0 };
   let ageSum = 0, aged = 0;
   st.opened.forEach((o) => {
@@ -3925,8 +3925,8 @@ function computeOpened(st, grouped, picks) {
   return {
     all: st.opened.length, timing: timing,
     age: { avg: aged ? ageSum / aged : null, unaged: st.opened.length - aged },
-    grapes: likeGroups(st.opened, 'grape', grouped, picks), regions: likeGroups(st.opened, 'region', grouped, picks),
-    subregions: likeGroups(st.opened, 'subregion', grouped, picks),
+    grapes: likeGroups(st.opened, 'grape', grouped, picks, keep), regions: likeGroups(st.opened, 'region', grouped, picks, keep),
+    subregions: likeGroups(st.opened, 'subregion', grouped, picks, keep),
   };
 }
 
@@ -3934,14 +3934,14 @@ function computeOpened(st, grouped, picks) {
    the way What You Like groups (likeGroups' folding and naming), counting
    wines, bottles, and the bottles ready to open now — Ready, Drink Soon or
    Past Window this year. Blanks are counted, never quietly dropped. */
-function makeupGroups(wines, field, grouped, yr, soon, picks) {
+function makeupGroups(wines, field, grouped, yr, soon, picks, keep) {
   const groups = new Map();
   const mine = picks && picks[field];
   let blank = 0, total = 0;
   wines.forEach((w) => {
     const written = facetWritten(w, field);
     const name = facetName(written, field, grouped);
-    const counted = facetMatch(w, picks, grouped, field);
+    const counted = facetMatch(w, picks, grouped, field) && (!keep || keep(w));
     if (counted) total += w.qty;
     if (!name) { if (counted) blank += w.qty; return; }
     const k = name.toLowerCase();
@@ -3970,15 +3970,17 @@ function makeupGroups(wines, field, grouped, yr, soon, picks) {
    EVERY bottle the table is counted over (the whole cellar, or what the other
    tables' picks leave), blanks included, so a table's shares add up to less
    than 100% exactly when its blank line says some bottles have no name for it. */
-function computeMakeup(st, yr, grouped, picks) {
+/* `keep`, when given, is the dashboard tiles' filter (2026-10-27, Charles):
+   a record it leaves out is counted nowhere, and its rows go dead. */
+function computeMakeup(st, yr, grouped, picks, keep) {
   const soon = st.settings.soonYears;
   const wines = st.wines.filter((w) => w.qty > 0);
   const g = grouped !== false;
   return {
     bottles: wines.reduce((a, w) => a + w.qty, 0),
-    grapes: makeupGroups(wines, 'grape', g, yr, soon, picks), regions: makeupGroups(wines, 'region', g, yr, soon, picks),
-    subregions: makeupGroups(wines, 'subregion', g, yr, soon, picks), colours: makeupGroups(wines, 'color', g, yr, soon, picks),
-    drinkBy: makeupGroups(wines, 'drinkTo', g, yr, soon, picks), places: makeupGroups(wines, 'location', g, yr, soon, picks),
+    grapes: makeupGroups(wines, 'grape', g, yr, soon, picks, keep), regions: makeupGroups(wines, 'region', g, yr, soon, picks, keep),
+    subregions: makeupGroups(wines, 'subregion', g, yr, soon, picks, keep), colours: makeupGroups(wines, 'color', g, yr, soon, picks, keep),
+    drinkBy: makeupGroups(wines, 'drinkTo', g, yr, soon, picks, keep), places: makeupGroups(wines, 'location', g, yr, soon, picks, keep),
   };
 }
 
@@ -4263,9 +4265,15 @@ const makePick = { grape: new Map(), region: new Map(), subregion: new Map(), co
   drinkTo: new Map(), location: new Map() };
 const likePick = { grape: new Map(), region: new Map(), subregion: new Map() };
 const pairLikePick = { grape: new Map() };
-const makeupNow = () => computeMakeup(state, thisYear(), likeGrouped, makePick);
-const openedNow = () => computeOpened(state, likeGrouped, likePick);
-const pairingsNow = () => computePairings(state, todayISO(), likeGrouped, pairLikePick);
+/* The tiles (and their Status / Timing boxes) narrow the grouping tables too
+   (Charles, 2026-10-27): rows with none of the tile-picked records go dead.
+   The tiles themselves always count the whole set. */
+const makeupNow = () => computeMakeup(state, thisYear(), likeGrouped, makePick, statusPick.size
+  ? (w) => statusPick.has(statusOf(w, thisYear(), state.settings.soonYears)) : null);
+const openedNow = () => computeOpened(state, likeGrouped, likePick, timingPick.size
+  ? (o) => timingPick.has(timingOf(o)) : null);
+const pairingsNow = () => computePairings(state, todayISO(), likeGrouped, pairLikePick, pairingPick.size
+  ? (x) => pairingPick.has(x.kind) : null);
 /* What the picks say, for the list's note: "Region: Napa Valley or Sonoma ·
    Grape: Merlot", in the tables' own order. */
 function facetSummary(picks, labels) {
@@ -8206,7 +8214,7 @@ function pairingGrape(p, lines, wines) {
   const src = (p.openedId && lines.get(p.openedId)) || (p.wineId && wines.get(p.wineId)) || {};
   return src.grape || '';
 }
-function computePairings(st, today, grouped, picks) {
+function computePairings(st, today, grouped, picks, keep) {
   const ps = st.pairings || [];
   const count = { planned: 0, overdue: 0, had: 0 };
   ps.forEach((p) => { count[pairingKind(p, today)] += 1; });
@@ -8218,13 +8226,13 @@ function computePairings(st, today, grouped, picks) {
   const lines = new Map((st.opened || []).map((o) => [o.id, o]));
   const wines = new Map((st.wines || []).map((w) => [w.id, w]));
   const had = ps.filter((p) => p.status === 'had')
-    .map((p) => ({ grape: pairingGrape(p, lines, wines), rating: p.rating }));
+    .map((p) => ({ grape: pairingGrape(p, lines, wines), rating: p.rating, kind: pairingKind(p, today) }));
   return {
     all: ps.length, count: count,
     next: next ? { id: next.id, date: next.date, meal: next.meal } : null,
     rating: { avg: rated.length ? rated.reduce((a, p) => a + p.rating, 0) / rated.length : null,
               rated: rated.length, had: count.had },
-    grapes: likeGroups(had, 'grape', grouped !== false, picks),
+    grapes: likeGroups(had, 'grape', grouped !== false, picks, keep),
   };
 }
 /* Which tile a pairing counts under. */
@@ -8311,6 +8319,7 @@ function setPairingPick(keys) {
   $('pairingPickBox').querySelectorAll('input[type="checkbox"]').forEach((b) => { b.checked = pairingPick.has(b.value); });
   document.querySelectorAll('#pairStats [data-pairing-pick]').forEach((b) =>
     b.setAttribute('aria-pressed', String(pairingPick.has(b.dataset.pairingPick))));
+  renderPairLike(pairingsNow());   /* the tiles narrow the groupings too */
   renderPairingList();
 }
 $('pairStats').addEventListener('click', (e) => {
@@ -8510,7 +8519,6 @@ $('clearPairingFind').addEventListener('click', () => {
   $('pairingFind').value = '';
   $('pairingPickBox').open = false;
   pairLikePick.grape.clear();
-  renderPairLike(pairingsNow());
   setPairingPick([]);
   $('pairingFind').focus();
 });
@@ -8749,7 +8757,6 @@ $('clearOpenedFind').addEventListener('click', () => {
   $('openedFind').value = '';
   $('timingPickBox').open = false;
   Object.keys(likePick).forEach((f) => likePick[f].clear());
-  renderLikeTables(openedNow());
   setTimingPick([]);
   $('openedFind').focus();
 });
@@ -8764,6 +8771,7 @@ function setTimingPick(keys) {
   $('timingPickBox').querySelectorAll('input[type="checkbox"]').forEach((b) => { b.checked = timingPick.has(b.value); });
   document.querySelectorAll('#openedStats [data-timing]').forEach((b) =>
     b.setAttribute('aria-pressed', String(timingPick.has(b.dataset.timing))));
+  renderLikeTables(openedNow());   /* the tiles narrow the groupings too */
   renderOpened();
 }
 $('openedStats').addEventListener('click', (e) => {
@@ -8805,6 +8813,7 @@ function setStatusPick(keys) {
   $('statusPick').querySelectorAll('input[type="checkbox"]').forEach((b) => { b.checked = statusPick.has(b.value); });
   document.querySelectorAll('#stats [data-status]').forEach((b) =>
     b.setAttribute('aria-pressed', String(statusPick.has(b.dataset.status))));
+  renderMakeup(makeupNow());   /* the tiles narrow the groupings too */
   renderList();
 }
 $('statusPick').addEventListener('change', (e) => {
@@ -8851,7 +8860,6 @@ $('clearFind').addEventListener('click', () => {
   $('findBox').value = '';
   $('statusPick').open = false;
   Object.keys(makePick).forEach((f) => makePick[f].clear());
-  renderMakeup(makeupNow());
   setStatusPick([]);
   $('findBox').focus();
 });
@@ -8885,11 +8893,11 @@ const HELP = {
   likes: ['How These Tables Are Worked Out', `<p>Every opened bottle, grouped by its <strong>grape</strong> and, separately, by its <strong>region</strong>, as they were recorded when it was opened. <strong>Grouped</strong> (the usual view) folds names written different ways: a region becomes its area and state or country — “Stags Leap District, Napa Valley, CA” counts as Napa Valley, California — and a grape becomes the first grape named, so “75% Cabernet Sauvignon, 18.2% Cabernet Franc” counts as Cabernet Sauvignon — except a classic blend, which keeps its name: a Bordeaux, Meritage or “Bordeaux-style” wine counts as <strong>Bordeaux blend</strong>, and the same for Rhône, Port and Champagne blends. Point at a row to see what it took in. The first grape named isn’t always the most of the blend, so <strong>As written</strong> counts every spelling apart, ignoring only capitals and extra spaces.</p>
     <p><strong>Sub-region</strong> counts the narrower place inside a region — Stags Leap District inside Napa Valley — for the bottles that have one; it is counted as written in either view.</p>
     <p><strong>Bottles</strong> counts them all. <strong>Rated</strong> is how many you gave stars to, and <strong>Avg ★</strong> is the average of those stars, out of 5 — a bottle you didn’t rate never pulls it down. Best-rated comes first, with the most bottles breaking a tie; press a heading to sort by it instead.</p>
-    <p><strong>Press a row</strong> to narrow the Bottles Opened list to those bottles, and the other two tables recount to them — rows in two tables narrow to the bottles in both, two rows in one table to either. Press it again, or <strong>Clear</strong>, to let it go. The timing tiles above always count every bottle.</p>`],
+    <p><strong>Press a row</strong> to narrow the Bottles Opened list to those bottles, and the other two tables recount to them — rows in two tables narrow to the bottles in both, two rows in one table to either. Press it again, or <strong>Clear</strong>, to let it go. The timing tiles narrow these tables the same way, though the tiles themselves always count every bottle.</p>`],
   makeup: ['How These Tables Are Worked Out', `<p>Every wine you still have bottles of, grouped by its <strong>grape</strong>, its <strong>region</strong>, its <strong>sub-region</strong>, its <strong>colour</strong>, the year its window closes and where you keep it. <strong>Grouped</strong> folds names written different ways, as What You Like on the Opened tab does — “Stags Leap District, Napa Valley, CA” counts as Napa Valley, California, and a grape counts as the first one named, except a classic blend such as a Bordeaux blend, which keeps its name. <strong>As written</strong> counts every spelling apart. Point at a row to see what it took in. The switch is one setting for this card, What You Like and What Pairs Well.</p>
-    <p><strong>Press a row</strong> to narrow the cellar to those bottles: the list below shows only them, and the other tables recount to them. Press rows in two tables and it narrows to the bottles in both; press two rows in one table and either will do. A row with none of the picked bottles stays at 0, dimmed and locked, and pressing a picked row again (or <strong>Clear</strong>) lets it go. At a Glance always counts the whole cellar.</p>
+    <p><strong>Press a row</strong> to narrow the cellar to those bottles: the list below shows only them, and the other tables recount to them. Press rows in two tables and it narrows to the bottles in both; press two rows in one table and either will do. A row with none of the picked bottles stays at 0, dimmed and locked, and pressing a picked row again (or <strong>Clear</strong>) lets it go. The status tiles in At a Glance (and the Cellar's Status box) narrow these tables the same way, though the tiles themselves always count the whole cellar.</p>
     <p><strong>Drink By</strong> groups bottles by the year their drinking window closes, soonest first — the years when bottles start running out of time; a window with no end is left out and counted. <strong>Where It Is</strong> groups them by the place you keep them, as written (capitals ignored).</p>
-    <p><strong>Wines</strong> is how many different wines, <strong>Bottles</strong> how many bottles of them, and <strong>Share</strong> that as a part of every bottle in the cellar. <strong>Ready</strong> counts the bottles you could open this year: Ready, Drink Soon or Past Window. Most bottles come first (Drink By: the soonest year first); press a heading to sort by it instead. Finished wines are never counted, and Find and the status tiles never change these tables.</p>`],
+    <p><strong>Wines</strong> is how many different wines, <strong>Bottles</strong> how many bottles of them, and <strong>Share</strong> that as a part of every bottle in the cellar. <strong>Ready</strong> counts the bottles you could open this year: Ready, Drink Soon or Past Window. Most bottles come first (Drink By: the soonest year first); press a heading to sort by it instead. Finished wines are never counted, and Find never changes these tables.</p>`],
 };
 const helpDialog = $('helpDialog');
 document.addEventListener('click', (e) => {

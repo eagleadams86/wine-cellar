@@ -22,7 +22,7 @@ cellar on your other devices.
   wines and bottles, each one's **share** of the cellar, and how many of those bottles are
   **ready** to open this year (Ready, Drink Soon or Past Window). Most bottles first; every heading
   sorts; the same **Grouped / As written** switch as What You Like (one setting for all three
-  tables). Find and the status tiles never change it.
+  tables). Find never changes it; the status tiles narrow it (see below).
 - **The grouping tables are filters too.** Press a row in Cellar Makeup — Napa Valley, say — and
   the Cellar list shows only those wines, while the other five tables recount to them (Grape now
   lists Napa's grapes, with Napa's bottles and shares). Press a row in another table to narrow
@@ -30,7 +30,8 @@ cellar on your other devices.
   add it (either one). A row with
   none of the picked wines stays in its table at 0, dimmed and locked, so the page never jumps. A picked row is marked with a ✓; press it again,
   or **Clear** on the card or in the list, to let it go. Switching Grouped / As written lets every
-  pick go. The At a Glance tiles always count the whole cellar. **What You Like** (Opened tab) and
+  pick go. Pressing a status tile (or ticking the Status box) narrows the tables the same way — on
+  the Opened and Pairings tabs, their tiles do too — while the tiles themselves always count everything. **What You Like** (Opened tab) and
   **What Pairs Well** (Pairings tab) work the same way on their lists.
 - **The status tiles are filters.** Press **Past Window**, **Drink Soon**, **Ready** or
   **Holding** to show just those wines in the Cellar list, and again to take it off; several can
@@ -325,7 +326,7 @@ dinner. Type a dish — "grilled lamb chops with rosemary" — or paste a whole 
   pairings: the pairings you've had, grouped by the wine's grape, with how many, how many you
   rated and the average **pairing** rating — best first, every heading sorts, and the same
   Grouped / As written switch (one setting for both tables). Press a grape to narrow the list to
-  pairings with that grape, planned ones included. Find and the Status filter never change either card.
+  pairings with that grape, planned ones included. Find never changes either card; the Planned / Overdue / Had tiles narrow What Pairs Well (it counts only had pairings, so Planned alone dims it all).
 - **The list** has every pairing: planned ones first (soonest day first, undecided
   last, a day gone by marked *Was planned*), then the ones you've had, newest first. Find
   searches meals, wines, notes and Claude's reasons. Press a line

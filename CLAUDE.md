@@ -151,6 +151,10 @@ the family doesn't.
   only the warn line under the last table changes. Share
   is of the table's own pool (`g.total`). The tiles and every other dashboard figure stay
   whole-set; the list notes say so ("always counts …"), and a source test pins the three phrases.
+  **The tiles narrow the groupings too** (Charles, same day): `statusPick` / `timingPick` /
+  `pairingPick` reach the tables as `keep` (makeupNow / openedNow / pairingsNow), the same
+  dead-not-gone rule; each set*Pick redraws its grouping card. Find does NOT reach them. Planned
+  or Overdue alone leaves What Pairs Well all dead — it counts had pairings only; honest, kept.
   Grouped / As written empties every pick (`setLikeView` — a key means another group in the other
   view); each list's Clear empties its tab's picks; `__plant` empties them all. A pairing's grape
   is `pairingGrape` (opened line's, else wine's), for What Pairs Well and the list alike; the list
