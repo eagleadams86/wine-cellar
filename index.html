@@ -930,7 +930,7 @@
   .checkpick select { width: auto; }
   .checkpick .hint { margin-left: auto; }
   #checkList .pickname { display: inline-flex; align-items: baseline; gap: var(--sp-3); cursor: pointer; }
-  #checkList .pickname input { width: auto; min-height: 0; margin: 0; align-self: center; }
+  #checkList .pickname input { margin: 0; align-self: center; }
 
   /* ── A table that does not fit is a stack of CARDS ─────────────────────────
      Charles, from his iPhone (2026-10-23): "let's make these lists more mobile
@@ -1216,6 +1216,12 @@
            color: var(--text-secondary); font-weight: var(--fw-bold); padding: 0 var(--sp-3); }
   .checkline { display: flex; align-items: flex-start; gap: var(--sp-4); margin-bottom: var(--sp-4); }
   .checkline input { width: auto; min-height: 0; margin-top: 3px; }
+  /* Every tick box (and radio) is one fixed size that a flex row can never
+     squeeze: iPhone Safari drew Settings' "Show wines with no bottles left"
+     about 5pt across beside its long label (Charles, 2026-10-27), and the
+     native 12–13px is a small target on a phone anyway. After .checkline so
+     it wins at equal weight; size only, never a colour. */
+  input:is([type="checkbox"], [type="radio"]) { flex: none; width: 1.25rem; height: 1.25rem; min-width: 0; min-height: 0; }
   #f_yearOnlyLine { margin: 6px 0 0; }
 
   /* ── Dialogs ────────────────────────────────────────────────────────────────
