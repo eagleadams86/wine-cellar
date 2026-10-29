@@ -1247,6 +1247,16 @@
      contract — and an h2, as in every sibling. */
   dialog h2 { margin: 0 0 var(--sp-5); font-size: var(--fs-md); font-weight: var(--fw-semibold); }
   dialog p { font-size: var(--fs-xs); color: var(--text-secondary); }
+  /* The which-copy window's evidence (2026-10-29): two dated lines, then what
+     differs — capped in height so the two buttons stay in reach on a phone. */
+  .sync-times { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; margin: 12px 0 0;
+                font-size: var(--fs-xs); }
+  .sync-times dt { color: var(--text-secondary); }
+  .sync-times dd { margin: 0; }
+  dialog p.sync-listhead { margin: 16px 0 6px; font-weight: var(--fw-semibold); color: var(--text-primary); }
+  .sync-diff { margin: 0; padding-left: 20px; max-height: 40vh; overflow: auto; font-size: var(--fs-xs); }
+  .sync-diff li { margin: 4px 0; overflow-wrap: anywhere; }
+  .sync-diff .sync-vals { color: var(--text-secondary); }
   .row-actions { display: flex; flex-wrap: wrap; gap: var(--sp-4);
                  justify-content: flex-end; margin-top: var(--sp-6); }
   .row-actions .spacer { flex: 1 1 auto; }
@@ -2770,6 +2780,11 @@ html[data-booting] footer { visibility: hidden; }
 <dialog id="syncChoiceDialog" aria-labelledby="syncChoiceTitle">
   <h2 id="syncChoiceTitle">Which Copy Do You Want to Keep?</h2>
   <p id="syncChoiceBody"></p>
+  <!-- When each copy was last saved, and what differs between them: filled by
+       chooseSyncSource through textContent only (the wine names are the reader's). -->
+  <dl id="syncChoiceTimes" class="sync-times"></dl>
+  <p id="syncChoiceListHead" class="sync-listhead" hidden></p>
+  <ul id="syncChoiceList" class="sync-diff" hidden></ul>
   <div class="row-actions">
     <button type="button" id="syncKeepDeviceBtn">Keep This Device's</button>
     <button type="button" id="syncKeepGoogleBtn" class="primary">Keep the Google One</button>
@@ -9091,6 +9106,10 @@ $('clearConfirm').addEventListener('click', () => {
   const keep = state.settings;
   state = blankState();
   state.settings = keep;
+  /* Sync's base copy (2026-10-29) is a whole second copy of the cellar, kept
+     so two devices' changes can be combined. "Everything deleted" has to
+     include it. The next push records the emptied cellar there. */
+  try { localStorage.removeItem('wine-cloud-base-copy'); } catch (e) { /* blocked */ }
   save();
   /* Straight to the cloud, not on the debounce: a clear followed by closing
      the tab must not leave the other devices holding everything. */
@@ -9577,8 +9596,285 @@ function makeCloudSync(io) {
   };
 }
 
+/* ── Keeping both devices' changes (2026-10-29, Money Map's, ported) ───────
+   The version number above tells a device THAT the cloud moved while it had an
+   unsent change, and until now the only answer was to pick one whole copy and
+   replace the other. That was right as a guard and wrong as a habit: nearly
+   every press saves, so the phone and the laptop were "both changed" far more
+   often than either had real work the other lacked — and when both did, the
+   edits were usually to different wines, so whichever copy was picked lost the
+   other's work (Charles lost typed figures this way in Money Map).
+   Now each device also keeps the copy it last took or wrote (the sync module's
+   `wine-cloud-base-copy`, checked against the engine's base tag), and the
+   question is answered three ways at once:
+   - BASE → this device and BASE → the cloud are compared field by field: a
+     wine's name, its bottle count, an opened line's rating, a pairing's meal.
+     Wines, opened lines and pairings are matched by `id`, never by position, so
+     a wine added on one side cannot shift another's edit onto the wrong wine.
+     A change made on only one side is simply kept.
+   - Only a field BOTH sides changed, to different values, is a conflict, and
+     only those are asked about — named, with a count or rating where one helps.
+   - Never a conflict: `version` (the build's stamp, the same on both after
+     normalizeState); a record's History (`log` — it records changes, it is not
+     one: the two are joined, oldest first, to LOG_CAP); `checkedAt` and
+     `photoAt` (facts about WHEN — the later one wins, which is also the photo
+     loadPhoto will fetch, so a photo kept only on this device is never
+     orphaned); and a wine's bottle COUNT, which is a count, not a value: both
+     sides' moves are added to the base (3 bottles, one opened on each device →
+     1), so two Opened Ones never leave a phantom bottle.
+   The state holds no view state — the tab, the folds, the sort and the lookup
+   key are their own localStorage keys and never sync — so nothing here is
+   "this device's own". Without a base copy (a device that has not synced since
+   this shipped, or a first sign-in) there is no telling an addition from a
+   deletion, so it stays the whole-copy choice — but it now says what differs.
+   All pure and pinned. */
+const SYNC_MACHINERY = new Set(['version']);
+const SYNC_NEWEST = new Set(['checkedAt', 'photoAt']);
+/* Fields that change alongside a real edit and say nothing a reader chooses by. */
+const SYNC_UNLISTED = new Set(['log', 'checkedAt']);
+function syncIsObj(v) { return !!v && typeof v === 'object' && !Array.isArray(v); }
+function syncStable(v) {
+  if (Array.isArray(v)) return '[' + v.map((x) => (x === undefined ? 'null' : syncStable(x))).join(',') + ']';
+  if (syncIsObj(v)) {
+    return '{' + Object.keys(v).sort().filter((k) => v[k] !== undefined)
+      .map((k) => JSON.stringify(k) + ':' + syncStable(v[k])).join(',') + '}';
+  }
+  return JSON.stringify(v);
+}
+function syncSame(a, b) {
+  if (a === b) return true;
+  if (a === undefined || b === undefined) return false;
+  return syncStable(a) === syncStable(b);
+}
+/* A list is matched by id only when EVERY item carries one and none repeats. */
+function syncIds(a) {
+  if (!Array.isArray(a)) return null;
+  const ids = [];
+  for (const e of a) {
+    if (!syncIsObj(e) || (typeof e.id !== 'string' && typeof e.id !== 'number')) return null;
+    ids.push(String(e.id));
+  }
+  return new Set(ids).size === ids.length ? ids : null;
+}
+function syncUnion(a, b) { return [...new Set([...(a || []), ...(b || [])])]; }
+/* The cellar as boot would read it (normalizeState, the allowlist), so a
+   default filled in on one side and not the other is never a "change". */
+function syncNormal(s) {
+  return JSON.parse(JSON.stringify(normalizeState(JSON.parse(JSON.stringify(s || {})))));
+}
+/* A record's History from both sides: every entry either has, once, in time
+   order, the newest LOG_CAP — the same trim cleanLog makes. */
+function syncMergeLog(l, r) {
+  const seen = new Set(), all = [];
+  for (const e of [...(l || []), ...(r || [])]) {
+    const k = syncStable(e);
+    if (!seen.has(k)) { seen.add(k); all.push(e); }
+  }
+  all.sort((x, y) => (String(x.at) < String(y.at) ? -1 : String(x.at) > String(y.at) ? 1 : 0));
+  return all.slice(-LOG_CAP);
+}
+/* A WHEN: a side that moved it wins; both moved, the later one (a photo taken
+   beats one removed — null sorts first). */
+function syncNewest(b, l, r) {
+  if (syncSame(l, r) || syncSame(b, r)) return l;
+  if (syncSame(b, l)) return r;
+  return String(l == null ? '' : l) >= String(r == null ? '' : r) ? l : r;
+}
+/* A bottle count is a count: both sides' moves land, clamped as normalizeState
+   clamps it. Even when the two ended on the SAME number — that is two bottles
+   opened, not one. */
+function syncMergeCount(b, l, r) {
+  if (syncSame(b, l)) return r;
+  if (syncSame(b, r) || typeof b !== 'number' || typeof l !== 'number' || typeof r !== 'number') return l;
+  return Math.max(0, Math.min(999, b + (l - b) + (r - b)));
+}
+function syncMergeField(k, b, l, r, path, out) {
+  if (path.length === 2 && syncIsObj(path[1])) {
+    if (k === 'log') return syncSame(l, r) ? l : syncMergeLog(l, r);
+    if (SYNC_NEWEST.has(k)) return syncNewest(b, l, r);
+    if (k === 'qty' && path[0] === 'wines') return syncMergeCount(b, l, r);
+  }
+  return syncMerge3(b, l, r, path.concat(k), out);
+}
+function syncMerge3(b, l, r, path, out) {
+  if (syncSame(l, r)) return l;
+  if (syncSame(b, l)) return r;
+  if (syncSame(b, r)) return l;
+  if (syncIsObj(l) && syncIsObj(r) && (b === undefined || syncIsObj(b))) {
+    const bb = b || {}, res = {};
+    for (const k of syncUnion(Object.keys(l), Object.keys(r))) {
+      const v = syncMergeField(k, bb[k], l[k], r[k], path, out);
+      if (v !== undefined) res[k] = v;
+    }
+    return res;
+  }
+  if (Array.isArray(l) && Array.isArray(r) && (b === undefined || Array.isArray(b))) {
+    const bb = b || [];
+    const il = syncIds(l), ir = syncIds(r), ib = syncIds(bb);
+    if (il && ir && ib) return syncMergeById(bb, l, r, ib, il, ir, path, out);
+    if (l.length === r.length && bb.length === l.length) {
+      return l.map((_, i) => syncMerge3(bb[i], l[i], r[i], path.concat(i), out));
+    }
+  }
+  out.conflicts.push({ path, local: l, remote: r });
+  return out.prefer === 'remote' ? r : l;
+}
+function syncMergeById(b, l, r, ib, il, ir, path, out) {
+  const map = (a) => new Map(a.map((e) => [String(e.id), e]));
+  const B = map(b), L = map(l), R = map(r);
+  /* Order: the side that REORDERED wins; if this device kept the base order,
+     the cloud's order is the one to follow. Items only the other side has go
+     in after the item they followed there. */
+  const common = (ids) => ids.filter((id) => B.has(id) && L.has(id) && R.has(id));
+  const localKeptOrder = syncSame(common(il), common(ib));
+  const first = localKeptOrder ? ir : il, second = localKeptOrder ? il : ir;
+  const order = first.slice();
+  second.forEach((id, i) => {
+    if (order.includes(id)) return;
+    const prev = i ? second[i - 1] : null;
+    const at = prev === null ? 0 : (order.includes(prev) ? order.indexOf(prev) + 1 : order.length);
+    order.splice(at, 0, id);
+  });
+  const res = [];
+  for (const id of order) {
+    const v = syncMerge3(B.get(id), L.get(id), R.get(id), path.concat({ id }), out);
+    if (v !== undefined) res.push(v);
+  }
+  return res;
+}
+/* → { merged, conflicts } — or null when either copy comes from a NEWER build
+   (wcAdopt's halt must see it untouched). Conflicts are resolved toward
+   `prefer` ('local' | 'remote') in `merged`. */
+function mergeCellars(base, local, remote, prefer) {
+  const newer = (s) => Number((s && s.version) || 1) > SCHEMA;
+  if (newer(remote) || newer(base)) return null;
+  const b = syncNormal(base), l = syncNormal(local), r = syncNormal(remote);
+  const out = { conflicts: [], prefer: prefer === 'remote' ? 'remote' : 'local' };
+  const merged = {};
+  for (const k of syncUnion(Object.keys(l), Object.keys(r))) {
+    const v = SYNC_MACHINERY.has(k) ? l[k] : syncMerge3(b[k], l[k], r[k], [k], out);
+    if (v !== undefined) merged[k] = v;
+  }
+  return { merged, conflicts: out.conflicts };
+}
+/* Every place two copies differ, History and check stamps left out — for the
+   case with no base copy, where nothing can be merged but the reader can still
+   be told what they are choosing between. */
+function diffCellars(local, remote) {
+  const l = syncNormal(local), r = syncNormal(remote), out = [];
+  const walk = (a, b, path) => {
+    if (syncSame(a, b)) return;
+    if (path.length === 3 && syncIsObj(path[1]) && SYNC_UNLISTED.has(path[2])) return;
+    if (syncIsObj(a) && syncIsObj(b)) {
+      for (const k of syncUnion(Object.keys(a), Object.keys(b))) walk(a[k], b[k], path.concat(k));
+      return;
+    }
+    if (Array.isArray(a) && Array.isArray(b)) {
+      const ia = syncIds(a), ib = syncIds(b);
+      if (ia && ib) {
+        const A = new Map(a.map((e) => [String(e.id), e])), B = new Map(b.map((e) => [String(e.id), e]));
+        for (const id of syncUnion(ia, ib)) walk(A.get(id), B.get(id), path.concat({ id }));
+        return;
+      }
+      if (a.length === b.length) { a.forEach((_, i) => walk(a[i], b[i], path.concat(i))); return; }
+    }
+    out.push({ path, local: a, remote: b });
+  };
+  for (const k of syncUnion(Object.keys(l), Object.keys(r))) {
+    if (!SYNC_MACHINERY.has(k)) walk(l[k], r[k], [k]);
+  }
+  return out;
+}
+/* Whether two copies are the same cellar, as boot would read them. */
+function sameCellar(a, b) { return syncStable(syncNormal(a)) === syncStable(syncNormal(b)); }
+
+/* ── Naming a difference for a person ───────────────────────────────────────
+   A path is cut back to one field of one record — a wine's bottle count, an
+   opened line's tasting note — grouped where several stored fields are one
+   thing on screen (the low and high of a value, the two ends of a window), and
+   the record is named from whichever copy still has it. A short value is shown
+   only for a count or a rating; anything else just says the two differ. */
+const SYNC_FIELD = {
+  wines: { name: 'Name', vintage: 'Vintage', color: 'Colour', region: 'Region', subregion: 'Sub-region',
+    grape: 'Grape', qty: 'Bottle count', valueLow: 'Value', valueHigh: 'Value', valueEst: 'Value',
+    paid: 'Price paid', drinkFrom: 'Drinking window', drinkTo: 'Drinking window', location: 'Location',
+    source: 'Came from', added: 'Added', notes: 'Notes', photoAt: 'Label photo' },
+  opened: { wineId: 'Wine', label: 'Name', vintage: 'Vintage', region: 'Region', subregion: 'Sub-region',
+    grape: 'Grape', paid: 'Price paid', drinkFrom: 'Drinking window', drinkTo: 'Drinking window',
+    date: 'Date opened', rating: 'Rating', note: 'Tasting note', place: 'Where opened', photoAt: 'Label photo' },
+  pairings: { wineId: 'Wine', label: 'Wine', meal: 'Meal', date: 'Day', status: 'Planned or had',
+    rating: 'Rating', note: 'Note', openedId: 'Opened bottle', why: 'Claude’s reason', at: 'When picked' },
+};
+const SYNC_SETTING = { soonYears: 'Drink soon within', showFinished: 'Show wines with no bottles left' };
+function syncRecord(plans, list, id) {
+  for (const p of plans) {
+    const hit = Array.isArray(p[list]) ? p[list].find((e) => syncIsObj(e) && String(e.id) === String(id)) : null;
+    if (hit) return hit;
+  }
+  return null;
+}
+function syncRecordName(list, rec) {
+  if (!rec) return 'Something';
+  if (list === 'wines') return `Wine “${wineLabel(rec)}”`;
+  if (list === 'opened') return `Opened bottle “${rec.label}”` + (DATE_RE.test(rec.date) ? `, ${fmtDate(rec.date)}` : '');
+  if (list === 'pairings') return `Pairing “${rec.meal}”`;
+  return 'Something';
+}
+/* → [{ label, local, remote }] — one per field a reader recognises, in the
+   order found. local / remote are short phrases: a count or rating,
+   "not there", or "" (the two differ). */
+function describeChanges(changes, localState, remoteState) {
+  const plans = [syncNormal(localState), syncNormal(remoteState)];
+  const seen = new Map();
+  for (const c of changes) {
+    const p = c.path, list = p[0];
+    let key, label, field = null, rec = null;
+    if (SYNC_FIELD[list] && syncIsObj(p[1])) {
+      rec = syncRecord(plans, list, p[1].id);
+      const name = syncRecordName(list, rec);
+      if (p.length <= 2) { key = list + '|' + p[1].id; label = name; }
+      else {
+        field = String(p[2]);
+        const what = SYNC_FIELD[list][field] || 'Details';
+        key = list + '|' + p[1].id + '|' + what;
+        label = `${name} · ${what}`;
+      }
+    } else if (list === 'settings' && p.length > 1) {
+      field = String(p[1]);
+      key = 'settings|' + field;
+      label = `Settings · ${SYNC_SETTING[field] || 'Preferences'}`;
+    } else {
+      key = String(list);
+      label = list === 'settings' ? 'Settings' : 'The cellar';
+    }
+    if (seen.has(key)) continue;
+    const at = (plan) => {
+      if (rec) {
+        const r = Array.isArray(plan[list]) ? plan[list].find((e) => String(e.id) === String(p[1].id)) : undefined;
+        return field === null ? r : (r ? r[field] : undefined);
+      }
+      return list === 'settings' && field !== null ? (plan.settings || {})[field] : plan[list];
+    };
+    const say = (plan) => {
+      if (rec && !(Array.isArray(plan[list]) && plan[list].some((e) => String(e.id) === String(p[1].id)))) return 'not there';
+      const v = at(plan);
+      if (field === 'qty' && list === 'wines' && typeof v === 'number') return plural(v, 'bottle');
+      if (field === 'rating') return typeof v === 'number' ? `${v} of 5` : 'not rated';
+      if (list === 'settings' && field === 'soonYears' && typeof v === 'number') return plural(v, 'year');
+      if (list === 'settings' && field === 'showFinished') return v ? 'on' : 'off';
+      return '';
+    };
+    seen.set(key, { label, local: say(plans[0]), remote: say(plans[1]) });
+  }
+  return [...seen.values()];
+}
+window.wcMergeCellars = mergeCellars;
+window.wcDiffCellars = diffCellars;
+window.wcDescribeChanges = describeChanges;
+window.wcSameCellar = sameCellar;
+
 window.wcGet = () => state;
-window.wcCount = () => state.wines.length + state.opened.length;
+window.wcCount =() => state.wines.length + state.opened.length;
 window.wcAdopt = (incoming, updatedAt) => {
   /* The copy-from-the-future check, live edition: onSnapshot can hand a page
      running yesterday's cached code a document today's build wrote on another
@@ -10221,14 +10517,83 @@ const touchLocal = () => {
   catch (e) { /* storage blocked — the choice still holds for this session */ }
 };
 
-function chooseSyncSource(localCount, remoteCount, remoteUpdatedAt) {
+/* `opts.items` is describeChanges()' list; `opts.conflicts` says they are the
+   only things in question — everything else from both copies is already kept —
+   rather than the differences between two whole copies, one of which goes.
+   Everything is written with textContent and createElement: the names in the
+   list are the reader's own wine names. */
+const SYNC_LIST_CAP = 12;
+function chooseSyncSource(local, remote, remoteUpdatedAt, opts) {
+  opts = opts || {};
   return new Promise((resolve) => {
     const dlg = document.getElementById('syncChoiceDialog');
     const body = document.getElementById('syncChoiceBody');
-    const when = remoteUpdatedAt ? new Date(remoteUpdatedAt).toLocaleString() : 'an earlier sign-in';
-    body.textContent = `This device has ${localCount} record${localCount === 1 ? '' : 's'} (wines and opened bottles) saved locally. Your Google account already has ${remoteCount} (last updated ${when}). Pick which to keep — the other copy will be replaced.`;
+    const items = opts.items || [];
+    const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
+    const at = (t) => (t ? new Date(t).toLocaleString() : 'not known');
+    const localAt = Number(opts.localAt) || 0, remoteAt = Number(remoteUpdatedAt) || 0;
+    if (opts.conflicts) {
+      body.textContent = `Both copies changed the same ${items.length === 1 ? 'thing' : 'things'} since they last `
+        + `synced. Everything else either copy changed is kept. For the ${plural(items.length, 'item')} `
+        + `below, pick which version to keep.`;
+    } else {
+      const count = (s) => {
+        const n = (k) => (s && Array.isArray(s[k]) ? s[k].length : 0);
+        return `${plural(n('wines'), 'wine')}, ${plural(n('opened'), 'opened bottle')} and ${plural(n('pairings'), 'pairing')}`;
+      };
+      const l = count(local), r = count(remote);
+      const counts = l === r
+        ? `Both copies hold ${l}, but what is inside them differs.`
+        : `This device has ${l}; your Google account has ${r}.`;
+      body.textContent = `${counts} Pick which copy to keep — the other copy will be replaced, `
+        + `so anything listed below as only in the other copy will be lost.`;
+    }
+    const times = document.getElementById('syncChoiceTimes');
+    times.textContent = '';
+    const newer = localAt && remoteAt && localAt !== remoteAt ? (localAt > remoteAt ? 'local' : 'remote') : '';
+    [['This device', `last saved ${at(localAt)}`, 'local'],
+     ['Google', `last saved ${at(remoteAt)}`, 'remote']].forEach(([who, when, side]) => {
+      const dt = document.createElement('dt'), dd = document.createElement('dd');
+      dt.textContent = who;
+      dd.textContent = when + (newer === side ? ' — the newer save' : '');
+      times.append(dt, dd);
+    });
+    const head = document.getElementById('syncChoiceListHead');
+    const list = document.getElementById('syncChoiceList');
+    list.textContent = '';
+    head.hidden = list.hidden = !items.length;
+    head.textContent = opts.conflicts
+      ? `Changed in both (${items.length})`
+      : `What’s different (${items.length})`;
+    items.slice(0, SYNC_LIST_CAP).forEach((it) => {
+      const li = document.createElement('li');
+      li.append(document.createTextNode(it.label));
+      const say = (v) => (v === 'not there' ? (opts.conflicts ? 'deleted' : 'not there') : v);
+      let lv = say(it.local), rv = say(it.remote);
+      /* Deleted on one side and still there on the other: in a conflict the
+         one still there is the side that EDITED it. */
+      if (opts.conflicts && lv === 'deleted' && !rv) rv = 'edited';
+      if (opts.conflicts && rv === 'deleted' && !lv) lv = 'edited';
+      const vals = document.createElement('span');
+      vals.className = 'sync-vals';
+      /* A whole record in one copy only: say which, not "different". */
+      const only = !opts.conflicts && lv === 'not there' && !rv ? ' — only in Google'
+        : !opts.conflicts && rv === 'not there' && !lv ? ' — only on this device' : '';
+      vals.textContent = only || (lv || rv
+        ? ` — this device: ${lv || 'different'}; Google: ${rv || 'different'}`
+        : ' — different in each copy');
+      li.append(vals);
+      list.append(li);
+    });
+    if (items.length > SYNC_LIST_CAP) {
+      const li = document.createElement('li');
+      li.textContent = `…and ${items.length - SYNC_LIST_CAP} more`;
+      list.append(li);
+    }
     const deviceBtn = document.getElementById('syncKeepDeviceBtn');
     const googleBtn = document.getElementById('syncKeepGoogleBtn');
+    deviceBtn.textContent = opts.conflicts ? 'Keep This Device’s Version' : 'Keep This Device\'s';
+    googleBtn.textContent = opts.conflicts ? 'Keep Google’s Version' : 'Keep the Google One';
     const preventCancel = (e) => e.preventDefault();
     function finish(keepGoogle) {
       deviceBtn.removeEventListener('click', onDevice);
@@ -10249,6 +10614,98 @@ function chooseSyncSource(localCount, remoteCount, remoteUpdatedAt) {
 const recordCount = (data) => (data && data.state && Array.isArray(data.state.wines))
   ? data.state.wines.length + (Array.isArray(data.state.opened) ? data.state.opened.length : 0) : 0;
 
+/* The one road into wcAdopt — a copy from another device, or the two copies
+   combined — so a test can pin that there is exactly one. */
+function adoptInto(st, ts) { window.wcAdopt(st, ts); }
+/* ── The base copy: what makes "keep both" possible (2026-10-29) ────────────
+   The engine remembers only the TAG of the copy this device last took or wrote.
+   This is that copy's CONTENT (the cloud document's `state`, which is forCloud's
+   plain copy of the cellar — photos are never in it), kept beside it so two
+   changed copies can be compared field by field against where they both started
+   (mergeCellars, in the classic script). Stored with its own tag and used only
+   while that tag is still the engine's base — a stale or foreign copy is no base
+   at all, and the question falls back to the whole-copy choice. Recorded at the
+   moments the base is set: a copy adopted, a copy written, a merge settled, and
+   a copy read that turns out to BE the base (so a device already in step gains
+   one without an edit). Delete All Data removes it. */
+const BASE_COPY_KEY = 'wine-cloud-base-copy';
+function rememberBase(doc) {
+  if (!user || !doc || !doc.state || typeof doc.state !== 'object') return;
+  const rev = Number(doc.rev) || 0, at = Number(doc.updatedAt) || 0;
+  try {
+    const had = JSON.parse(localStorage.getItem(BASE_COPY_KEY) || 'null');
+    if (had && had.uid === user.uid && had.rev === rev && had.at === at) return;
+    localStorage.setItem(BASE_COPY_KEY, JSON.stringify({ uid: user.uid, rev, at, json: JSON.stringify(doc.state) }));
+  } catch (e) { /* full or blocked — the whole-copy question still works */ }
+}
+function engineBase() {
+  try {
+    const b = JSON.parse(localStorage.getItem('wine-cloud-base') || 'null');
+    return b && user && b.uid === user.uid ? { rev: Number(b.rev) || 0, at: Number(b.at) || 0 } : null;
+  } catch (e) { return null; }
+}
+function rememberIfBase(doc) {
+  if (doc && sameTag(engineBase(), cloudTag(doc))) rememberBase(doc);
+}
+function baseCopy() {
+  try {
+    const c = JSON.parse(localStorage.getItem(BASE_COPY_KEY) || 'null');
+    const b = engineBase();
+    if (!c || !b || c.uid !== user.uid || c.rev !== b.rev || c.at !== b.at) return null;
+    const st = JSON.parse(c.json);
+    return st && typeof st === 'object' && Array.isArray(st.wines) ? st : null;
+  } catch (e) { return null; }
+}
+/* What the engine's `ask` hook answers. true = take Google's copy as it is;
+   false = keep this device's — which, after a merge, IS the merged cellar,
+   already adopted here, so the engine's keep() pushes it through its usual
+   transaction. An empty copy on either side never merges: emptiness is not an
+   edit to fold in, and "an empty copy never silently beats one with data"
+   outranks this. */
+let keptNews = '';
+async function settleTwoCopies(d) {
+  const local = window.wcGet(), remote = d && d.state, at = d && d.updatedAt;
+  const localAt = localTs();
+  const has = (s) => !!(s && ((Array.isArray(s.wines) ? s.wines.length : 0) + (Array.isArray(s.opened) ? s.opened.length : 0)));
+  const full = has(local) && has(remote);
+  const base = full ? baseCopy() : null;
+  const take = (merged, said) => {
+    if (!window.wcSameCellar(merged, local)) adoptInto(merged, Date.now());
+    /* The cloud copy is everything the merged cellar grew from, so it is the
+       right base for the next comparison — keep() makes it the engine's base too. */
+    rememberBase(d);
+    keptNews = said;
+    return false;
+  };
+  if (full && base) {
+    const m = window.wcMergeCellars(base, local, remote, 'local');
+    if (m && !m.conflicts.length) {
+      return take(m.merged, window.wcSameCellar(m.merged, local) ? 'quiet' : 'merged');
+    }
+    if (m) {
+      const items = window.wcDescribeChanges(m.conflicts, local, remote);
+      const keepGoogle = await chooseSyncSource(local, remote, at, { conflicts: true, items, localAt });
+      const m2 = window.wcMergeCellars(base, local, remote, keepGoogle ? 'remote' : 'local');
+      return take(m2.merged, keepGoogle ? 'merged-google' : 'merged-device');
+    }
+  }
+  /* A copy from a NEWER build is never read into anything here — wcAdopt's
+     halt has to see it untouched (mergeCellars answers null for exactly that). */
+  if (full && window.wcMergeCellars(local, local, remote, 'local')) {
+    const diffs = window.wcDiffCellars(local, remote);
+    /* Nothing differs but History and check stamps: nothing to choose between. */
+    if (!diffs.length) {
+      const m = window.wcMergeCellars(local, local, remote, 'local');
+      if (m) return take(m.merged, 'quiet');
+    }
+    const items = window.wcDescribeChanges(diffs, local, remote);
+    return chooseSyncSource(local, remote, at, { items, localAt });
+  }
+  return chooseSyncSource(local, remote, at, { localAt });
+}
+/* For tests.html: the window can be drawn without a sign-in. It only shows. */
+window.__wcSyncHooks = { chooseSyncSource };
+
 /* The engine — makeCloudSync in the classic script (Golf Handicap's, verbatim),
    where tests.html drives it with a fake cloud. This is everything it needs
    from Firebase and the page. */
@@ -10259,26 +10716,42 @@ const cloud = makeCloudSync({
   setItem: (k, v) => { try { localStorage.setItem(k, v); } catch (e) { /* blocked */ } },
   stamp: localTs,
   touch: () => touchLocal(),
-  read: async () => { const snap = await F.getDoc(docRef()); return snap.exists() ? snap.data() : null; },
+  read: async () => {
+    const snap = await F.getDoc(docRef());
+    const d = snap.exists() ? snap.data() : null;
+    rememberIfBase(d);
+    return d;
+  },
   transact: (decide) => F.runTransaction(db, async (tx) => {
     const snap = await tx.get(docRef());
     const out = decide(snap.exists() ? snap.data() : null);
     if (out.write) tx.set(docRef(), out.write);
     return out;
-  }),
+  }).then((out) => { if (out.write) rememberBase(out.write); return out; }),
   localDoc: () => ({ state: forCloud(window.wcGet()) }),
   localCount: () => window.wcCount(),
   remoteCount: recordCount,
   valid: (d) => !!(d && d.state && Array.isArray(d.state.wines)),
   firstSync: () => localStorage.getItem(LEGACY_SYNC_UID) !== user.uid,
-  adopt: (d) => window.wcAdopt(d.state, d.updatedAt),
-  ask: (localN, remoteN, at) => chooseSyncSource(localN, remoteN, at),
+  adopt: (d) => { adoptInto(d.state, d.updatedAt); rememberBase(d); },
+  ask: (localN, remoteN, at, d) => settleTwoCopies(d),
   /* Clearing everything really is something people do, so an emptied cloud
      over a device with a cellar asks rather than refusing — but it asks. */
   askEmptied: () => confirm('Another device has cleared its whole cellar.\n\n'
     + 'Clear this device too? Cancel keeps what’s on this device and restores it to your other devices.'),
-  toast: (k) => window.toast({ loaded: 'Loaded your cellar from the cloud ☁️', synced: 'Synced from another device ☁️',
-    kept: 'Kept this device’s cellar' }[k]),
+  /* A 'kept' after settleTwoCopies merged is not "kept this device's cellar" —
+     keptNews says what really happened, and 'quiet' (only History or check
+     stamps differed) says nothing at all. */
+  toast: (k) => {
+    const how = k === 'kept' ? keptNews : '';
+    keptNews = '';
+    if (how === 'quiet') return;
+    window.toast(how === 'merged' ? 'Combined changes from both devices ☁️'
+      : how === 'merged-device' ? 'Kept both devices’ changes — this device’s version where they clashed ☁️'
+      : how === 'merged-google' ? 'Kept both devices’ changes — Google’s version where they clashed ☁️'
+      : { loaded: 'Loaded your cellar from the cloud ☁️', synced: 'Synced from another device ☁️',
+          kept: 'Kept this device’s cellar' }[k]);
+  },
 });
 
 let starting = null;
@@ -10367,6 +10840,7 @@ function listen() {
     // A document with no state object is half-written or foreign, never an
     // intentional "delete everything" — adopting it would clear this device.
     if (!r || !r.state || !Array.isArray(r.state.wines)) return;
+    rememberIfBase(r);
     // The engine compares it with the copy this device last took or wrote, and
     // takes it, ignores it, or asks — never by comparing two clocks.
     Promise.resolve(cloud.snapshot(r)).catch(setSyncError);

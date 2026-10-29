@@ -9,7 +9,7 @@ the family doesn't.
 
 - **Dev port 8025** — in both `.claude/launch.json` and `~/.claude/launch.json`.
 - Storage keys `wine-state`, `wine-theme`, `wine-tab`, `wine-folded`, `wine-updated`, `wine-sync-live`,
-  `wine-sync-uid`; service-worker cache prefix `wine-shell-`.
+  `wine-sync-uid`, `wine-cloud-base`, `wine-cloud-sent`, `wine-cloud-base-copy`; service-worker cache prefix `wine-shell-`.
 - State is `{ version, wines[], opened[], pairings[], settings }`. `normalizeState()` is the allowlist:
   **a new stored field goes there and SCHEMA is bumped in the same commit**, or it is
   stripped. Tests pin the exact key lists of a wine and an opened bottle.
@@ -307,6 +307,34 @@ the family doesn't.
   Golf's `runSyncSim` verbatim. Golf's CLAUDE.md has the full note. Photos still `setDoc` their
   own small docs — they are keyed per record and re-sent from the unsent list. The CSP's external hosts are exactly Golf's
   list, and a test pins them.
+- **Two changed copies are MERGED, not chosen between (2026-10-29, Money Map's e73c28b,
+  ported).** Nearly every press saves, so both devices were "changed" far more often than either
+  had work the other lacked, and the whole-copy choice threw one side's edits away. Now:
+  - **`wine-cloud-base-copy`** (`{uid, rev, at, json}`, json = the doc's `state`) is the CONTENT of
+    the engine's base, recorded in the module's io hooks only — `adopt`, a successful `transact`
+    write (`.then`), a `read`/snapshot whose tag IS the base, and a settled merge (`take()`
+    records the cloud copy it merged, which keep() then makes the engine's base). The engine is
+    untouched, byte for byte. `baseCopy()` returns it only while its tag equals `wine-cloud-base`.
+    Delete All Data removes it.
+  - **`settleTwoCopies`** is the `ask` hook. Data on both sides + a base → `mergeCellars(base,
+    local, remote, prefer)` (classic script, pure, pinned): wines, opened lines and pairings
+    merge BY ID, field by field; a one-side change is kept; a delete lands unless the other side
+    edited the record (then a conflict). **Never a conflict:** `version`; a record's `log`
+    (union, time order, LOG_CAP); `checkedAt`/`photoAt` (the later wins — the same rule
+    `loadPhoto` fetches by, so a photo kept only here is never orphaned); and a wine's `qty`,
+    which is a COUNT — both moves land (`syncMergeCount`), so an Opened One on each device takes
+    two bottles off. No conflicts → adopted through `adoptInto` (the ONE `wcAdopt` call in the
+    module) and keep() pushes; toast "Combined changes from both devices". Conflicts → the
+    dialog lists only those (`describeChanges`: `Wine “NV Name” · Bottle count`, `Opened bottle
+    “…”, date · Tasting note`, `Pairing “meal” · Day`; a value only for a count or a rating).
+    No base → the old whole-copy choice, listing `diffCellars` (History and check stamps left
+    out) and both save times; silent when nothing else differs. An empty copy never merges; a
+    NEWER-build copy is never merged (`mergeCellars` → null) so `wcAdopt`'s halt sees it.
+  - `syncNormal` = `normalizeState` round-tripped, so a filled-in default is never a change.
+    `forCloud` is a plain JSON copy (it strips only `undefined`); photos were never in `state`,
+    so the merge compares like with like. There is no view state in `state` — tab, folds, sort,
+    the lookup key are their own keys and never sync — so nothing is "this device's own".
+  - The dialog's device time is `wine-updated`, which any save moves — it says "last saved".
 - **Paste reads by header NAME when there is a header row** (`headerMap`), else positionally
   as Claude's lookup table (wine, value, window). The separator is decided ONCE from the first
   line — a comma inside Claude's value cell must not turn its space-aligned table into a CSV.
@@ -525,6 +553,6 @@ was a one-line version of the cellar rule.
 
 ## Tests
 
-`tests.html`, `EXPECTED = 330`. Run it headless (Playwright) rather than in the Browser pane:
+`tests.html`, `EXPECTED = 338`. Run it headless (Playwright) rather than in the Browser pane:
 the pane throttles hidden timers and its focus heuristics turn the 705px keyboard-focus check
 red on untouched code.

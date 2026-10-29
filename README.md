@@ -403,10 +403,23 @@ the family learned the hard way: the first sign-in with data on both sides **ask
 to keep, and an empty copy never overwrites one with data in it. **An edit made offline never
 overwrites a newer copy from another device** (2026-10-26): every save carries a version number
 that goes up by one, a save is sent only if the cloud is still the version this device last saw,
-and if another device saved in between you are asked which copy to keep. An offline edit waits
-on this device and goes up, through the same check, when the connection comes back. Device
-clocks no longer decide anything. Nothing from Google is
+and if another device saved in between the two are **combined** (2026-10-29) rather than one
+replacing the other. An offline edit waits on this device and goes up, through the same check,
+when the connection comes back. Device clocks no longer decide anything. Nothing from Google is
 fetched until you reach for the sync button (or were already signed in on this device).
+
+**When both devices changed the cellar, both sets of changes are kept.** Each device remembers
+the copy it last synced, so it can tell what each side actually changed since then: a wine
+renamed on the phone and a tasting note typed on the laptop both survive, a pairing planned on
+one and a bottle moved to a new rack on the other both arrive. A wine's History is joined from
+both, and a bottle opened on each device takes two off the count, not one. You are only asked
+about something **both** devices changed to different values — the window names each one (for
+example "Opened bottle “2019 Example Ridge Pinot Noir”, 24 Oct 2026 · Rating — this device: 3 of 5;
+Google: 4 of 5") and your choice settles just those; everything else is kept either way. When a
+device has no remembered copy to compare against (the first sign-in on it, or the first sync
+after this update), the window falls back to choosing a whole copy, but it now shows when each
+copy was last saved, marks the newer one, and lists what is different. The remembered copy stays
+in this browser and is removed by Delete All Data.
 
 Firebase project **`winecellar-fa733`** (free Spark plan). Set up 2026-10-23:
 
@@ -456,7 +469,7 @@ characters, opened-bottle notes too.
 python3 -m http.server 8025
 ```
 
-Open `http://localhost:8025/` for the app and `/tests.html` for the suite (330 tests; the
+Open `http://localhost:8025/` for the app and `/tests.html` for the suite (338 tests; the
 `EXPECTED` floor in the file fails the run if any go missing). CI runs the same page headless
 on every push, plus CodeQL.
 

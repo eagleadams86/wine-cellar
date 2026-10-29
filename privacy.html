@@ -117,7 +117,10 @@ footer { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; }
       its own document beside your cellar), and Firebase Authentication
       records your Google account's email address and display name. Security rules confine
       every account to its own document — no other signed-in user can read yours. This only
-      ever happens if you sign in; the app never does it on its own.</p>
+      ever happens if you sign in; the app never does it on its own. Signed in, your browser
+      also keeps the copy it last synced, beside your cellar, so changes made on two devices can
+      be combined rather than one replacing the other — it never leaves your browser, and
+      “Delete All Data” deletes it too.</p>
     </div>
     <div class="card">
       <p><strong>Look Up with Claude (optional, off until you add your own key).</strong> If you put

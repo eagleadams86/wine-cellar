@@ -51,7 +51,7 @@
    go MISSING look exactly like tests that pass — a suite that quietly shrank to
    three checks still says "all 3 tests pass". RAISE THIS when you add tests, and
    lower it only when you retire one deliberately. */
-const EXPECTED = 330;
+const EXPECTED = 338;
 
 /* ── It refuses to run anywhere but localhost, and that is load-bearing ──────
    GitHub Pages publishes this page BESIDE the app, where the iframe below would
@@ -5371,6 +5371,122 @@ function define() {
     ok(/const COLLECTION = 'winecellar';/.test(src), 'one collection, matching firestore.rules');
   });
 
+
+  group('Keeping both devices’ changes (2026-10-29)');
+  /* Two changed copies used to be a whole-copy choice, and nearly every press
+     counts as a change — so one device's real work was routinely thrown away.
+     Now each device keeps the copy it last synced and the two are compared field
+     by field against it; only a thing BOTH changed is asked about. Synthetic
+     edits on the invented sample cellar, never real bottles. */
+  const mSample = () => JSON.parse(JSON.stringify(H.normalizeState(H.sampleData())));
+  const mRec = (s, list, id) => s[list].find((x) => x.id === id);
+  t('separate edits on each device are both kept, with no question', () => {
+    const base = mSample(), L = mSample(), R = mSample();
+    mRec(L, 'wines', 'demo-ready').name = 'Renamed Here';
+    mRec(L, 'opened', 'demo-o4').note = 'Typed on this device.';
+    mRec(R, 'wines', 'demo-hold').location = 'Rack B';
+    R.pairings.push({ id: 'px-new', wineId: 'demo-hold', label: 'x', meal: 'Test Supper', date: '',
+      status: 'planned', rating: null, note: '', openedId: null, why: '', at: null, log: [] });
+    const m = W.mergeCellars(base, L, R, 'local');
+    eq(m.conflicts, []);
+    eq([mRec(m.merged, 'wines', 'demo-ready').name, mRec(m.merged, 'wines', 'demo-hold').location,
+        mRec(m.merged, 'opened', 'demo-o4').note], ['Renamed Here', 'Rack B', 'Typed on this device.']);
+    ok(m.merged.pairings.some((x) => x.id === 'px-new'), 'the pairing planned on the other device arrives');
+    ok(!W.sameCellar(m.merged, L) && !W.sameCellar(m.merged, R), 'and the result is neither copy alone');
+  });
+  t('a field both changed is ONE conflict, named with both ratings, and the choice decides only it', () => {
+    const base = mSample(), L = mSample(), R = mSample();
+    mRec(L, 'opened', 'demo-o4').rating = 3;
+    mRec(R, 'opened', 'demo-o4').rating = 4;
+    mRec(R, 'opened', 'demo-o4').place = 'Elsewhere';
+    const m = W.mergeCellars(base, L, R, 'local'), g = W.mergeCellars(base, L, R, 'remote');
+    eq(m.conflicts.length, 1);
+    eq([mRec(m.merged, 'opened', 'demo-o4').rating, mRec(g.merged, 'opened', 'demo-o4').rating], [3, 4]);
+    eq([mRec(m.merged, 'opened', 'demo-o4').place, mRec(g.merged, 'opened', 'demo-o4').place],
+       ['Elsewhere', 'Elsewhere'], 'the other device’s unclashing edit is kept either way');
+    const d = W.describeChanges(m.conflicts, L, R);
+    eq(d.length, 1);
+    ok(/^Opened bottle “.+”, .+ · Rating$/.test(d[0].label), 'the line, its date and the field', d[0].label);
+    eq([d[0].local, d[0].remote], ['3 of 5', '4 of 5']);
+  });
+  t('records match by id: a delete on one side lands; a delete against an edit is asked', () => {
+    const base = mSample(), L = mSample(), R = mSample();
+    L.wines = L.wines.filter((w) => w.id !== 'demo-none');
+    let m = W.mergeCellars(base, L, R, 'local');
+    eq([m.conflicts.length, m.merged.wines.some((w) => w.id === 'demo-none')], [0, false]);
+    mRec(R, 'wines', 'demo-none').notes = 'Edited there.';
+    m = W.mergeCellars(base, L, R, 'local');
+    eq(m.conflicts.length, 1);
+    const d = W.describeChanges(m.conflicts, L, R)[0];
+    ok(/^Wine “\d{4} Mystery Bottle From a Friend”$/.test(d.label), 'named from the copy that still has it', d.label);
+    eq([d.local, d.remote], ['not there', '']);
+    ok(W.mergeCellars(base, L, R, 'remote').merged.wines.some((w) => w.notes === 'Edited there.'));
+  });
+  t('History, check stamps and photo stamps never clash; a bottle count takes both moves', () => {
+    const base = mSample(), L = mSample(), R = mSample();
+    const lw = mRec(L, 'wines', 'demo-ready'), rw = mRec(R, 'wines', 'demo-ready');
+    const n = mRec(base, 'wines', 'demo-ready').log.length;
+    lw.log.push({ at: '2026-01-02T10:00:00Z', k: 'edit' });
+    rw.log.push({ at: '2026-01-03T10:00:00Z', k: 'check' });
+    lw.checkedAt = '2026-01-02T10:00:00Z'; rw.checkedAt = '2026-01-03T10:00:00Z';
+    lw.photoAt = '2026-01-04T10:00:00Z'; rw.photoAt = '2026-01-01T10:00:00Z';
+    eq(W.diffCellars(L, R).map((c) => c.path[2]), ['photoAt'], 'only the photo is a difference to list');
+    lw.qty = 2; rw.qty = 2;
+    const m = W.mergeCellars(base, L, R, 'local'), w = mRec(m.merged, 'wines', 'demo-ready');
+    eq(m.conflicts, []);
+    eq(w.log.length, Math.min(n + 2, H.LOG_CAP), 'both History entries kept');
+    eq([w.checkedAt, w.photoAt], ['2026-01-03T10:00:00Z', '2026-01-04T10:00:00Z'], 'the later stamp wins');
+    eq(w.qty, 1, 'a bottle opened on each device leaves one of three, not two');
+  });
+  t('a copy from a NEWER build is never merged', () => {
+    const R = mSample();
+    R.version = H.SCHEMA + 1;
+    eq(W.mergeCellars(mSample(), mSample(), R, 'local'), null);
+  });
+  t('with no base the whole copies are diffed, and the window shows both times and the list', async () => {
+    const L = mSample(), R = mSample();
+    mRec(L, 'wines', 'demo-hold').qty = 5;
+    const items = W.describeChanges(W.diffCellars(L, R), L, R);
+    eq(items.length, 1);
+    ok(/^Wine “.+Sample Estate Cabernet Sauvignon” · Bottle count$/.test(items[0].label), 'in the app’s own words', items[0].label);
+    const p = W.__wcSyncHooks.chooseSyncSource(L, R, 2000, { items, localAt: 1000 });
+    const doc = W.document;
+    const times = doc.getElementById('syncChoiceTimes').textContent;
+    ok(/This device/.test(times) && /Google/.test(times), 'both copies dated', times);
+    ok(/the newer save/.test(times.split('Google')[1]) && !/the newer save/.test(times.split('Google')[0]),
+       'Google’s, and only Google’s, is marked newer', times);
+    eq(doc.querySelectorAll('#syncChoiceList li').length, 1);
+    ok(doc.getElementById('syncChoiceList').textContent.includes('this device: 5 bottles; Google: 6 bottles'));
+    eq(doc.getElementById('syncKeepDeviceBtn').textContent, 'Keep This Device\'s');
+    doc.getElementById('syncKeepDeviceBtn').click();
+    eq(await p, false, 'Keep This Device answers false');
+  });
+  t('in conflict mode the list is capped at 12 and the buttons say Version', async () => {
+    const items = Array.from({ length: 15 }, (_, i) => ({ label: 'Wine “Test ' + i + '” · Notes', local: '', remote: '' }));
+    const p = W.__wcSyncHooks.chooseSyncSource(mSample(), mSample(), 0, { items, conflicts: true, localAt: 0 });
+    const doc = W.document;
+    const lis = [...doc.querySelectorAll('#syncChoiceList li')].map((li) => li.textContent);
+    eq(lis.length, 13);
+    eq(lis[12], '…and 3 more');
+    eq(lis[0], 'Wine “Test 0” · Notes — different in each copy');
+    eq([doc.getElementById('syncKeepDeviceBtn').textContent, doc.getElementById('syncKeepGoogleBtn').textContent],
+       ['Keep This Device’s Version', 'Keep Google’s Version']);
+    ok(!/the newer save/.test(doc.getElementById('syncChoiceTimes').textContent), 'no time, no "newer"');
+    doc.getElementById('syncKeepGoogleBtn').click();
+    eq(await p, true);
+  });
+  t('the sync module merges only from a base copy that IS the engine’s base, and never merges an empty copy', () => {
+    const mod = APP_SRC.slice(APP_SRC.indexOf('<script type="module">'));
+    ok(/c\.rev !== b\.rev \|\| c\.at !== b\.at/.test(mod), 'the base copy is checked against the engine tag');
+    ok(mod.includes('const full = has(local) && has(remote);'), 'empty never merges');
+    ok(/\}\)\.then\(\(out\) => \{ if \(out\.write\) rememberBase\(out\.write\);/.test(mod), 'a written copy becomes the base copy');
+    ok(mod.includes('ask: (localN, remoteN, at, d) => settleTwoCopies(d),'), 'the engine asks through the merge');
+    ok(mod.includes('adopt: (d) => { adoptInto(d.state, d.updatedAt); rememberBase(d); },'), 'an adopted copy becomes the base copy');
+    eq((mod.match(/window\.wcAdopt\(/g) || []).length, 1, 'one road into wcAdopt');
+    const clear = (APP_SRC.match(/\$\('clearConfirm'\)\.addEventListener[\s\S]*?\n\}\);/) || [''])[0];
+    ok(clear.includes("localStorage.removeItem('wine-cloud-base-copy')"), 'Delete All Data deletes it');
+    ok(/keeps the copy it last synced/.test(PRIVACY_SRC), 'and privacy.html says so');
+  });
   group('the info dot and the help window');
   t('the dot is the family circle, declared property by property', () => {
     ok(/\.tile-help \{[^}]*width: 16px; height: 16px; min-height: 0;/.test(APP_SRC),
