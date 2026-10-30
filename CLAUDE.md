@@ -40,7 +40,7 @@ the family doesn't.
   payload's opened map now carries the line's own snapshot (region, grape, vintage, window; place
   with the notes; paid when ticked), because a logged bottle has no wine to backfill from.
 - **`#openDialog` has three modes** (`dressOpenDialog`): Opened One (`drinkingId`, wine boxes
-  hidden, copies the wine), Edit (`editingBottleId`, every box) and Log a Bottle (`loggingBottle`,
+  hidden, copies the wine), Edit (`editingBottleId`, every box) and Log Bottle (`loggingBottle`,
   `wineId: null`, no count). Edit and Log rebuild `label` from the name + vintage boxes. **A line
   edit never touches a Cellar wine** (Charles, 2026-10-24). Its Look Up (`obLookupBtn`) reuses
   `lookupWine`/`readLookup`, fills only empty region/grape/window boxes and offers Claude's for the rest.
@@ -174,7 +174,7 @@ the family doesn't.
   soonest first — it stands in for the removed Drinking Windows chart) and Where It Is (`location`,
   case-blind). Six fills 3-across and 2-across evenly; keep the count divisible by 6 or re-check.
   `MAKE_TABLES[f][3]` is what a left-out bottle lacks, for the warn line and the empty table.
-- **Pair a Meal + the Pairings tab (SCHEMA 15, 2026-10-26, a friend of Charles's idea).**
+- **Pair Meal + the Pairings tab (SCHEMA 15, 2026-10-26, a friend of Charles's idea).**
   `buildPairRequest` is pure and pinned: Opus 5.5 effort `low` (Charles chose it over Sonnet),
   ONE strict tool `recommend_wines`, **no web search and no `cache_control`** (a cache write costs
   1.25× and a dinner question is almost never followed by another inside 5 minutes — don't "fix"
@@ -267,7 +267,7 @@ the family doesn't.
   to be tracking changes to the opened bottles"). `o.log`, same `cleanLog` allowlist; `LINE_FIELDS`
   + `diffLine` are the line's version of LOG_FIELDS/diffFields, adding codes `opened` (date),
   `rating`, `place`; `ALL_LOG_FIELDS` feeds `LOG_LABEL` and the Field filter. Writers: the line's
-  window Save (`edit`, only when something changed) and Log a Bottle (`open`); Opened One logs on
+  window Save (`edit`, only when something changed) and Log Bottle (`open`); Opened One logs on
   the WINE only (no duplicate row). `coreOf` nulls line logs; `undoLast` carries them forward
   (capture `wasLine` BEFORE `state` is replaced — reading it after wiped every line's log) and a
   line made by Opened One this sitting has NO log yet, so `(before.log || [])`. History rows for a

@@ -845,7 +845,7 @@
   .likeview button[aria-pressed="true"] { background: var(--btn-bg); border-color: var(--btn-bg);
                                           color: var(--btn-text); font-weight: var(--fw-semibold); }
   #wineDialog, #pasteDialog, #checkDialog, #pairDialog { max-width: 700px; }
-  /* Pair a Meal's picks: the heading over them, and Plan for Later's row. */
+  /* Pair Meal's picks: the heading over them, and Plan for Later's row. */
   .pairhead { font-size: var(--fs-base); margin: var(--sp-4) 0 6px; }
   .pairpick .pairacts { margin-top: 6px; justify-content: flex-start; }
   .pairplan { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 6px 12px; margin-top: 6px; }
@@ -1813,7 +1813,7 @@ html[data-booting] footer { visibility: hidden; }
       <div class="row-actions no-print top-actions" id="cellarTop">
         <button type="button" class="primary" id="addBtn">＋ Add Wine</button>
         <button type="button" id="checkBtn"><span aria-hidden="true">✦</span> Check Wines</button>
-        <button type="button" id="pairBtn"><span aria-hidden="true">✦</span> Pair a Meal</button>
+        <button type="button" id="pairBtn"><span aria-hidden="true">✦</span> Pair Meal</button>
         <button type="button" id="sampleBtn">Load Sample Data</button>
       </div>
 
@@ -1853,7 +1853,7 @@ html[data-booting] footer { visibility: hidden; }
       <div class="row-actions no-print foot-actions" id="cellarFoot" hidden>
         <button type="button" class="primary" data-same="addBtn">＋ Add Wine</button>
         <button type="button" data-same="checkBtn"><span aria-hidden="true">✦</span> Check Wines</button>
-        <button type="button" data-same="pairBtn"><span aria-hidden="true">✦</span> Pair a Meal</button>
+        <button type="button" data-same="pairBtn"><span aria-hidden="true">✦</span> Pair Meal</button>
       </div>
     </div>
 
@@ -1910,10 +1910,10 @@ html[data-booting] footer { visibility: hidden; }
       </h2>
       <p class="chart-title">Every bottle you have opened, newest first, with your rating and a note.
         Open a wine on the Cellar tab and press <strong>Opened One</strong> to add to it, press
-        <strong>Log a Bottle</strong> for one opened at dinner, a winery or a tasting, and press a line
+        <strong>Log Bottle</strong> for one opened at dinner, a winery or a tasting, and press a line
         here to change anything on it.</p>
       <div class="row-actions no-print top-actions" id="openedTop">
-        <button type="button" class="primary" id="logBtn">＋ Log a Bottle</button>
+        <button type="button" class="primary" id="logBtn">＋ Log Bottle</button>
       </div>
       <!-- Find, in the list — the Cellar's own. In the markup, never redrawn,
            or the caret is lost. -->
@@ -1943,7 +1943,7 @@ html[data-booting] footer { visibility: hidden; }
       </div>
       <div class="table-scroll" id="openedWrap"></div>
       <div class="row-actions no-print foot-actions" id="openedFoot" hidden>
-        <button type="button" class="primary" data-same="logBtn">＋ Log a Bottle</button>
+        <button type="button" class="primary" data-same="logBtn">＋ Log Bottle</button>
       </div>
     </div>
   </div>
@@ -1951,7 +1951,7 @@ html[data-booting] footer { visibility: hidden; }
   <!-- ── Pairings (Charles, 2026-10-26) ────────────────────────────────────
        Every meal and the bottle for it: planned for later, or had — with the
        pairing's own rating and note (how the wine went with the food). Pair a
-       Meal asks Claude; Add a Pairing notes one yourself. -->
+       Meal asks Claude; Add Pairing notes one yourself. -->
   <div id="pairingsPanel" role="tabpanel" aria-labelledby="tab-pairings" hidden>
     <!-- The Pairings tab's dashboard (Charles, 2026-10-26): worked out from the
          WHOLE list by computePairings — the list's Find never reaches it — and
@@ -1992,11 +1992,11 @@ html[data-booting] footer { visibility: hidden; }
         </span>
       </h2>
       <p class="chart-title">Meals and the bottles for them — planned ones first, soonest first, then the ones
-        you have had. Press <strong>Pair a Meal</strong> to have Claude pick from your cellar, and press a line
+        you have had. Press <strong>Pair Meal</strong> to have Claude pick from your cellar, and press a line
         to rate how the pairing went.</p>
       <div class="row-actions no-print top-actions" id="pairingTop">
-        <button type="button" class="primary" id="pairTabBtn"><span aria-hidden="true">✦</span> Pair a Meal</button>
-        <button type="button" id="pairingAdd">＋ Add a Pairing</button>
+        <button type="button" class="primary" id="pairTabBtn"><span aria-hidden="true">✦</span> Pair Meal</button>
+        <button type="button" id="pairingAdd">＋ Add Pairing</button>
       </div>
       <div class="filterbar no-print">
         <div class="field" style="flex:1 1 220px">
@@ -2023,8 +2023,8 @@ html[data-booting] footer { visibility: hidden; }
       </div>
       <div class="table-scroll" id="pairingWrap"></div>
       <div class="row-actions no-print foot-actions" id="pairingFoot" hidden>
-        <button type="button" class="primary" data-same="pairTabBtn"><span aria-hidden="true">✦</span> Pair a Meal</button>
-        <button type="button" data-same="pairingAdd">＋ Add a Pairing</button>
+        <button type="button" class="primary" data-same="pairTabBtn"><span aria-hidden="true">✦</span> Pair Meal</button>
+        <button type="button" data-same="pairingAdd">＋ Add Pairing</button>
       </div>
     </div>
   </div>
@@ -2464,11 +2464,11 @@ html[data-booting] footer { visibility: hidden; }
   </div>
 </dialog>
 
-<!-- ── Pair a Meal (Charles, 2026-10-26) ────────────────────────────────────
+<!-- ── Pair Meal (Charles, 2026-10-26) ────────────────────────────────────
      A meal or a recipe in; the classic pairings and up to three bottles from
      this cellar out. The text is sent and never kept. -->
 <dialog id="pairDialog" aria-labelledby="pairTitle">
-  <h2 id="pairTitle">Pair a Meal</h2>
+  <h2 id="pairTitle">Pair Meal</h2>
   <p>Tell Claude what you are eating — a dish, a menu or a whole recipe — and it picks up to three
     bottles from your cellar to go with it.</p>
   <div class="field">
@@ -4633,7 +4633,7 @@ function renderOpened() {
   const wrap = document.getElementById('openedWrap');
   if (!total) {
     wrap.innerHTML = '<p class="empty">No bottles opened yet. When you open one, press its wine on '
-      + 'the Cellar tab, then Opened One — or press Log a Bottle for one opened away from home.</p>';
+      + 'the Cellar tab, then Opened One — or press Log Bottle for one opened away from home.</p>';
     return;
   }
   if (!rows.length) { wrap.innerHTML = '<p class="empty">No bottle matches that.</p>'; return; }
@@ -7090,7 +7090,7 @@ document.addEventListener('click', (e) => {
      on that line — its wine boxes are the line's own copy, so a Cellar wine is
      never changed from here, and editing the wine never rewrites the log
      (Charles, 2026-10-24).
-   - Log a Bottle (`loggingBottle`) writes a line for a bottle opened away from
+   - Log Bottle (`loggingBottle`) writes a line for a bottle opened away from
      home — dinner, a winery, a tasting — with no wine behind it and no count. */
 let drinkingId = null;
 let editingBottleId = null;
@@ -7098,7 +7098,7 @@ let loggingBottle = false;
 const bottlePhoto = photoRow({ dialog: 'openDialog', img: 'ob_photoImg', btn: 'ob_photoBtn', remove: 'ob_photoRemove',
                                file: 'ob_photoFile', note: 'ob_photoNote', zoom: 'ob_photoZoom' });
 function dressOpenDialog(mode) {
-  $('openTitle').textContent = { edit: 'Edit an Opened Bottle', log: 'Log a Bottle' }[mode] || 'Opened a Bottle';
+  $('openTitle').textContent = { edit: 'Edit an Opened Bottle', log: 'Log Bottle' }[mode] || 'Opened a Bottle';
   $('openSave').textContent = mode === 'drink' ? 'Take One Off the Count' : 'Save';
   $('openWineBox').hidden = mode === 'drink';
   $('openBody').hidden = mode !== 'drink';
@@ -7227,7 +7227,7 @@ $('openSave').addEventListener('click', () => {
     return;
   }
   w.qty -= 1;
-  /* Opened for a meal (Pair a Meal, or a planned pairing's We Had It): the
+  /* Opened for a meal (Pair Meal, or a planned pairing's We Had It): the
      wine's History names the meal, and the pairing is had, linked to the line. */
   const dp = drinkPairing;
   drinkPairing = null;
@@ -7892,7 +7892,7 @@ $('checkPickStale').addEventListener('click', () => { checkPickStale(); renderCh
 $('checkSince').addEventListener('change', () => { checkPickStale(); renderCheck(); });
 $('checkBtn').addEventListener('click', openCheck);
 
-/* ═════════════════════════════ Pair a Meal ═══════════════════════════════
+/* ═════════════════════════════ Pair Meal ═══════════════════════════════
    Charles, 2026-10-26 (a friend's idea): type or paste a meal or a whole
    recipe, and Claude names the classic pairings and picks up to three bottles
    FROM THIS CELLAR to drink with it.
@@ -8073,7 +8073,7 @@ function readPairing(found, sent) {
   };
 }
 
-/* ── The Pair a Meal window ────────────────────────────────────────────────
+/* ── The Pair Meal window ────────────────────────────────────────────────
    The last answer lives for the page's life (`pairLast`), so a pick's Opened
    One or Open Wine — which close this window to open theirs — can come back to
    it. The meal text is never stored. */
@@ -8497,8 +8497,8 @@ function renderPairingList() {
       + ' — the tiles above always count every pairing.' : '';
   const wrap = $('pairingWrap');
   if (!total) {
-    wrap.innerHTML = '<p class="empty">No pairings yet. Press Pair a Meal, tell Claude what you are eating, '
-      + 'and plan a bottle for it — or press Add a Pairing to note one yourself.</p>';
+    wrap.innerHTML = '<p class="empty">No pairings yet. Press Pair Meal, tell Claude what you are eating, '
+      + 'and plan a bottle for it — or press Add Pairing to note one yourself.</p>';
     return;
   }
   if (!rows.length) { wrap.innerHTML = '<p class="empty">No pairing matches that.</p>'; return; }
@@ -8559,7 +8559,7 @@ function openPairing(id) {
   const p = id ? state.pairings.find((x) => x.id === id) : null;
   if (id && !p) { render(); return; }
   editingPairingId = p ? p.id : null;
-  $('pairingTitle').textContent = p ? 'Edit a Pairing' : 'Add a Pairing';
+  $('pairingTitle').textContent = p ? 'Edit a Pairing' : 'Add Pairing';
   $('p_wine').innerHTML = pairingWineOptions(p);
   $('p_wine').value = p && state.wines.some((w) => w.id === p.wineId) ? p.wineId : '';
   $('p_meal').value = p ? p.meal : '';

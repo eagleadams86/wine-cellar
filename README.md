@@ -88,7 +88,7 @@ cellar on your other devices.
   the bottle's label and opening date, pressing it opens that bottle, and the same list sits at the
   foot of the bottle's window. A bottle logged by hand starts with an "Opened one" entry; one taken
   from the Cellar is already recorded on its wine. Removing a bottle removes its History with it.
-- **Log a Bottle** — for a bottle opened at dinner, a winery or a tasting: type the wine, press
+- **Log Bottle** — for a bottle opened at dinner, a winery or a tasting: type the wine, press
   **Look Up with Claude** to fill its region, grape and drinking window, and save. It goes straight
   onto the Opened tab and its dashboard without ever being in the Cellar.
 - **Opened at the Right Time** — tiles at the top of the Opened tab count the bottles opened
@@ -136,11 +136,11 @@ cellar on your other devices.
   mistaken press is easy to undo. A pairing had with that bottle goes back to planned.
 - **＋ Add Wine and ✦ Check Wines sit at the top of the Cellar**, above Find, so
   adding a wine never means scrolling past the whole cellar. Once the list is taller than the
-  window, the same buttons turn up under it as well. **＋ Log a Bottle** does the same on the Opened tab.
+  window, the same buttons turn up under it as well. **＋ Log Bottle** does the same on the Opened tab.
 - **Paste a List** — the **paste a list** link in the Add Wine window — reads the table Claude writes
   when you ask it to look wines up — see below.
 - **✦ Check Wines** looks up the wines you pick with Claude in one go — see below.
-- **✦ Pair a Meal** — type or paste what you're eating and Claude picks up to three bottles from
+- **✦ Pair Meal** — type or paste what you're eating and Claude picks up to three bottles from
   your cellar for it; plan one for later or open it, and rate the pairing on the **Pairings** tab —
   see below.
 - **↩ Undo** (⌘Z / Ctrl+Z) walks back through this sitting's changes, one Save at a time —
@@ -255,7 +255,7 @@ photo from the iPhone works directly. The window says which of these happened.
   (`winecellar/{uid}/photos/{wineId}`), fetched only when that wine is opened. The cellar itself
   holds only `photoAt`, the time it was taken, so a cellar full of photos never nears Firestore's
   1 MB-a-document limit.
-- **Opened bottles keep one too.** Log a Bottle and an opened line's edit window have the same
+- **Opened bottles keep one too.** Log Bottle and an opened line's edit window have the same
   photo row and Look Up reads it the same way; **Opened One** copies the wine's photo onto the
   line, so the Opened tab still has it after the wine is deleted.
 - **Never in a share link.** In a backup unless you untick **Include label photos**, which starts ticked (the backup
@@ -303,9 +303,9 @@ Only the wine's vintage, name, region and grape are sent, and only when you pres
 The page calls `https://api.anthropic.com` directly — the one host added to its security policy
 for this, as a data call only, never a script.
 
-## Pair a Meal and the Pairings Tab
+## Pair Meal and the Pairings Tab
 
-**✦ Pair a Meal** (at the top of the Cellar and the Pairings tab) asks Claude what to open with
+**✦ Pair Meal** (at the top of the Cellar and the Pairings tab) asks Claude what to open with
 dinner. Type a dish — "grilled lamb chops with rosemary" — or paste a whole recipe, and press
 **Find Pairings** (⌘/Ctrl+Enter in the box).
 
@@ -332,7 +332,7 @@ dinner. Type a dish — "grilled lamb chops with rosemary" — or paste a whole 
   searches meals, wines, notes and Claude's reasons. Press a line
   to change it, **rate how the pairing went** (separate from the bottle's own rating on the Opened
   tab) and add a note. A planned pairing has **We Had It — Opened One**, which opens the bottle
-  and marks the pairing had, linked to that opened line. **＋ Add a Pairing** notes one without
+  and marks the pairing had, linked to that opened line. **＋ Add Pairing** notes one without
   asking Claude.
 - **Cheap on purpose: about 1.5¢ a meal** (measured 2026-10-26 on four real meals, Opus 5.5 at
   low effort, 5–10 seconds each). There is no web search — pairing is knowledge Claude already

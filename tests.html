@@ -3095,7 +3095,7 @@ function define() {
     } finally { H.__plant(FIXTURE); }
   });
 
-  group('Pair a Meal');
+  group('Pair Meal');
   t('a pairing keeps only its declared fields, cleaned at the boundary', () => {
     const out = H.normalizeState({ wines: [{ id: '"><x>', name: 'W' }],
       opened: [{ id: '<o>', wineId: '"><x>', date: '2026-01-01' }],
@@ -3522,7 +3522,7 @@ function define() {
       try {
         W.openLogBottle();
         ok(!D.getElementById('ob_photoBtn').hidden && D.getElementById('ob_photoBtn').offsetParent !== null,
-           'Log a Bottle offers Add Label Photo');
+           'Log Bottle offers Add Label Photo');
         H.__photoDraft({ send: PHOTO, keep: PHOTO }, 'opened');
         D.getElementById('obLookupBtn').click();
         for (let i = 0; i < 50 && !/from the label/.test(D.getElementById('obLookupNote').textContent); i++) await tick();
@@ -4846,10 +4846,10 @@ function define() {
       W.setTab('cellar');
       const card = $('cellarCard');
       ok($('cellarTop').compareDocumentPosition($('listWrap')) & W.Node.DOCUMENT_POSITION_FOLLOWING, 'the top row comes before the list');
-      ok(top.every((id) => $('cellarTop').contains($(id))), 'Add, Check, Pair a Meal and Sample are all in it');
+      ok(top.every((id) => $('cellarTop').contains($(id))), 'Add, Check, Pair Meal and Sample are all in it');
       ok(!$('pasteBtn') && !D.querySelector('[data-same="pasteBtn"]'), 'no Paste a List button — the Add window links to it');
       ok($('wineToPaste'), 'and that link is still there');
-      ok($('openedTop').contains($('logBtn')), 'and Log a Bottle leads the Opened card');
+      ok($('openedTop').contains($('logBtn')), 'and Log Bottle leads the Opened card');
       H.__plant(Object.assign({}, FIXTURE, { wines: FIXTURE.wines.slice(0, 2) }));
       W.footRows();
       ok(card.offsetHeight > 0, 'the Cellar card is laid out');
@@ -4858,7 +4858,7 @@ function define() {
       W.footRows();
       eq($('cellarFoot').hidden, false, 'a list taller than the window: the second row shows');
       eq([...$('cellarFoot').querySelectorAll('[data-same]')].map((b) => b.dataset.same).join(),
-        'addBtn,checkBtn,pairBtn', 'with Add, Check and Pair a Meal — Sample only ever shows on an empty cellar');
+        'addBtn,checkBtn,pairBtn', 'with Add, Check and Pair Meal — Sample only ever shows on an empty cellar');
       let pressed = 0;
       const count = () => { pressed++; };
       $('addBtn').addEventListener('click', count);
@@ -5078,14 +5078,14 @@ function define() {
       ok(D.getElementById('openDialog').open && /name/.test(D.getElementById('openWarn').textContent), 'a blank name is refused');
     } finally { proto.setItem = realStore; D.getElementById('openDialog').close(); H.__plant(FIXTURE); }
   });
-  t('Log a Bottle writes a line with no wine and changes no count', () => {
+  t('Log Bottle writes a line with no wine and changes no count', () => {
     const D = W.document, proto = W.Storage.prototype, realStore = proto.setItem;
     proto.setItem = function () {};
     try {
       H.__plant(FIXTURE);
       const counts = JSON.stringify(H.__state().wines.map((w) => w.qty));
       D.getElementById('logBtn').click();
-      eq(D.getElementById('openTitle').textContent, 'Log a Bottle');
+      eq(D.getElementById('openTitle').textContent, 'Log Bottle');
       ok(D.getElementById('openRemoveZone').hidden, 'nothing to remove yet');
       D.getElementById('openSave').click();
       ok(D.getElementById('openDialog').open, 'no name, no line');
