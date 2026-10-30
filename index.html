@@ -1809,11 +1809,11 @@ html[data-booting] footer { visibility: hidden; }
       <!-- At the TOP, so adding a wine never means scrolling past the cellar
            (Charles, 2026-10-26). A copy turns up under the list once it is
            too long to see both ends at once (footRows). No Paste a List here:
-           the Add window's own "paste a list" link opens it (Charles, same day). -->
+           the Add window's own "paste a list" link opens it (Charles, same day).
+           No Pair Meal either: it lives on the Pairings tab only (Charles, 2026-10-30). -->
       <div class="row-actions no-print top-actions" id="cellarTop">
         <button type="button" class="primary" id="addBtn">＋ Add Wine</button>
         <button type="button" id="checkBtn"><span aria-hidden="true">✦</span> Check Wines</button>
-        <button type="button" id="pairBtn"><span aria-hidden="true">✦</span> Pair Meal</button>
         <button type="button" id="sampleBtn">Load Sample Data</button>
       </div>
 
@@ -1853,7 +1853,6 @@ html[data-booting] footer { visibility: hidden; }
       <div class="row-actions no-print foot-actions" id="cellarFoot" hidden>
         <button type="button" class="primary" data-same="addBtn">＋ Add Wine</button>
         <button type="button" data-same="checkBtn"><span aria-hidden="true">✦</span> Check Wines</button>
-        <button type="button" data-same="pairBtn"><span aria-hidden="true">✦</span> Pair Meal</button>
       </div>
     </div>
 
@@ -8643,7 +8642,7 @@ $('pairingRemove').addEventListener('click', () => {
   save();
   toast('Removed');
 });
-['pairBtn', 'pairTabBtn'].forEach((id) => $(id).addEventListener('click', openPair));
+$('pairTabBtn').addEventListener('click', openPair);
 $('pairingAdd').addEventListener('click', () => openPairing(null));
 
 /* ONE delegated listener per table, so the row, its actions and its headings
@@ -10001,7 +10000,7 @@ async function boot() {
   /* Every edit surface goes in a shared view. The table already renders
      read-only above; these are the buttons that would write. */
   if (viewOnly) {
-    ['syncBtn', 'undoBtn', 'settingsBtn', 'dataBtn', 'shareBtn', 'addBtn', 'checkBtn', 'pairBtn', 'sampleBtn', 'logBtn'].forEach((id) => {
+    ['syncBtn', 'undoBtn', 'settingsBtn', 'dataBtn', 'shareBtn', 'addBtn', 'checkBtn', 'sampleBtn', 'logBtn'].forEach((id) => {
       const el = $(id);
       if (el) el.hidden = true;
     });

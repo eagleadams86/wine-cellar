@@ -140,7 +140,7 @@ cellar on your other devices.
 - **Paste a List** — the **paste a list** link in the Add Wine window — reads the table Claude writes
   when you ask it to look wines up — see below.
 - **✦ Check Wines** looks up the wines you pick with Claude in one go — see below.
-- **✦ Pair Meal** — type or paste what you're eating and Claude picks up to three bottles from
+- **✦ Pair Meal** (on the **Pairings** tab) — type or paste what you're eating and Claude picks up to three bottles from
   your cellar for it; plan one for later or open it, and rate the pairing on the **Pairings** tab —
   see below.
 - **↩ Undo** (⌘Z / Ctrl+Z) walks back through this sitting's changes, one Save at a time —
@@ -305,7 +305,7 @@ for this, as a data call only, never a script.
 
 ## Pair Meal and the Pairings Tab
 
-**✦ Pair Meal** (at the top of the Cellar and the Pairings tab) asks Claude what to open with
+**✦ Pair Meal** (at the top of the Pairings tab) asks Claude what to open with
 dinner. Type a dish — "grilled lamb chops with rosemary" — or paste a whole recipe, and press
 **Find Pairings** (⌘/Ctrl+Enter in the box).
 

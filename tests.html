@@ -4841,12 +4841,14 @@ function define() {
   t('the card buttons sit above the list; a copy turns up under it only once it is long', () => {
     const D = W.document, $ = (id) => D.getElementById(id);
     const many = Array.from({ length: 40 }, (_, i) => ({ id: 'ft-' + i, name: 'Foot Test ' + i, qty: 1 }));
-    const top = ['addBtn', 'checkBtn', 'pairBtn', 'sampleBtn'];
+    const top = ['addBtn', 'checkBtn', 'sampleBtn'];
     try {
       W.setTab('cellar');
       const card = $('cellarCard');
       ok($('cellarTop').compareDocumentPosition($('listWrap')) & W.Node.DOCUMENT_POSITION_FOLLOWING, 'the top row comes before the list');
-      ok(top.every((id) => $('cellarTop').contains($(id))), 'Add, Check, Pair Meal and Sample are all in it');
+      ok(top.every((id) => $('cellarTop').contains($(id))), 'Add, Check and Sample are all in it');
+      ok(!$('pairBtn') && !D.querySelector('[data-same="pairBtn"]'), 'no Pair Meal on the Cellar — it lives on the Pairings tab');
+      ok($('pairingCard').contains($('pairTabBtn')), 'and Pair Meal is still on the Pairings tab');
       ok(!$('pasteBtn') && !D.querySelector('[data-same="pasteBtn"]'), 'no Paste a List button — the Add window links to it');
       ok($('wineToPaste'), 'and that link is still there');
       ok($('openedTop').contains($('logBtn')), 'and Log Bottle leads the Opened card');
@@ -4858,7 +4860,7 @@ function define() {
       W.footRows();
       eq($('cellarFoot').hidden, false, 'a list taller than the window: the second row shows');
       eq([...$('cellarFoot').querySelectorAll('[data-same]')].map((b) => b.dataset.same).join(),
-        'addBtn,checkBtn,pairBtn', 'with Add, Check and Pair Meal — Sample only ever shows on an empty cellar');
+        'addBtn,checkBtn', 'with Add and Check — Sample only ever shows on an empty cellar');
       let pressed = 0;
       const count = () => { pressed++; };
       $('addBtn').addEventListener('click', count);
