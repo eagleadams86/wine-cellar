@@ -51,7 +51,7 @@
    go MISSING look exactly like tests that pass — a suite that quietly shrank to
    three checks still says "all 3 tests pass". RAISE THIS when you add tests, and
    lower it only when you retire one deliberately. */
-const EXPECTED = 338;
+const EXPECTED = 339;
 
 /* ── It refuses to run anywhere but localhost, and that is load-bearing ──────
    GitHub Pages publishes this page BESIDE the app, where the iframe below would
@@ -3175,9 +3175,9 @@ function define() {
     try {
       ok(H.TABS.indexOf('pairings') === 2, 'its own tab, after Opened');
       const rows = [...D.querySelectorAll('#pairingTable tbody tr')];
-      eq(rows.length, 6);
+      eq(rows.length, 17);
       eq(rows.map((r) => r.querySelector('[data-label="Status"]').textContent),
-         ['Was planned', 'Planned', 'Planned', 'Had', 'Had', 'Had'], 'planned first, soonest day first');
+         ['Was planned', 'Planned', 'Planned'].concat(Array(14).fill('Had')), 'planned first, soonest day first');
       eq(rows[2].querySelector('[data-label="When"]').textContent, 'No day yet', 'an undecided day sorts last of the planned');
       ok(D.querySelectorAll('#pairingTable td:not([data-label])').length === 0, 'every td has data-label');
       ok(/★{5}/.test(rows[3].textContent), 'a had pairing shows its own stars');
@@ -3224,6 +3224,21 @@ function define() {
     eq(H.computePairings(st, '2026-10-26', false).grapes.rows.map((r) => r.name).sort(),
        ['Pinot Noir', 'Pinot Noir, Gamay', 'Syrah'], 'As written keeps each spelling apart');
   });
+  t('the sample data gives What Pairs Well a real spread', () => {
+    /* Charles, 2026-10-30: "add more pairings with ratings so i can get a
+       better feel for how the what pairs well section works". */
+    const g = H.computePairings(H.normalizeState(H.sampleData()), '2026-10-30', true).grapes;
+    const by = (n) => g.rows.find((r) => r.name === n) || {};
+    eq(g.rows.length, 7, 'seven grapes');
+    eq([by('Pinot Noir').bottles, by('Pinot Noir').rated], [4, 4], 'the Brut Rosé groups under Pinot Noir');
+    ok(by('Pinot Noir').avg > 4.5 && by('Cabernet Sauvignon').avg < 3, 'a clear top and bottom',
+       by('Pinot Noir').avg + ' / ' + by('Cabernet Sauvignon').avg);
+    eq([by('Grenache').bottles, by('Grenache').rated], [2, 1], 'an unrated pairing counts, out of the average');
+    ok(by('Malbec').bottles === 1 && by('Tempranillo').bottles === 1, 'a logged bottle and a deleted wine take the line’s grape');
+    eq(g.blank, 1, 'and one with no grape fills the warning line');
+    const written = H.computePairings(H.normalizeState(H.sampleData()), '2026-10-30', false).grapes.rows;
+    ok(written.some((r) => r.name === 'Pinot Noir, Chardonnay'), 'As written splits the blend off');
+  });
   t('the tiles filter the list and keep the focus; the dashboard hides with no pairings', () => {
     const D = W.document;
     H.__plant(H.sampleData());
@@ -3233,14 +3248,14 @@ function define() {
       const tile = (k) => D.querySelector('#pairStats [data-pairing-pick="' + k + '"]');
       ['planned', 'overdue', 'had'].forEach((k) => ok(Number(tile(k).querySelector('.v').firstChild.textContent) > 0,
         'sample data reaches the ' + k + ' tile'));
-      eq(D.querySelectorAll('#pairLikeGrapes tbody tr').length, 3, 'and What Pairs Well has a row per grape');
+      eq(D.querySelectorAll('#pairLikeGrapes tbody tr').length, 7, 'and What Pairs Well has a row per grape');
       tile('had').focus();
       tile('had').click();
-      eq(D.querySelectorAll('#pairingTable tbody tr').length, 3, 'Had shows had only');
+      eq(D.querySelectorAll('#pairingTable tbody tr').length, 14, 'Had shows had only');
       eq(D.activeElement, tile('had'), 'the tile is not redrawn, so it keeps the focus');
       eq(tile('had').getAttribute('aria-pressed'), 'true');
       tile('overdue').click();
-      eq(D.querySelectorAll('#pairingTable tbody tr').length, 4, 'two tiles at once');
+      eq(D.querySelectorAll('#pairingTable tbody tr').length, 15, 'two tiles at once');
       ok(/tiles above always count every pairing/.test(D.getElementById('pairingFindNote').textContent), 'the note says the tiles stay whole');
       const box = (k) => D.querySelector('#pairingPickBox input[value="' + k + '"]');
       ok(box('had').checked && box('overdue').checked && !box('planned').checked, 'the Status box shows what the tiles pressed');
@@ -3250,7 +3265,7 @@ function define() {
       eq(D.querySelectorAll('#pairingTable tbody tr').length, 1, 'and unticking a box narrows the list');
       eq(tile('had').getAttribute('aria-pressed'), 'false', 'and lifts its tile — one filter, two ways to press it');
       D.getElementById('clearPairingFind').click();
-      eq(D.querySelectorAll('#pairingTable tbody tr').length, 6, 'Clear lets them all go');
+      eq(D.querySelectorAll('#pairingTable tbody tr').length, 17, 'Clear lets them all go');
       eq([tile('overdue').getAttribute('aria-pressed'), D.getElementById('pairingPickSum').textContent], ['false', 'Every Status']);
       H.__plant(FIXTURE);
       ok(D.getElementById('pairGlanceCard').hidden && D.getElementById('pairLikeCard').hidden, 'no pairings, no dashboard');

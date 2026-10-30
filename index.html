@@ -6413,8 +6413,9 @@ function sampleData() {
         label: (Y - 7) + ' Imaginary Cellars Malbec', place: 'A steakhouse downtown', region: 'Mendoza',
         grape: 'Malbec', paid: 85, vintage: Y - 7, drinkFrom: Y - 3, drinkTo: Y + 4 },
     ],
-    /* The Pairings tab's demo: two planned (one with no day yet) and three
-       had — one linked to its opened line, rated high and low, one unrated. */
+    /* The Pairings tab's demo: three planned (one with no day yet, one
+       overdue) and fourteen had — most linked to their opened line, rated
+       high and low, one unrated. */
     pairings: [
       { id: 'demo-p1', wineId: 'demo-soon', label: (Y - 6) + ' Invented Hills Old Vine Zinfandel',
         meal: 'Smoked brisket and slaw', date: back(-6), status: 'planned', rating: null, note: '',
@@ -6435,6 +6436,50 @@ function sampleData() {
       { id: 'demo-p5', wineId: 'demo-finished', label: (Y - 5) + ' Long Gone Grenache', meal: 'Lamb tagine',
         date: back(40), status: 'had', rating: null, note: '', openedId: 'demo-o2',
         why: 'Grenache’s red fruit and spice meet the tagine’s cumin and apricot.' },
+      /* What Pairs Well's demo (Charles, 2026-10-30: "to get a better feel"):
+         enough had pairings that every grape has a row and the averages
+         spread out — Pinot Noir near the top (the Brut Rosé groups under it,
+         As written splits it off), Zinfandel and Cabernet split by one great
+         and one poor match, a pairing rated higher than its bottle (demo-o5),
+         one through a deleted wine's line and one logged away from home (both
+         take the line's grape), and one with no grape for the warning line. */
+      { id: 'demo-p7', wineId: 'demo-ready', label: (Y - 3) + ' Example Ridge Pinot Noir',
+        meal: 'Duck breast with cherry sauce', date: back(12), status: 'had', rating: 4,
+        note: 'The cherry sauce and the fruit met in the middle.', openedId: 'demo-o3',
+        why: 'Pinot Noir’s red cherry echoes the sauce, and its acid cuts the duck fat.' },
+      { id: 'demo-p8', wineId: 'demo-ready', label: (Y - 3) + ' Example Ridge Pinot Noir',
+        meal: 'Roast chicken and root vegetables', date: back(75), status: 'had', rating: 5, note: 'Easy and perfect.',
+        openedId: null, why: 'A light red that will not bury roast chicken.' },
+      { id: 'demo-p9', wineId: 'demo-sparkling', label: 'NV Fictional Brut Rosé', meal: 'Oysters and fries',
+        date: back(150), status: 'had', rating: 5, note: 'Salt, bubbles, done.', openedId: 'demo-o7',
+        why: 'Sparkling wine with oysters is a classic; the acid loves the salt.' },
+      { id: 'demo-p10', wineId: 'demo-soon', label: (Y - 6) + ' Invented Hills Old Vine Zinfandel',
+        meal: 'Barbecue ribs', date: back(90), status: 'had', rating: 5, note: 'Smoke and jammy fruit — made for each other.',
+        openedId: null, why: 'Big, fruity Zinfandel matches sweet barbecue sauce.' },
+      { id: 'demo-p11', wineId: 'demo-soon', label: (Y - 6) + ' Invented Hills Old Vine Zinfandel',
+        meal: 'Spicy Thai green curry', date: back(55), status: 'had', rating: 2,
+        note: 'The alcohol made the chili burn hotter.', openedId: null,
+        why: 'Ripe fruit can soften a little heat.' },
+      { id: 'demo-p12', wineId: 'demo-hold', label: (Y - 2) + ' Sample Estate Cabernet Sauvignon',
+        meal: 'Grilled ribeye', date: back(60), status: 'had', rating: 4,
+        note: 'The steak tamed the young tannin — better with food than alone.', openedId: 'demo-o5',
+        why: 'Cabernet’s tannin needs fat and protein, and a ribeye has both.' },
+      { id: 'demo-p13', wineId: 'demo-hold', label: (Y - 2) + ' Sample Estate Cabernet Sauvignon',
+        meal: 'Chocolate lava cake', date: back(130), status: 'had', rating: 1,
+        note: 'The sweet dessert made the wine taste sour and bitter.', openedId: null,
+        why: 'Dark fruit and chocolate are sometimes paired.' },
+      { id: 'demo-p14', wineId: 'demo-finished', label: (Y - 5) + ' Long Gone Grenache',
+        meal: 'Pork shoulder with fennel', date: back(100), status: 'had', rating: 4, note: '', openedId: 'demo-o1',
+        why: 'Grenache’s spice and soft tannin suit slow-roast pork.' },
+      { id: 'demo-p15', wineId: null, label: (Y - 7) + ' Imaginary Cellars Malbec', meal: 'Steak frites',
+        date: back(18), status: 'had', rating: 5, note: 'Could not have picked better off the list.', openedId: 'demo-o10',
+        why: '' },
+      { id: 'demo-p16', wineId: 'demo-gone', label: (Y - 12) + ' Retired Rioja Reserva', meal: 'Lamb chops with rosemary',
+        date: back(300), status: 'had', rating: 4, note: '', openedId: 'demo-o9',
+        why: 'Tempranillo and lamb are a Spanish classic.' },
+      { id: 'demo-p17', wineId: 'demo-none', label: (Y - 4) + ' Mystery Bottle From a Friend', meal: 'Pizza night',
+        date: back(80), status: 'had', rating: 3, note: 'Fine with pizza — whatever it was.', openedId: 'demo-o8',
+        why: '' },
     ],
   };
 }

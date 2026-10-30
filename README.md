@@ -38,7 +38,8 @@ cellar on your other devices.
   be on at once, each marked with a ✓. The **Status** box in the Cellar is the same filter as a
   list of tick boxes in priority order — Past Window, Drink Soon, Ready, Hold, No Window — and
   **Clear** lets them all go. The page stays where it is when you press a tile.
-- **Load Sample Data** fills the cellar with invented wines to try the app on, and adds to anything
+- **Load Sample Data** fills the cellar with invented wines to try the app on — with opened bottles and a
+  spread of rated pairings, so What Pairs Well has something to show — and adds to anything
   already there rather than replacing it. The button goes away once a wine or bottle of your own is in
   the cellar.
 - **Paid per bottle** in the wine window records what one bottle actually cost (to the cent).
