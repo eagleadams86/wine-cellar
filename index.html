@@ -814,8 +814,6 @@
   .pairlike-by { display: flex; align-items: center; gap: var(--sp-2); margin: 0 0 var(--sp-2); }
   .pairlike-by label { margin: 0; }
   .pairlike-by select { width: auto; }
-  /* By Style's heading inside Cellar Makeup and What You Like (SCHEMA 20). */
-  .style-h { font-size: var(--fs-sm); font-weight: var(--fw-semibold); margin: var(--sp-5) 0 var(--sp-3); }
   /* The style profile in the two editors: a fold, five boxes, the notes as tick boxes. */
   details.profilebox { margin: 0 0 var(--sp-4); }
   details.profilebox > summary .profile-sum { color: var(--text-secondary); }
@@ -823,7 +821,15 @@
   .aromas { display: grid; gap: var(--sp-1) var(--sp-3); grid-template-columns: repeat(auto-fill, minmax(min(100%, 11rem), 1fr)); }
   /* Cellar Makeup's tables have five columns, What You Like's four: a narrower
      share would hide Ready behind a scrollbar, so these go two across. */
-  #makeupCard .likes { grid-template-columns: repeat(auto-fit, minmax(min(100%, 23rem), 1fr)); }
+  /* Packed in columns, not a grid (Charles, 2026-10-31, "organize cellar makeup
+     better"): eight tables of 2 to 15 rows in grid rows left a Colour table of
+     two rows beside Grape's ten, and a void under it. Columns stack each table
+     under the one before, so the short ones fill the gaps; a table never
+     splits across columns. Rows never vanish when a pick is pressed (dead
+     rows stay), so nothing reflows under the finger. */
+  #makeupCard .likes, #likeCard .likes { display: block; columns: 23rem; column-gap: var(--sp-5); }
+  #likeCard .likes { columns: 300px; }
+  #makeupCard .likes > *, #likeCard .likes > * { break-inside: avoid; margin: 0 0 var(--sp-5); }
   /* And on a phone the fifth column still needs ~45px more than the screen
      has: the cells lose half their side padding and the headings their
      letter spacing, so all five fit unscrolled (measured at 375px). */
@@ -1788,16 +1794,14 @@ html[data-booting] footer { visibility: hidden; }
       <p class="chart-title">The bottles you have now by grape, region, sub-region, colour, the year their window closes and where they are — and how many of them are ready to open. By Style groups them by Look Up’s style profile. Press a row to narrow the list below.</p>
       <div class="likes">
         <div class="table-scroll" id="makeGrapes"></div>
+        <div class="table-scroll" id="makeColours"></div>
         <div class="table-scroll" id="makeRegions"></div>
         <div class="table-scroll" id="makeSubregions"></div>
-        <div class="table-scroll" id="makeColours"></div>
         <div class="table-scroll" id="makeDrinkBy"></div>
         <div class="table-scroll" id="makeWhere"></div>
-      </div>
-      <!-- By Style (SCHEMA 20): two tables over the wine's style profile, each
-           choosing what it groups by, remembered on this device. -->
-      <h3 class="style-h">By Style</h3>
-      <div class="likes">
+        <!-- By Style (SCHEMA 20): two tables over the wine's style profile, each
+             choosing what it groups by, remembered on this device. In the same
+             flow as the rest, so no half-empty second block (Charles, 2026-10-31). -->
         <div><div class="field pairlike-by"><label for="makeStyleByA">Group by</label><select id="makeStyleByA"></select></div>
           <div class="table-scroll" id="makeStyleA"></div></div>
         <div><div class="field pairlike-by"><label for="makeStyleByB">Group by</label><select id="makeStyleByB"></select></div>
@@ -1901,11 +1905,9 @@ html[data-booting] footer { visibility: hidden; }
         <div class="table-scroll" id="likeGrapes"></div>
         <div class="table-scroll" id="likeRegions"></div>
         <div class="table-scroll" id="likeSubregions"></div>
-      </div>
-      <!-- By Style (SCHEMA 20): two tables over the wine's style profile, each
-           choosing what it groups by, remembered on this device. -->
-      <h3 class="style-h">By Style</h3>
-      <div class="likes">
+        <!-- By Style (SCHEMA 20): two tables over the wine's style profile, each
+             choosing what it groups by, remembered on this device. In the same
+             flow as the rest, so no half-empty second block (Charles, 2026-10-31). -->
         <div><div class="field pairlike-by"><label for="likeStyleByA">Group by</label><select id="likeStyleByA"></select></div>
           <div class="table-scroll" id="likeStyleA"></div></div>
         <div><div class="field pairlike-by"><label for="likeStyleByB">Group by</label><select id="likeStyleByB"></select></div>
@@ -4714,8 +4716,8 @@ function renderOpenedDash(c) {
 }
 /* ── Cellar Makeup ────────────────────────────────────────────────────────── */
 /* [host, heading, computeMakeup key, what a bottle left out of it lacks].
-   Six tables, so they fill three across and two across alike (Charles,
-   2026-10-26: Colour sat alone on a second row with four). */
+   Laid out in packed COLUMNS since 2026-10-31 (see #makeupCard .likes), so
+   the count no longer has to divide the row. */
 const MAKE_TABLES = { grape: ['makeGrapes', 'Grape', 'grapes', 'no grape recorded'],
   region: ['makeRegions', 'Region', 'regions', 'no region recorded'],
   subregion: ['makeSubregions', 'Sub-region', 'subregions', 'no sub-region recorded'],

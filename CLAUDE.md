@@ -133,6 +133,14 @@ the family doesn't.
   By Style = two Group by tables inside Cellar Makeup (`makeStyle`, default Body + Notes) and What
   You Like (`likeStyle`, Style + Notes), built by `styleSlots(prefix, defaults, picks, draw)` —
   What Pairs Well's swap/clear rules, localStorage `wine-make-style-by` / `wine-like-style-by`.
+  **Layout (same day, Charles: "organize cellar makeup better"):** By Style is NOT a separate
+  block any more — its two slots sit in the same `.likes` as the other tables, and Cellar Makeup
+  and What You Like use CSS multi-column (`columns: 23rem` / `300px`, `break-inside: avoid`), not
+  a grid: grid rows left a 2-row Colour beside a 10-row Grape and a void under it, and the By Style
+  block below doubled the card's height. Order is Grape, Colour, Region, Sub-region, Drink By,
+  Where It Is, then the two Group by tables. Columns balance in ORDER, so the bottoms are uneven;
+  a JS shortest-column packer was considered and declined — it moves table nodes on every redraw
+  (focus, scroll, "nothing moves under the finger") for ~10% less height.
   `styleSlots` runs BEFORE `const $` exists (MAKE_TABLES' place) — it uses getElementById; a `$`
   there was a boot-time TDZ that left the suite with no hooks. Profile fields sit in MAKE_TABLES
   with host null (`makeHost`). Pair Meal: `pairLine` adds "style: …"; PAIR_SYSTEM says match
