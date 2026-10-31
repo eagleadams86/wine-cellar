@@ -814,6 +814,13 @@
   .pairlike-by { display: flex; align-items: center; gap: var(--sp-2); margin: 0 0 var(--sp-2); }
   .pairlike-by label { margin: 0; }
   .pairlike-by select { width: auto; }
+  /* By Style's heading inside Cellar Makeup and What You Like (SCHEMA 20). */
+  .style-h { font-size: var(--fs-sm); font-weight: var(--fw-semibold); margin: var(--sp-5) 0 var(--sp-3); }
+  /* The style profile in the two editors: a fold, five boxes, the notes as tick boxes. */
+  details.profilebox { margin: 0 0 var(--sp-4); }
+  details.profilebox > summary .profile-sum { color: var(--text-secondary); }
+  details.profilebox[open] > summary { margin-bottom: var(--sp-3); }
+  .aromas { display: grid; gap: var(--sp-1) var(--sp-3); grid-template-columns: repeat(auto-fill, minmax(min(100%, 11rem), 1fr)); }
   /* Cellar Makeup's tables have five columns, What You Like's four: a narrower
      share would hide Ready behind a scrollbar, so these go two across. */
   #makeupCard .likes { grid-template-columns: repeat(auto-fit, minmax(min(100%, 23rem), 1fr)); }
@@ -1778,7 +1785,7 @@ html[data-booting] footer { visibility: hidden; }
         <span class="spacer"></span>
         <button type="button" class="link no-print" data-facet-clear style="visibility: hidden">Clear</button>
       </h2>
-      <p class="chart-title">The bottles you have now by grape, region, sub-region, colour, the year their window closes and where they are — and how many of them are ready to open. Press a row to narrow the list below.</p>
+      <p class="chart-title">The bottles you have now by grape, region, sub-region, colour, the year their window closes and where they are — and how many of them are ready to open. By Style groups them by Look Up’s style profile. Press a row to narrow the list below.</p>
       <div class="likes">
         <div class="table-scroll" id="makeGrapes"></div>
         <div class="table-scroll" id="makeRegions"></div>
@@ -1786,6 +1793,15 @@ html[data-booting] footer { visibility: hidden; }
         <div class="table-scroll" id="makeColours"></div>
         <div class="table-scroll" id="makeDrinkBy"></div>
         <div class="table-scroll" id="makeWhere"></div>
+      </div>
+      <!-- By Style (SCHEMA 20): two tables over the wine's style profile, each
+           choosing what it groups by, remembered on this device. -->
+      <h3 class="style-h">By Style</h3>
+      <div class="likes">
+        <div><div class="field pairlike-by"><label for="makeStyleByA">Group by</label><select id="makeStyleByA"></select></div>
+          <div class="table-scroll" id="makeStyleA"></div></div>
+        <div><div class="field pairlike-by"><label for="makeStyleByB">Group by</label><select id="makeStyleByB"></select></div>
+          <div class="table-scroll" id="makeStyleB"></div></div>
       </div>
       <p class="warn-line" id="makeWarn" role="status"></p>
     </div>
@@ -1880,11 +1896,20 @@ html[data-booting] footer { visibility: hidden; }
         <span class="spacer"></span>
         <button type="button" class="link no-print" data-facet-clear style="visibility: hidden">Clear</button>
       </h2>
-      <p class="chart-title">Your opened bottles by grape, by region and by sub-region, best-rated first. Press a row to narrow the list below.</p>
+      <p class="chart-title">Your opened bottles by grape, by region and by sub-region — and By Style, by the wine’s style profile — best-rated first. Press a row to narrow the list below.</p>
       <div class="likes">
         <div class="table-scroll" id="likeGrapes"></div>
         <div class="table-scroll" id="likeRegions"></div>
         <div class="table-scroll" id="likeSubregions"></div>
+      </div>
+      <!-- By Style (SCHEMA 20): two tables over the wine's style profile, each
+           choosing what it groups by, remembered on this device. -->
+      <h3 class="style-h">By Style</h3>
+      <div class="likes">
+        <div><div class="field pairlike-by"><label for="likeStyleByA">Group by</label><select id="likeStyleByA"></select></div>
+          <div class="table-scroll" id="likeStyleA"></div></div>
+        <div><div class="field pairlike-by"><label for="likeStyleByB">Group by</label><select id="likeStyleByB"></select></div>
+          <div class="table-scroll" id="likeStyleB"></div></div>
       </div>
       <p class="warn-line" id="likeWarn" role="status"></p>
     </div>
@@ -2185,6 +2210,8 @@ html[data-booting] footer { visibility: hidden; }
     <label for="f_grape">Grape or blend</label>
     <input type="text" id="f_grape" maxlength="60" autocomplete="off">
   </div>
+  <!-- Its style profile (SCHEMA 20), filled by Look Up; built by profileBoxHTML. -->
+  <details class="profilebox" id="f_profileBox"></details>
   <div class="grid2">
     <div class="field">
       <label for="f_qty">Bottles</label>
@@ -2327,6 +2354,8 @@ html[data-booting] footer { visibility: hidden; }
       <label for="ob_grape">Grape or blend</label>
       <input type="text" id="ob_grape" maxlength="60" autocomplete="off">
     </div>
+    <!-- Its style profile (SCHEMA 20), filled by Look Up; built by profileBoxHTML. -->
+    <details class="profilebox" id="ob_profileBox"></details>
     <div class="grid2">
       <div class="field">
         <label for="ob_from">Drink from (year)</label>
@@ -2876,7 +2905,7 @@ const TABS        = ['cellar', 'opened', 'pairings', 'history'];
    with the pairing's own rating and note; History's `plan` kind and `meal`.
    16 (2026-10-26): a pairing keeps its own History (`log`), and History names
    its wine, status and day. */
-const SCHEMA = 19;
+const SCHEMA = 20;
 
 /* ── Ids from outside are not trusted ──────────────────────────────────────
    Ids reach `data-id` attributes and <option value>s in a dozen places, so an
@@ -3048,6 +3077,69 @@ const cleanFood = (v) => cleanTag('food', v);
 /* A record's four labels, each through the boundary — every writer uses it. */
 const tagsOf = (r) => Object.fromEntries(TAG_FIELDS.map((f) => [f, cleanTag(f, r && r[f])]));
 const tagName = (f, r) => (r && r[f] ? MEAL_TAGS[f][0][r[f]] : '');
+/* ── A wine's style profile (SCHEMA 20, Charles, 2026-10-31: "wine nose and
+   palate characteristics like sweetness, body, acidity, tannins…") ──
+   The TYPICAL profile of the wine, as critics and the producer describe it —
+   not one bottle on one night. Look Up and Check Wines fill it; the editors
+   change it. Five scales and up to four notes, all codes, so the Cellar and
+   Opened tabs can group by them (meal labels' rule: a code groups, free text
+   cannot). One object, `profile`, or null: it travels, copies and is logged
+   as one thing. field → [codes, label (also the table heading), how a
+   summary says a value]. The lists' order is the dropdowns'. */
+const PROFILE = {
+  sweetness: [{ dry: 'Dry', offdry: 'Off-dry', medium: 'Medium sweet', sweet: 'Sweet' }, 'Sweetness', (v) => v],
+  body:      [{ light: 'Light', medium: 'Medium', full: 'Full' }, 'Body', (v) => v + ' body'],
+  acidity:   [{ low: 'Low', medium: 'Medium', high: 'High' }, 'Acidity', (v) => v + ' acidity'],
+  tannin:    [{ low: 'Low', medium: 'Medium', high: 'High' }, 'Tannin', (v) => v + ' tannin'],
+  style:     [{ fruit: 'Fruit-forward', balanced: 'Balanced', earthy: 'Earthy and savoury' }, 'Style', (v) => v],
+};
+const PROFILE_SCALES = Object.keys(PROFILE);
+/* The notes: families, not single flavours, so two wines that both smell of
+   "cherry" and "raspberry" meet in one row. */
+const AROMAS = {
+  redfruit: 'Red fruit', blackfruit: 'Black fruit', citrus: 'Citrus', orchard: 'Orchard fruit',
+  tropical: 'Tropical fruit', floral: 'Floral', herbal: 'Herbal or green', spice: 'Spice',
+  oak: 'Oak and vanilla', butter: 'Butter or cream', earthy: 'Earthy', mineral: 'Mineral',
+  leather: 'Leather or tobacco', honey: 'Honey or nutty', jammy: 'Jammy or dried fruit',
+};
+const AROMA_MAX = 4;
+/* Every field a grouping table can show, `aromas` the many-valued one. */
+const PROFILE_FIELDS = PROFILE_SCALES.concat(['aromas']);
+const PROFILE_HEAD = Object.assign(Object.fromEntries(PROFILE_SCALES.map((f) => [f, PROFILE[f][1]])), { aromas: 'Notes' });
+const hasOwn = (o, k) => typeof k === 'string' && Object.prototype.hasOwnProperty.call(o, k);
+/* The boundary: codes only, notes de-duplicated and capped; nothing valid is null. */
+function cleanProfile(v) {
+  if (!v || typeof v !== 'object' || Array.isArray(v)) return null;
+  const out = {};
+  PROFILE_SCALES.forEach((f) => { out[f] = hasOwn(PROFILE[f][0], v[f]) ? v[f] : null; });
+  out.aromas = Array.isArray(v.aromas) ? [...new Set(v.aromas.filter((a) => hasOwn(AROMAS, a)))].slice(0, AROMA_MAX) : [];
+  return PROFILE_SCALES.some((f) => out[f]) || out.aromas.length ? out : null;
+}
+const sameProfile = (a, b) => JSON.stringify(cleanProfile(a)) === JSON.stringify(cleanProfile(b));
+/* "Full body · Dry · High acidity · Medium tannin · Fruit-forward — Black fruit, Spice" */
+function profileText(p) {
+  const c = cleanProfile(p);
+  if (!c) return '';
+  const scales = PROFILE_SCALES.filter((f) => c[f]).map((f) => PROFILE[f][2](PROFILE[f][0][c[f]]));
+  return [scales.join(' · '), c.aromas.map((a) => AROMAS[a]).join(', ')].filter(Boolean).join(' — ');
+}
+/* An opened line with no profile takes its wine's — on every load and every
+   save, so a wine profiled by Check Wines lends it to the bottles already
+   opened. A line with one keeps its own. */
+function fillLineProfiles(st) {
+  const byId = new Map((st.wines || []).map((w) => [w.id, w]));
+  (st.opened || []).forEach((o) => {
+    const w = !o.profile && o.wineId ? byId.get(o.wineId) : null;
+    if (w && w.profile) o.profile = cleanProfile(w.profile);
+  });
+}
+/* What one record says for a profile grouping: one name, or (notes) several. */
+function profileValues(rec, field) {
+  const c = rec && rec.profile;
+  if (!c) return [];
+  if (field === 'aromas') return (c.aromas || []).filter((a) => hasOwn(AROMAS, a)).map((a) => AROMAS[a]);
+  return hasOwn(PROFILE[field][0], c[field]) ? [PROFILE[field][0][c[field]]] : [];
+}
 const cleanHeldUp = (v) => (typeof v === 'string' && Object.prototype.hasOwnProperty.call(HELD_UP, v) ? v : null);
 /* A pairing's meal, as its list shows it: "Short ribs with polenta". The
    recipe itself is never kept. Up here because normalizeState reads it. */
@@ -3100,7 +3192,7 @@ const LOG_VAL_MAX = 60;
 const LOG_KINDS = ['add', 'paste', 'edit', 'ai', 'check', 'look', 'open', 'back', 'undo', 'revive', 'plan'];
 const LOG_CODES = ['name', 'vintage', 'color', 'region', 'subregion', 'grape', 'qty', 'location',
   'value', 'paid', 'window', 'source', 'added', 'notes', 'photo', 'opened', 'rating', 'place', 'meal',
-  'wine', 'status', 'day', 'heldup', 'food', 'why', 'flavour', 'weight', 'heat'];
+  'wine', 'status', 'day', 'heldup', 'food', 'why', 'flavour', 'weight', 'heat', 'profile'];
 const LOG_CONF = ['high', 'medium', 'low'];
 const HOST_RE = /^[a-z0-9-]+(\.[a-z0-9-]+)+$/i;
 function cleanLogChanges(v) {
@@ -3111,7 +3203,7 @@ function cleanLogChanges(v) {
     seen.add(d.f);
     const one = { f: d.f };
     /* Long text names its field only — notes, Claude's notes, a photo. */
-    if (d.f !== 'notes' && d.f !== 'photo' && d.f !== 'why') {
+    if (d.f !== 'notes' && d.f !== 'photo' && d.f !== 'why' && d.f !== 'profile') {
       if (typeof d.o === 'string') one.o = cleanLine(d.o, LOG_VAL_MAX);
       if (typeof d.n === 'string') one.n = cleanLine(d.n, LOG_VAL_MAX);
     }
@@ -3466,6 +3558,8 @@ function normalizeState(raw) {
            device's IndexedDB and its own cloud document (see "Label photos");
            this stamp is what says one exists, and which copy is newer. */
         photoAt: cleanChecked(it.photoAt),
+        /* Its typical style (SCHEMA 20) — see PROFILE. */
+        profile: cleanProfile(it.profile),
         /* What happened to it, newest last (SCHEMA 12) — see "History". */
         log: cleanLog(it.log),
       };
@@ -3527,6 +3621,8 @@ function normalizeState(raw) {
         /* The line's own label photo stamp (SCHEMA 10) — copied from its wine
            by Opened One, or added in the line's window. */
         photoAt: cleanChecked(it.photoAt),
+        /* Its wine's style profile (SCHEMA 20), copied when opened. */
+        profile: cleanProfile(it.profile),
         /* The line's own History (SCHEMA 14) — the same allowlist as a wine's. */
         log: cleanLog(it.log),
       };
@@ -3550,6 +3646,7 @@ function normalizeState(raw) {
         const t = o.drinkFrom; o.drinkFrom = o.drinkTo; o.drinkTo = t;
       }
     });
+    fillLineProfiles(out);
   }
   /* Pairings (SCHEMA 15, Charles, 2026-10-26): a meal and the bottle for it,
      planned for later or had, with the PAIRING's own rating and note — how the
@@ -3690,6 +3787,7 @@ function load() {
 function save() {
   if (viewOnly) { render(); return; }   /* the single write path, and the single place to stop it */
   state.version = SCHEMA;
+  fillLineProfiles(state);
   /* Bank the state this save is REPLACING — unless the save is itself an undo
      (which must consume history, not mint it), or nothing changed. */
   const core = coreOf(state);
@@ -3999,9 +4097,15 @@ const facetKey = (rec, field) => facetName(facetWritten(rec, field)).toLowerCase
 /* Picks are { field: Map(key → name) }: rows OR within a table, tables AND
    across. `skip` leaves one table's own picks out — a table is counted over
    what the OTHER tables leave, so its own rows stay pressable. */
+/* Every name a record has under one field — one, none, or (a wine's notes) several. */
+function facetValues(rec, field) {
+  if (PROFILE_HEAD[field]) return profileValues(rec, field);
+  const n = facetName(facetWritten(rec, field));
+  return n ? [n] : [];
+}
 function facetMatch(rec, picks, skip) {
   return !picks || Object.keys(picks).every((f) => f === skip || !picks[f].size
-    || picks[f].has(facetKey(rec, f)));
+    || facetValues(rec, f).some((n) => picks[f].has(n.toLowerCase())));
 }
 const facetAny = (picks) => Object.keys(picks).some((f) => picks[f].size > 0);
 function likeGroups(lines, field, picks, keep) {
@@ -4009,10 +4113,12 @@ function likeGroups(lines, field, picks, keep) {
   let blank = 0;
   const mine = picks && picks[field];
   lines.forEach((o) => {
-    const written = facetWritten(o, field);
-    const name = facetName(written);
     const counted = facetMatch(o, picks, field) && (!keep || keep(o));
-    if (!name) { if (counted) blank += 1; return; }
+    const names = facetValues(o, field);
+    if (!names.length) { if (counted) blank += 1; return; }
+    /* A wine with several notes counts under each of them. */
+    names.forEach((name) => {
+    const written = name;
     const k = name.toLowerCase();
     /* A record the other tables have narrowed away still makes its row —
        at 0, dimmed and locked (`dead`) — so no table changes height under
@@ -4024,6 +4130,7 @@ function likeGroups(lines, field, picks, keep) {
     if (!counted) return;
     g.bottles += 1;
     if (o.rating != null) { g.rated += 1; g.sum += o.rating; }
+    });
   });
   const rows = [...groups.values()].map((g) => ({ key: g.key, picked: !!(mine && mine.has(g.key)),
     dead: !g.bottles && !(mine && mine.has(g.key)),
@@ -4051,6 +4158,7 @@ function computeOpened(st, picks, keep) {
     age: { avg: aged ? ageSum / aged : null, unaged: st.opened.length - aged },
     grapes: likeGroups(st.opened, 'grape', picks, keep), regions: likeGroups(st.opened, 'region', picks, keep),
     subregions: likeGroups(st.opened, 'subregion', picks, keep),
+    ...Object.fromEntries(PROFILE_FIELDS.map((f) => [f, likeGroups(st.opened, f, picks, keep)])),
   };
 }
 
@@ -4063,11 +4171,13 @@ function makeupGroups(wines, field, yr, soon, picks, keep) {
   const mine = picks && picks[field];
   let blank = 0, total = 0;
   wines.forEach((w) => {
-    const written = facetWritten(w, field);
-    const name = facetName(written);
     const counted = facetMatch(w, picks, field) && (!keep || keep(w));
     if (counted) total += w.qty;
-    if (!name) { if (counted) blank += w.qty; return; }
+    const names = facetValues(w, field);
+    if (!names.length) { if (counted) blank += w.qty; return; }
+    /* A wine with several notes counts under each, so Notes' shares add up past 100%. */
+    names.forEach((name) => {
+    const written = name;
     const k = name.toLowerCase();
     /* likeGroups' rule: narrowed away, the row stays at 0. */
     if (!groups.has(k)) groups.set(k, { key: k, spellings: new Map(), from: new Set(), wines: 0, bottles: 0, ready: 0 });
@@ -4078,6 +4188,7 @@ function makeupGroups(wines, field, yr, soon, picks, keep) {
     g.wines += 1;
     g.bottles += w.qty;
     if (['ready', 'soon', 'past'].indexOf(statusOf(w, yr, soon)) !== -1) g.ready += w.qty;
+    });
   });
   const rows = [...groups.values()].map((g) => ({
     /* The spelling with the most bottles; on a tie, one with capitals. */
@@ -4104,6 +4215,7 @@ function computeMakeup(st, yr, picks, keep) {
     grapes: makeupGroups(wines, 'grape', yr, soon, picks, keep), regions: makeupGroups(wines, 'region', yr, soon, picks, keep),
     subregions: makeupGroups(wines, 'subregion', yr, soon, picks, keep), colours: makeupGroups(wines, 'color', yr, soon, picks, keep),
     drinkBy: makeupGroups(wines, 'drinkTo', yr, soon, picks, keep), places: makeupGroups(wines, 'location', yr, soon, picks, keep),
+    ...Object.fromEntries(PROFILE_FIELDS.map((f) => [f, makeupGroups(wines, f, yr, soon, picks, keep)])),
   };
 }
 
@@ -4374,16 +4486,17 @@ const likeColumns = (label) => [
    share link. `null` means the table's own order. */
 let sortKey = null, sortDir = 'desc';
 let openedSortKey = null, openedSortDir = 'desc';
-let likeSort = { grape: { key: null, dir: 'desc' }, region: { key: null, dir: 'desc' },
-                 subregion: { key: null, dir: 'desc' } };
+let likeSort = Object.assign({ grape: { key: null, dir: 'desc' }, region: { key: null, dir: 'desc' },
+                 subregion: { key: null, dir: 'desc' } }, Object.fromEntries(PROFILE_FIELDS.map((f) => [f, { key: null, dir: 'desc' }])));
 /* Which timings the Opened list is narrowed to, pressed from the tiles; empty
    is every one. Page-life only, like the Cellar's statusPick. */
 const timingPick = new Set();
 /* The grouping tables' picks, one map per tab (field → Map(key → name)).
    Page-life, like statusPick; pressed only through setFacet / clearFacets. */
-const makePick = { grape: new Map(), region: new Map(), subregion: new Map(), color: new Map(),
-  drinkTo: new Map(), location: new Map() };
-const likePick = { grape: new Map(), region: new Map(), subregion: new Map() };
+const makePick = Object.assign({ grape: new Map(), region: new Map(), subregion: new Map(), color: new Map(),
+  drinkTo: new Map(), location: new Map() }, Object.fromEntries(PROFILE_FIELDS.map((f) => [f, new Map()])));
+const likePick = Object.assign({ grape: new Map(), region: new Map(), subregion: new Map() },
+  Object.fromEntries(PROFILE_FIELDS.map((f) => [f, new Map()])));
 const pairLikePick = { food: new Map(), flavour: new Map(), weight: new Map(), heat: new Map(), grape: new Map() };
 /* The tiles (and their Status / Timing boxes) narrow the grouping tables too
    (Charles, 2026-10-27): rows with none of the tile-picked records go dead.
@@ -4608,9 +4721,48 @@ const MAKE_TABLES = { grape: ['makeGrapes', 'Grape', 'grapes', 'no grape recorde
   subregion: ['makeSubregions', 'Sub-region', 'subregions', 'no sub-region recorded'],
   color: ['makeColours', 'Colour', 'colours', 'no colour set'],
   drinkTo: ['makeDrinkBy', 'Drink By', 'drinkBy', 'no end to its window'],
-  location: ['makeWhere', 'Where It Is', 'places', 'no place recorded'] };
+  location: ['makeWhere', 'Where It Is', 'places', 'no place recorded'],
+  /* By Style's (SCHEMA 20): no fixed host — makeStyle says which are shown, and where. */
+  ...Object.fromEntries(PROFILE_FIELDS.map((f) => [f, [null, PROFILE_HEAD[f], f,
+    f === 'aromas' ? 'no notes in the style profile' : 'no ' + PROFILE_HEAD[f].toLowerCase() + ' in the style profile']])) };
+const MAKE_BASE = ['grape', 'region', 'subregion', 'color', 'drinkTo', 'location'];
+/* By Style's two tables on a card: which profile field each shows, chosen in
+   its Group by box and remembered on this device (a viewer's convenience, so
+   localStorage, guarded). Choosing the other table's field swaps them; a
+   field leaving view lets its picks go, so nothing narrows the list from a
+   table you cannot see — What Pairs Well's rules. */
+function styleSlots(prefix, defaults, picks, draw) {
+  const store = 'wine-' + prefix + '-style-by', sel = [prefix + 'StyleByA', prefix + 'StyleByB'];
+  /* Built before `$` exists (MAKE_TABLES' place), so it asks the document itself. */
+  const hosts = [prefix + 'StyleA', prefix + 'StyleB'];
+  let show = defaults;
+  try {
+    const v = JSON.parse(localStorage.getItem(store) || 'null');
+    if (Array.isArray(v) && v.length === 2 && v[0] !== v[1] && v.every((f) => PROFILE_HEAD[f])) show = v;
+  } catch (e) { /* private window: the default */ }
+  const set = (slot, field) => {
+    if (!PROFILE_HEAD[field] || show[slot] === field) return;
+    const next = show.slice(), other = 1 - slot;
+    if (next[other] === field) next[other] = next[slot];
+    else picks[next[slot]].clear();
+    next[slot] = field;
+    show = next;
+    sel.forEach((id, i) => { document.getElementById(id).value = show[i]; });
+    try { localStorage.setItem(store, JSON.stringify(show)); } catch (e) { /* not kept */ }
+    draw();
+  };
+  sel.forEach((id, i) => {
+    document.getElementById(id).innerHTML = PROFILE_FIELDS.map((f) => '<option value="' + f + '">' + esc(PROFILE_HEAD[f]) + '</option>').join('');
+    document.getElementById(id).value = show[i];
+    document.getElementById(id).addEventListener('change', (e) => set(i, e.target.value));
+  });
+  return { show: () => show.slice(), host: (f) => hosts[show.indexOf(f)] || null };
+}
+const makeStyle = styleSlots('make', ['body', 'aromas'], makePick, () => FACET_TABS.cellar.draw());
+const likeStyle = styleSlots('like', ['style', 'aromas'], likePick, () => FACET_TABS.opened.draw());
+const makeHost = (f) => MAKE_TABLES[f][0] || makeStyle.host(f);
 const MAKE_LABELS = Object.fromEntries(Object.keys(MAKE_TABLES).map((f) => [f, MAKE_TABLES[f][1]]));
-const LIKE_LABELS = { grape: 'Grape', region: 'Region', subregion: 'Sub-region' };
+const LIKE_LABELS = Object.assign({ grape: 'Grape', region: 'Region', subregion: 'Sub-region' }, PROFILE_HEAD);
 const facetNote = (picks, labels) => facetAny(picks) ? ', narrowed to ' + facetSummary(picks, labels) : '';
 /* A grouping row is a filter toggle: the WHOLE row presses it (the Cellar
    list's pattern) and its name is the button that reaches the keyboard and
@@ -4635,18 +4787,16 @@ const makeColumns = (label) => [
   { key: 'ready',   label: 'Ready',     desc: true, num: true },
 ];
 /* View state, never saved; null is the table's own order (most bottles first). */
-const makeSort = { grape: { key: null, dir: 'desc' }, region: { key: null, dir: 'desc' },
-  subregion: { key: null, dir: 'desc' }, color: { key: null, dir: 'desc' },
-  drinkTo: { key: null, dir: 'desc' }, location: { key: null, dir: 'desc' } };
+const makeSort = Object.fromEntries(Object.keys(MAKE_TABLES).map((f) => [f, { key: null, dir: 'desc' }]));
 function renderMakeup(c) {
   $('makeupCard').hidden = !c.bottles;
   if (!c.bottles) return;
-  Object.keys(MAKE_TABLES).forEach((f) => renderMakeTable(f, c));
+  MAKE_BASE.concat(makeStyle.show()).forEach((f) => renderMakeTable(f, c));
   /* Kept in its place while hidden, so it appearing never re-wraps the
      card's heading on a phone and moves the tables under it. */
   $('makeupCard').querySelector('[data-facet-clear]').style.visibility = facetAny(makePick) ? '' : 'hidden';
   const blanks = [];
-  Object.keys(MAKE_TABLES).forEach((f) => {
+  MAKE_BASE.concat(makeStyle.show()).forEach((f) => {
     const n = c[MAKE_TABLES[f][2]].blank, label = MAKE_TABLES[f][1];
     if (n) blanks.push(plural(n, 'bottle') + ' with ' + MAKE_TABLES[f][3] + ' '
       + (n === 1 ? 'is' : 'are') + ' left out of the ' + label + ' table.');
@@ -4654,7 +4804,8 @@ function renderMakeup(c) {
   $('makeWarn').textContent = blanks.join(' ');
 }
 function renderMakeTable(field, c) {
-  const [hostId, label, k, lacks] = MAKE_TABLES[field];
+  const [, label, k, lacks] = MAKE_TABLES[field], hostId = makeHost(field);
+  if (!hostId) return;
   const g = c[k], srt = makeSort[field], host = $(hostId);
   /* Drink By's own order is the calendar, soonest first — the question it
      answers is when bottles run out of time. The rest: most bottles first. */
@@ -4685,6 +4836,7 @@ function renderLikeTables(c) {
   renderLike('grape', c.grapes, 'Grape');
   renderLike('region', c.regions, 'Region');
   renderLike('subregion', c.subregions, 'Sub-region');
+  likeStyle.show().forEach((f) => renderLike(f, c[f], PROFILE_HEAD[f]));
   /* Kept in its place while hidden, so it appearing never re-wraps the
      card's heading on a phone and moves the tables under it. */
   $('likeCard').querySelector('[data-facet-clear]').style.visibility = facetAny(likePick) ? '' : 'hidden';
@@ -4694,11 +4846,18 @@ function renderLikeTables(c) {
     if (b[0]) blanks.push(plural(b[0], 'bottle') + ' with no ' + b[1] + ' recorded '
       + (b[0] === 1 ? 'is' : 'are') + ' left out of the ' + b[2] + ' table.');
   });
+  likeStyle.show().forEach((f) => {
+    const n = c[f].blank;
+    if (n) blanks.push(plural(n, 'bottle') + ' with no ' + (f === 'aromas' ? 'notes' : PROFILE_HEAD[f].toLowerCase())
+      + ' in the style profile ' + (n === 1 ? 'is' : 'are') + ' left out of the ' + PROFILE_HEAD[f] + ' table.');
+  });
   document.getElementById('likeWarn').textContent = blanks.join(' ');
 }
 /* Its own order is best-rated first, unrated last, then the most bottles. */
 function renderLike(field, g, label) {
-  const host = document.getElementById({ grape: 'likeGrapes', region: 'likeRegions', subregion: 'likeSubregions' }[field]);
+  const host = document.getElementById({ grape: 'likeGrapes', region: 'likeRegions', subregion: 'likeSubregions' }[field]
+    || likeStyle.host(field));
+  if (!host) return;
   const cols = likeColumns(label), srt = likeSort[field];
   const key = srt.key || 'avg', sign = (srt.key ? srt.dir : 'desc') === 'asc' ? 1 : -1;
   const blankLast = (x, y, f) => (x == null && y == null) ? 0 : x == null ? 1 : y == null ? -1 : f(x, y) * sign;
@@ -4797,7 +4956,7 @@ function historyWhat(e) {
 /* One change as words. Notes and the photo carry no values, only that they changed. */
 function changeText(d) {
   const label = LOG_LABEL[d.f];
-  if (d.f === 'notes' || d.f === 'why') return label + ' changed';
+  if (d.f === 'notes' || d.f === 'why' || d.f === 'profile') return label + ' changed';
   if (d.f === 'photo') return !d.n ? 'Photo removed' : !d.o ? 'Photo added' : 'Photo replaced';
   if (!d.o) return label + ': ' + (d.n || '—');
   return label + ': ' + d.o + ' → ' + (d.n || '(cleared)');
@@ -5617,7 +5776,7 @@ const SHARE_FORMAT = 1;
    4: an opened line carries its own snapshot — a bottle logged away from home
    has no wine to be filled from — and its place, with the notes.
    5: a wine's and a line's sub-region. */
-const SHARE_PAYLOAD_V = 6;
+const SHARE_PAYLOAD_V = 7;
 const SHARE_WARN_AT = 8000;
 
 const b64urlEncode = (bytes) => {
@@ -5683,7 +5842,7 @@ function buildSharePayload(st, opts) {
       const r = { id: w.id, vintage: w.vintage, name: w.name, color: w.color, region: w.region, subregion: w.subregion,
                   grape: w.grape, qty: w.qty, valueLow: w.valueLow, valueHigh: w.valueHigh,
                   valueEst: w.valueEst, drinkFrom: w.drinkFrom, drinkTo: w.drinkTo,
-                  source: w.source, added: w.added };
+                  source: w.source, added: w.added, profile: w.profile };
       if (notes) { r.notes = w.notes; r.location = w.location; }
       if (o.paid === true) r.paid = w.paid;
       return r;
@@ -5692,7 +5851,7 @@ function buildSharePayload(st, opts) {
   if (o.opened === true) out.opened = st.opened.map((x) => {
     const r = { id: x.id, wineId: x.wineId, date: x.date, rating: x.rating, heldUp: x.heldUp, note: notes ? x.note : '',
                 label: x.label, region: x.region, subregion: x.subregion, grape: x.grape, vintage: x.vintage,
-                drinkFrom: x.drinkFrom, drinkTo: x.drinkTo, place: notes ? x.place : '' };
+                drinkFrom: x.drinkFrom, drinkTo: x.drinkTo, place: notes ? x.place : '', profile: x.profile };
     if (o.paid === true) r.paid = x.paid;
     return r;
   });
@@ -6013,6 +6172,26 @@ const LOOKUP_TOOL = {
       drink_to: INT_OR_NULL,
       window_basis: { type: 'string', description: 'One phrase, under 200 characters: whose window this is, or that it '
         + 'is your estimate.' },
+      /* The style profile (SCHEMA 20): codes from PROFILE and AROMAS. */
+      profile: {
+        type: 'object', additionalProperties: false,
+        description: 'The wine\'s typical style as tasting notes from critics and the producer describe this wine, '
+          + 'or, failing that, as its grape, place and vintage make likely. Use null for a scale you cannot judge.',
+        properties: Object.assign(Object.fromEntries(PROFILE_SCALES.map((f) => [f, {
+          anyOf: [{ type: 'string', enum: Object.keys(PROFILE[f][0]) }, { type: 'null' }],
+          description: f === 'tannin' ? 'Reds only; null for a white, rosé or sparkling wine.'
+            : f === 'style' ? 'fruit: fruit-forward; balanced; earthy: earthy and savoury.'
+            : f === 'sweetness' ? 'How sweet it tastes: dry, offdry, medium (medium sweet) or sweet.' : PROFILE[f][1] + '.',
+        }])), {
+          aromas: { type: 'array', items: { type: 'string', enum: Object.keys(AROMAS) },
+            description: 'One to four of the most prominent aromas and flavours, strongest first: redfruit (cherry, '
+              + 'raspberry, strawberry), blackfruit (blackberry, plum, cassis), citrus, orchard (apple, pear, stone fruit), '
+              + 'tropical, floral, herbal (green pepper, mint, grass), spice (pepper, clove), oak (vanilla, toast, '
+              + 'cedar), butter (butter, cream), earthy (mushroom, forest floor), mineral, leather (leather, tobacco), '
+              + 'honey (honey, nuts, aged notes), jammy (jam, dried fruit, raisin).' },
+        }),
+        required: PROFILE_SCALES.concat(['aromas']),
+      },
       sources: {
         type: 'array',
         items: {
@@ -6023,7 +6202,7 @@ const LOOKUP_TOOL = {
       },
     },
     required: ['matched_wine', 'label_name', 'label_vintage', 'confidence', 'color', 'region', 'appellation', 'grape', 'value_low', 'value_high',
-               'value_is_estimate', 'value_basis', 'drink_from', 'drink_to', 'window_basis', 'sources'],
+               'value_is_estimate', 'value_basis', 'drink_from', 'drink_to', 'window_basis', 'profile', 'sources'],
   },
 };
 
@@ -6058,6 +6237,10 @@ const LOOKUP_SYSTEM = [
   'Confidence is about WHICH bottle only. A legible label photo, or a source naming this exact wine',
   'and vintage, makes it "high" even when no merchant lists this vintage today - the estimate flags',
   'and window_basis already say how firm the figures are.',
+  '',
+  'Profile: the wine\'s usual style - sweetness, body, acidity, tannin, whether it leans fruit-forward or',
+  'earthy, and its leading aromas - from critics\' and the producer\'s tasting notes where you find them,',
+  'otherwise from what its grape, place and vintage make typical. It is not the reader\'s bottle on one night.',
   '',
   'List the pages you actually used in sources. If you cannot find the wine, say so with',
   'confidence "low" and null values - a wrong number is worse than none.',
@@ -6284,6 +6467,7 @@ function readLookup(found, asked) {
     drinkFrom: from,
     drinkTo: to,
     windowBasis: clipWords(f.window_basis, BASIS_MAX),
+    profile: cleanProfile(f.profile),
     sources: sources,
     /* How many sources were left out for naming a different wine — said on
        screen, because Claude may have taken a figure from one of them. */
@@ -6311,6 +6495,7 @@ const LOG_FIELDS = [
   ['added', 'Added', (w) => fmtAdded(w.added)],
   ['notes', 'Notes', (w) => w.notes || ''],
   ['photo', 'Photo', (w) => w.photoAt || ''],
+  ['profile', 'Style profile', (w) => profileText(w.profile)],
 ];
 /* What History can name on an opened line (SCHEMA 14): the wine as it was
    copied or typed, and what the reader said about the bottle. The shared codes
@@ -6329,6 +6514,7 @@ const LINE_FIELDS = [
   ['place', 'Where opened', (o) => o.place || ''],
   ['notes', 'Notes', (o) => o.note || ''],
   ['photo', 'Photo', (o) => o.photoAt || ''],
+  ['profile', 'Style profile', (o) => profileText(o.profile)],
 ];
 /* Every field either list names, wines' first — the Field filter's order. */
 /* What History can name on a pairing (SCHEMA 16). `meal` also rides on the
@@ -6483,23 +6669,28 @@ function sampleData() {
     wines: [
       w({ id: 'demo-soon', vintage: Y - 6, name: 'Invented Hills Old Vine Zinfandel', region: 'Lodi, California',
           grape: 'Zinfandel', qty: 2, valueLow: 28, valueHigh: 32, paid: 36, drinkFrom: Y - 3, drinkTo: Y,
-          location: 'Rack A', notes: 'Its window closes this year — the one to open first.' }),
+          location: 'Rack A', notes: 'Its window closes this year — the one to open first.',
+          profile: { sweetness: 'dry', body: 'full', acidity: 'medium', tannin: 'medium', style: 'fruit', aromas: ['jammy', 'blackfruit', 'spice'] } }),
       w({ id: 'demo-ready', vintage: Y - 3, name: 'Example Ridge Pinot Noir', region: 'Sonoma Coast, California',
           grape: 'Pinot Noir', qty: 3, valueLow: 35, valueHigh: 45, valueEst: true, paid: 39.99,
-          drinkFrom: Y - 1, drinkTo: Y + 5, location: 'Rack A', source: 'Wine club' }),
+          drinkFrom: Y - 1, drinkTo: Y + 5, location: 'Rack A', source: 'Wine club',
+          profile: { sweetness: 'dry', body: 'light', acidity: 'high', tannin: 'low', style: 'balanced', aromas: ['redfruit', 'earthy', 'spice'] } }),
       w({ id: 'demo-hold', vintage: Y - 2, name: 'Sample Estate Cabernet Sauvignon', region: 'Napa Valley, California', subregion: 'Oakville',
           grape: 'Cabernet Sauvignon', qty: 6, valueLow: 60, valueHigh: 75, paid: 52, drinkFrom: Y + 3,
-          drinkTo: Y + 14, location: 'Rack B', notes: 'Bought by the case to open one a year.' }),
+          drinkTo: Y + 14, location: 'Rack B', notes: 'Bought by the case to open one a year.',
+          profile: { sweetness: 'dry', body: 'full', acidity: 'medium', tannin: 'high', style: 'fruit', aromas: ['blackfruit', 'oak', 'herbal'] } }),
       w({ id: 'demo-past', vintage: Y - 9, name: 'Placeholder Bianco', color: 'white', region: 'Friuli, Italy',
           grape: 'Friulano', qty: 1, valueLow: 18, drinkFrom: Y - 7, drinkTo: Y - 2,
-          location: 'Wine fridge' }),
+          location: 'Wine fridge', profile: { sweetness: 'dry', body: 'medium', acidity: 'medium', tannin: null, style: 'balanced', aromas: ['orchard', 'herbal', 'mineral'] } }),
       w({ id: 'demo-sparkling', vintage: null, name: 'Fictional Brut Rosé', color: 'sparkling',
           region: 'Champagne, France', grape: 'Champagne blend', qty: 2, valueLow: 40,
-          drinkFrom: Y - 1, drinkTo: Y + 3, location: 'Wine fridge', source: 'other' }),
+          drinkFrom: Y - 1, drinkTo: Y + 3, location: 'Wine fridge', source: 'other',
+          profile: { sweetness: 'dry', body: 'light', acidity: 'high', tannin: null, style: 'fruit', aromas: ['redfruit', 'citrus'] } }),
       w({ id: 'demo-none', vintage: Y - 4, name: 'Mystery Bottle From a Friend', qty: 1,
           location: 'Rack B', source: 'other', notes: 'No label we could read — no value, no window.' }),
       w({ id: 'demo-finished', vintage: Y - 5, name: 'Long Gone Grenache', region: 'Barossa Valley, Australia',
-          grape: 'Grenache', qty: 0, valueLow: 30, drinkFrom: Y - 3, drinkTo: Y + 2, source: 'Wine club' }),
+          grape: 'Grenache', qty: 0, valueLow: 30, drinkFrom: Y - 3, drinkTo: Y + 2, source: 'Wine club',
+          profile: { sweetness: 'dry', body: 'full', acidity: 'medium', tannin: 'medium', style: 'fruit', aromas: ['redfruit', 'spice', 'jammy'] } }),
     ],
     opened: [
       { id: 'demo-o1', wineId: 'demo-finished', date: back(100), rating: 4,
@@ -6521,11 +6712,13 @@ function sampleData() {
       { id: 'demo-o8', wineId: 'demo-none', date: back(80), rating: null, note: '',
         label: (Y - 4) + ' Mystery Bottle From a Friend' },
       { id: 'demo-o9', wineId: 'demo-gone', date: back(300), rating: 4.5, heldUp: 'great', note: '',
-        label: (Y - 12) + ' Retired Rioja Reserva', region: 'Rioja, Spain', grape: 'Tempranillo blend', paid: null },
+        label: (Y - 12) + ' Retired Rioja Reserva', region: 'Rioja, Spain', grape: 'Tempranillo blend', paid: null,
+        profile: { sweetness: 'dry', body: 'medium', acidity: 'high', tannin: 'medium', style: 'earthy', aromas: ['leather', 'oak', 'redfruit'] } },
       /* Logged away from home: no wine behind it, a place, its own snapshot. */
       { id: 'demo-o10', wineId: null, date: back(18), rating: 4, note: 'Ordered off the list with the steak.',
         label: (Y - 7) + ' Imaginary Cellars Malbec', place: 'A steakhouse downtown', region: 'Mendoza, Argentina',
-        grape: 'Malbec', paid: 85, vintage: Y - 7, drinkFrom: Y - 3, drinkTo: Y + 4 },
+        grape: 'Malbec', paid: 85, vintage: Y - 7, drinkFrom: Y - 3, drinkTo: Y + 4,
+        profile: { sweetness: 'dry', body: 'full', acidity: 'medium', tannin: 'medium', style: 'fruit', aromas: ['blackfruit', 'oak', 'floral'] } },
     ],
     /* Every pairing names its kind of food (SCHEMA 18) but the lamb tagine,
        so the Food table's warn line has one to count. */
@@ -6617,6 +6810,43 @@ function loadSample() {
 /* ═══════════════════════════════ Wiring ═══════════════════════════════════ */
 
 const $ = (id) => document.getElementById(id);
+/* The style profile's boxes, one builder for both editors ('f' the wine's,
+   'ob' an opened bottle's): five dropdowns and the notes as tick boxes, at
+   most AROMA_MAX ticked — the rest go disabled at four. The summary line says
+   the profile as it stands. Read through cleanProfile, so the boxes and the
+   boundary agree; an all-blank profile reads as null. */
+function profileBoxHTML(p) {
+  return '<summary>Style profile: <span class="profile-sum" id="' + p + '_profileSum"></span></summary>'
+    + '<div class="grid3">' + PROFILE_SCALES.map((f) => '<div class="field"><label for="' + p + '_' + f + '">'
+      + esc(PROFILE[f][1]) + '</label><select id="' + p + '_' + f + '"><option value="">Not said</option>'
+      + Object.entries(PROFILE[f][0]).map(([k, v]) => '<option value="' + esc(k) + '">' + esc(v) + '</option>').join('')
+      + '</select></div>').join('') + '</div>'
+    + '<fieldset class="formpanel"><legend>Notes, up to ' + AROMA_MAX + '</legend><div class="aromas">'
+    + Object.entries(AROMAS).map(([k, v]) => '<label class="checkline"><input type="checkbox" data-aroma="' + esc(k)
+      + '"><span>' + esc(v) + '</span></label>').join('') + '</div></fieldset>';
+}
+function readProfileBoxes(p) {
+  const o = Object.fromEntries(PROFILE_SCALES.map((f) => [f, $(p + '_' + f).value || null]));
+  o.aromas = [...$(p + '_profileBox').querySelectorAll('[data-aroma]:checked')].map((b) => b.dataset.aroma);
+  return cleanProfile(o);
+}
+function dressProfileBox(p) {
+  const ticks = [...$(p + '_profileBox').querySelectorAll('[data-aroma]')];
+  const n = ticks.filter((b) => b.checked).length;
+  ticks.forEach((b) => { b.disabled = !b.checked && n >= AROMA_MAX; });
+  $(p + '_profileSum').textContent = profileText(readProfileBoxes(p)) || 'not set';
+}
+function setProfileBoxes(p, prof) {
+  const c = cleanProfile(prof) || { aromas: [] };
+  PROFILE_SCALES.forEach((f) => { $(p + '_' + f).value = c[f] || ''; });
+  $(p + '_profileBox').querySelectorAll('[data-aroma]').forEach((b) => { b.checked = c.aromas.indexOf(b.dataset.aroma) !== -1; });
+  dressProfileBox(p);
+}
+['f', 'ob'].forEach((p) => {
+  $(p + '_profileBox').innerHTML = profileBoxHTML(p);
+  $(p + '_profileBox').addEventListener('change', () => dressProfileBox(p));
+});
+
 let editingId = null;
 
 function openWine(id) {
@@ -6635,6 +6865,7 @@ function openWine(id) {
   $('f_region').value = it ? it.region : '';
   $('f_subregion').value = it ? it.subregion || '' : '';
   $('f_grape').value = it ? it.grape : '';
+  setProfileBoxes('f', it ? it.profile : null);
   $('f_qty').value = it ? it.qty : 1;
   $('f_location').value = it ? it.location : '';
   $('f_low').value = it && it.valueLow != null ? it.valueLow : '';
@@ -6931,6 +7162,7 @@ $('wineSave').addEventListener('click', () => {
     valueLow: low != null ? low : high, valueHigh: low != null ? high : null,
     valueEst: $('f_est').checked, paid: paid, drinkFrom: from, drinkTo: to,
     source: cleanSource($('f_source').value), added: added, notes: cleanNote($('f_notes').value, NOTES_MAX),
+    profile: readProfileBoxes('f'),
   };
   if (editingId) {
     /* Re-found by id at the moment of saving: another tab or device may have
@@ -7070,6 +7302,9 @@ const LOOKUP_BOXES = [
      offered. A NEW wine is filled either way, as it was when it started red. */
   ['color', 'Colour', () => !editingId || !$('f_color').value, (r) => { $('f_color').value = r.color; },
    (r) => !!r.color, (r) => $('f_color').value === r.color],
+  /* The style profile goes in whole, an empty one filled like any empty box. */
+  ['profile', 'Style profile', () => !readProfileBoxes('f'), (r) => { setProfileBoxes('f', r.profile); },
+   (r) => !!r.profile, (r) => sameProfile(readProfileBoxes('f'), r.profile)],
 ];
 /* Puts Claude's answer into the boxes: the empty ones (a lookup's first
    pass), every one (`all`), or just the keys named (one "Use this"). */
@@ -7096,6 +7331,7 @@ function renderLookupPanel(r) {
     value: r.valueLow != null ? fmtRange(r.valueLow, r.valueHigh) + (r.valueEst ? ' est.' : '') : '',
     window: r.drinkFrom != null || r.drinkTo != null ? fmtWindow(r) : '',
     region: r.region, subregion: r.subregion, grape: r.grape, color: r.color ? COLOR_LABEL[r.color] : '',
+    profile: profileText(r.profile),
   };
   const basis = { value: r.valueBasis, window: r.windowBasis };
   let differ = 0;
@@ -7292,6 +7528,7 @@ function fillOpenDialog(o) {
   $('ob_region').value = o ? o.region || '' : '';
   $('ob_subregion').value = o ? o.subregion || '' : '';
   $('ob_grape').value = o ? o.grape || '' : '';
+  setProfileBoxes('ob', o ? o.profile : null);
   $('ob_from').value = o ? numBox(o.drinkFrom) : '';
   $('ob_to').value = o ? numBox(o.drinkTo) : '';
   $('o_place').value = o ? o.place || '' : '';
@@ -7363,7 +7600,7 @@ function readOpenWineBoxes() {
            vintage: vintage, paid: cleanMoney($('ob_paid').value),
            region: cleanLine($('ob_region').value, 60), subregion: cleanLine($('ob_subregion').value, 60),
            grape: cleanLine($('ob_grape').value, 60),
-           drinkFrom: from, drinkTo: to };
+           drinkFrom: from, drinkTo: to, profile: readProfileBoxes('ob') };
 }
 $('openSave').addEventListener('click', () => {
   const date = $('o_date').value;
@@ -7415,7 +7652,7 @@ $('openSave').addEventListener('click', () => {
      still reads the same after the wine is edited or deleted. */
   const line = Object.assign({ id: uid(), wineId: w.id, label: cleanLine(wineLabel(w), 100),
                       region: w.region, subregion: w.subregion, grape: w.grape, paid: w.paid,
-                      vintage: w.vintage, drinkFrom: w.drinkFrom, drinkTo: w.drinkTo }, told);
+                      vintage: w.vintage, drinkFrom: w.drinkFrom, drinkTo: w.drinkTo, profile: cleanProfile(w.profile) }, told);
   /* And its label photo, as its OWN copy, so the line keeps it after the
      wine is deleted — the same snapshot rule as the name and the window. */
   if (w.photoAt) {
@@ -7460,6 +7697,11 @@ function applyObLookup(r, all) {
     if (!mine || all) { if (mine !== v) { box.value = v; filled.push(label); } }
     else if (!sameText(mine, v)) kept.push(label);
   });
+  if (r.profile) {
+    const mine = readProfileBoxes('ob');
+    if (!mine || all) { if (!sameProfile(mine, r.profile)) { setProfileBoxes('ob', r.profile); filled.push('Style profile'); } }
+    else if (!sameProfile(mine, r.profile)) kept.push('Style profile');
+  }
   if (r.drinkFrom != null || r.drinkTo != null) {
     const f = $('ob_from'), t = $('ob_to');
     const mine = f.value.trim() || t.value.trim();
@@ -7733,6 +7975,11 @@ const LOOKUP_FIELDS = [
    (w, r) => sameText(w.grape, r.grape), (w) => w.grape, (w, r) => { w.grape = r.grape; }],
   ['color', 'Colour', (w) => !w.color, (r) => !!r.color,
    (w, r) => w.color === r.color, (w) => COLOR_LABEL[w.color] || '', (w, r) => { w.color = r.color; }],
+  /* An empty profile starts ticked; a different one is left — a second
+     reading of the same wine is not better evidence. */
+  ['profile', 'Style profile', (w) => !w.profile, (r) => !!r.profile,
+   (w, r) => sameProfile(w.profile, r.profile), (w) => profileText(w.profile),
+   (w, r) => { w.profile = cleanProfile(r.profile); }],
 ];
 /* What Claude says differently about a SAVED wine, one entry per field — and
    nothing at all when Claude could not find this exact wine (its History
@@ -8151,6 +8398,9 @@ const PAIR_SYSTEM = [
   'not just the protein. First decide the classic styles for the dish, then find the closest',
   'matches in the cellar list, which may share a grape, region or structure with a classic style.',
   '',
+  'A wine\'s style, when listed, is its typical profile: match the weight of the wine to the weight of',
+  'the dish, acid to acid and sweetness to sweetness, and keep high tannin away from chilli heat.',
+  '',
   'Each wine carries its status. Prefer Ready, Drink Soon and Past Window bottles (a Past Window',
   'bottle may be tired; say so if you pick one). Pick a Hold bottle only when it is clearly the best',
   'match, and mark it young. Never pad: one great match beats three weak ones, and if nothing in',
@@ -8177,6 +8427,8 @@ function pairLine(w, n, yr, soon, planned) {
     cleanLine(w.region, 60) + (w.subregion ? ' (' + cleanLine(w.subregion, 60) + ')' : ''),
     STATUS[st].label + (st !== 'none' ? ' (drink ' + fmtWindow(w) + ')' : ''),
     plural(w.qty, 'bottle') + (planned ? ', ' + planned + ' planned for another meal' : ''),
+    /* Its typical style (SCHEMA 20), when Look Up has found it. */
+    w.profile ? 'style: ' + profileText(w.profile) : '',
   ].filter(Boolean).join(' · ');
 }
 /* The whole request — PURE, so tests.html pins its shape. `wines` is the list
@@ -8749,7 +9001,7 @@ $('makeupCard').addEventListener('click', (e) => {
   makeSort[field] = nextSort(cur.key, cur.dir, sort.dataset.sort, !!sort.dataset.desc);
   /* Only its own table is redrawn — the iPhone Safari jump rule. */
   renderMakeTable(field, makeupNow());
-  const again = $(MAKE_TABLES[field][0]).querySelector('[data-sort="' + sort.dataset.sort + '"]');
+  const again = $(makeHost(field)).querySelector('[data-sort="' + sort.dataset.sort + '"]');
   if (again) again.focus({ preventScroll: true });
 });
 $('pairLikeCard').addEventListener('click', (e) => {
@@ -9315,9 +9567,11 @@ const HELP = {
   likes: ['How These Tables Are Worked Out', `<p>Every opened bottle, grouped by its <strong>grape</strong> and, separately, by its <strong>region</strong>, as they were recorded when it was opened. Each name counts as written, ignoring only capitals and extra spaces — so a <strong>Tempranillo blend</strong> has its own row, apart from a straight Tempranillo.</p>
     <p><strong>Sub-region</strong> counts the narrower place inside a region — Stags Leap District inside Napa Valley — for the bottles that have one.</p>
     <p><strong>Bottles</strong> counts them all. <strong>Rated</strong> is how many you gave stars to, and <strong>Avg ★</strong> is the average of those stars, out of 5 — a bottle you didn’t rate never pulls it down. Best-rated comes first, with the most bottles breaking a tie; press a heading to sort by it instead.</p>
+    <p><strong>By Style</strong> groups them by their wine’s style profile from Look Up — sweetness, body, acidity, tannin, style, or its notes; choose two with <strong>Group by</strong>. A bottle with several notes counts under each of them. It is the wine’s typical profile, not that bottle on that night.</p>
     <p><strong>Press a row</strong> to narrow the Bottles Opened list to those bottles, and the other two tables recount to them — rows in two tables narrow to the bottles in both, two rows in one table to either. Press it again, or <strong>Clear</strong>, to let it go. The timing tiles narrow these tables the same way, though the tiles themselves always count every bottle.</p>`],
   makeup: ['How These Tables Are Worked Out', `<p>Every wine you still have bottles of, grouped by its <strong>grape</strong>, its <strong>region</strong>, its <strong>sub-region</strong>, its <strong>colour</strong>, the year its window closes and where you keep it. Each name counts as written, ignoring only capitals and extra spaces, as What You Like on the Opened tab does.</p>
     <p><strong>Press a row</strong> to narrow the cellar to those bottles: the list below shows only them, and the other tables recount to them. Press rows in two tables and it narrows to the bottles in both; press two rows in one table and either will do. A row with none of the picked bottles stays at 0, dimmed and locked, and pressing a picked row again (or <strong>Clear</strong>) lets it go. The status tiles in At a Glance (and the Cellar's Status box) narrow these tables the same way, though the tiles themselves always count the whole cellar.</p>
+    <p><strong>By Style</strong> groups them by Look Up’s style profile — sweetness, body, acidity, tannin, style, or its notes; choose two with <strong>Group by</strong>. A wine with several notes counts under each, so the Notes table’s shares add up to more than 100%.</p>
     <p><strong>Drink By</strong> groups bottles by the year their drinking window closes, soonest first — the years when bottles start running out of time; a window with no end is left out and counted. <strong>Where It Is</strong> groups them by the place you keep them, as written (capitals ignored).</p>
     <p><strong>Wines</strong> is how many different wines, <strong>Bottles</strong> how many bottles of them, and <strong>Share</strong> that as a part of every bottle in the cellar. <strong>Ready</strong> counts the bottles you could open this year: Ready, Drink Soon or Past Window. Most bottles come first (Drink By: the soonest year first); press a heading to sort by it instead. Finished wines are never counted, and Find never changes these tables.</p>`],
 };
@@ -10199,10 +10453,10 @@ const SYNC_FIELD = {
   wines: { name: 'Name', vintage: 'Vintage', color: 'Colour', region: 'Region', subregion: 'Sub-region',
     grape: 'Grape', qty: 'Bottle count', valueLow: 'Value', valueHigh: 'Value', valueEst: 'Value',
     paid: 'Price paid', drinkFrom: 'Drinking window', drinkTo: 'Drinking window', location: 'Location',
-    source: 'Came from', added: 'Added', notes: 'Notes', photoAt: 'Label photo' },
+    source: 'Came from', added: 'Added', notes: 'Notes', photoAt: 'Label photo', profile: 'Style profile' },
   opened: { wineId: 'Wine', label: 'Name', vintage: 'Vintage', region: 'Region', subregion: 'Sub-region',
     grape: 'Grape', paid: 'Price paid', drinkFrom: 'Drinking window', drinkTo: 'Drinking window',
-    date: 'Date opened', rating: 'Rating', heldUp: 'Held up', note: 'Tasting note', place: 'Where opened', photoAt: 'Label photo' },
+    date: 'Date opened', rating: 'Rating', heldUp: 'Held up', note: 'Tasting note', place: 'Where opened', photoAt: 'Label photo', profile: 'Style profile' },
   pairings: { wineId: 'Wine', label: 'Wine', meal: 'Meal', food: 'Main ingredient', flavour: 'Leading flavour', weight: 'Weight', heat: 'Heat', date: 'Day', status: 'Planned or had',
     rating: 'Rating', note: 'Note', openedId: 'Opened bottle', why: 'Claude’s notes', at: 'When picked' },
 };
@@ -10520,7 +10774,7 @@ window.__wineTestHooks = {
   LOOKUP_KEY_STORE: LOOKUP_KEY_STORE, SHARE_MAX_BYTES: SHARE_MAX_BYTES, b64urlEncode: b64urlEncode,
   buildPairRequest: buildPairRequest, pairMeal: pairMeal, readPairing: readPairing, pairWines: pairWines,
   buildJudgeRequest: buildJudgeRequest, readJudge: readJudge, judgePairing: judgePairing,
-  PAIR_TOOL: PAIR_TOOL, PAIR_TEXT_MAX: PAIR_TEXT_MAX, PAIR_MEAL_MAX: PAIR_MEAL_MAX, FOOD: FOOD,
+  PAIR_TOOL: PAIR_TOOL, PAIR_TEXT_MAX: PAIR_TEXT_MAX, PAIR_MEAL_MAX: PAIR_MEAL_MAX, FOOD: FOOD, AROMAS: AROMAS, PROFILE: PROFILE, profileText: profileText, cleanProfile: cleanProfile,
   setDrinkPairing: setDrinkPairing, computePairings: computePairings, computeMakeup: computeMakeup, facetKey: facetKey, facetMatch: facetMatch, __pairLast: (v) => { pairLast = v; renderPairResults(); },
 };
 </script>

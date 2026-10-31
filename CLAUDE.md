@@ -113,6 +113,34 @@ the family doesn't.
   in the CSP on the shared origin; don't re-offer it. Synthetic ⌘V in the Browser pane
   fires no paste event; test pastes in headful Playwright with a pasteboard built in JXA.
 
+- **SCHEMA 20 / SHARE_PAYLOAD_V 7 (2026-10-31, Charles: "wine nose and palate characteristics
+  like sweetness, body, acidity, tannins…"): a wine's style `profile`.** ONE object or null —
+  `{sweetness, body, acidity, tannin, style, aromas[]}` — so it copies, travels, diffs and logs as
+  one thing. `PROFILE` (scale → [codes, label, summary word]), `AROMAS` (15 families), `AROMA_MAX`
+  4; `cleanProfile` is the boundary (codes only, notes de-duplicated and capped, nothing valid →
+  null); `profileText` the one summary; `sameProfile` compares through the boundary. On wines AND
+  opened lines (openDrink copies it); `fillLineProfiles` gives an opened line with none its wine's
+  — run in normalizeState AND save(), so Check Wines profiling a wine lends it to bottles already
+  opened. Look Up: a REQUIRED nested `profile` in LOOKUP_TOOL (scales `anyOf` enum/null, tannin null
+  for whites) + a LOOKUP_SYSTEM paragraph ("usual style… not the reader's bottle on one night");
+  `readLookup` → `r.profile`. One `profile` row in LOOKUP_BOXES (wine window), LOOKUP_FIELDS (Check
+  Wines: empty → ticked, different → left by tickRule's default) and `applyObLookup`. History code
+  `profile` logs "Style profile changed", never values (like notes). Editors: `<details
+  class="profilebox" id="f_profileBox|ob_profileBox">` built by `profileBoxHTML`; read/set with
+  `readProfileBoxes(p)` / `setProfileBoxes(p, prof)`; ticks past four go disabled. **Grouping:
+  `facetValues(rec, field)` returns SEVERAL names for `aromas`** — likeGroups / makeupGroups count a
+  record under each, facetMatch matches any; Notes' shares can pass 100% (help text says so).
+  By Style = two Group by tables inside Cellar Makeup (`makeStyle`, default Body + Notes) and What
+  You Like (`likeStyle`, Style + Notes), built by `styleSlots(prefix, defaults, picks, draw)` —
+  What Pairs Well's swap/clear rules, localStorage `wine-make-style-by` / `wine-like-style-by`.
+  `styleSlots` runs BEFORE `const $` exists (MAKE_TABLES' place) — it uses getElementById; a `$`
+  there was a boot-time TDZ that left the suite with no hooks. Profile fields sit in MAKE_TABLES
+  with host null (`makeHost`). Pair Meal: `pairLine` adds "style: …"; PAIR_SYSTEM says match
+  weight, acid and sweetness, keep tannin from heat. Measured: one real Look Up on the 2009 Stags'
+  Leap Cab came back dry / medium body / medium acid / medium tannin / fruit-forward — red fruit,
+  floral, spice, herbal; ~25 s, the usual ~6¢. NOT built: profiling finished wines in bulk (Check
+  Wines covers only wines with bottles left; an opened bottle's own Look Up fills one), and a
+  "your own tasting" profile on an opened bottle — Claude's is the typical one.
 - **SCHEMA 19 (2026-10-31, Charles: "make this a bit more complex to match how claude was
   trained"): three more meal labels, `flavour`, `weight`, `heat`.** `MEAL_TAGS` (field → [codes,
   window label, table heading, blank wording]) is the one list; `FLAVOUR` / `WEIGHT` / `HEAT`
@@ -608,6 +636,6 @@ was a one-line version of the cellar rule.
 
 ## Tests
 
-`tests.html`, `EXPECTED = 347`. Run it headless (Playwright) rather than in the Browser pane:
+`tests.html`, `EXPECTED = 351`. Run it headless (Playwright) rather than in the Browser pane:
 the pane throttles hidden timers and its focus heuristics turn the 705px keyboard-focus check
 red on untouched code.

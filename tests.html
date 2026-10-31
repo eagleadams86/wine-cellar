@@ -51,7 +51,7 @@
    go MISSING look exactly like tests that pass — a suite that quietly shrank to
    three checks still says "all 3 tests pass". RAISE THIS when you add tests, and
    lower it only when you retire one deliberately. */
-const EXPECTED = 347;
+const EXPECTED = 351;
 
 /* ── It refuses to run anywhere but localhost, and that is load-bearing ──────
    GitHub Pages publishes this page BESIDE the app, where the iframe below would
@@ -1034,11 +1034,11 @@ function define() {
   t('the allowlist strips a field nobody declared', () => {
     eq(Object.keys(one({ secret: 'kept?' })).sort(),
        ['added', 'checkedAt', 'color', 'drinkFrom', 'drinkTo', 'grape', 'id', 'location', 'log', 'name', 'notes', 'paid', 'photoAt',
-        'qty', 'region', 'source', 'subregion', 'valueEst', 'valueHigh', 'valueLow', 'vintage'],
+        'profile', 'qty', 'region', 'source', 'subregion', 'valueEst', 'valueHigh', 'valueLow', 'vintage'],
        'a new stored field must be added to normalizeState AND bump SCHEMA');
     const o = H.normalizeState({ opened: [{ id: 'o', secret: 1 }] }).opened[0];
     eq(Object.keys(o).sort(), ['date', 'drinkFrom', 'drinkTo', 'grape', 'heldUp', 'id', 'label', 'log', 'note', 'paid', 'photoAt',
-       'place', 'rating', 'region', 'subregion', 'vintage', 'wineId'], 'an opened bottle too');
+       'place', 'profile', 'rating', 'region', 'subregion', 'vintage', 'wineId'], 'an opened bottle too');
   });
   t('a rating is 1 to 5 in half points, and anything else is no rating (SCHEMA 17)', () => {
     const r = (v) => H.normalizeState({ opened: [{ id: 'o', rating: v }] }).opened[0].rating;
@@ -1265,7 +1265,7 @@ function define() {
     eq(Object.keys(p).sort(), ['scope', 'settings', 'sharedAt', 'v', 'wines'],
        'a new top-level key in a share payload is a deliberate decision');
     eq(Object.keys(p.wines[0]).sort(),
-       ['added', 'color', 'drinkFrom', 'drinkTo', 'grape', 'id', 'name', 'qty', 'region', 'source',
+       ['added', 'color', 'drinkFrom', 'drinkTo', 'grape', 'id', 'name', 'profile', 'qty', 'region', 'source',
         'subregion', 'valueEst', 'valueHigh', 'valueLow', 'vintage'],
        'and so is a new per-wine one — notes and location are absent unless asked for');
     eq(p.settings.soonYears, 1, 'settings ride along — a status means nothing under another rule');
@@ -3215,6 +3215,70 @@ function define() {
       eq([head('pairLikeA'), head('pairLikeB'), D.getElementById('pairLikeByB').value], ['Grape', 'Weight', 'weight'],
          'choosing the other table\'s field swaps the two');
     } finally { by('pairLikeByA', 'food'); by('pairLikeByB', 'grape'); W.setTab('cellar'); H.__plant(FIXTURE); }
+  });
+  t('a wine has a style profile — codes only, from Look Up, copied to its opened bottles (SCHEMA 20)', () => {
+    const P = { sweetness: 'dry', body: 'full', acidity: 'high', tannin: 'medium', style: 'earthy', aromas: ['blackfruit', 'oak'] };
+    const st = H.normalizeState({ wines: [{ id: 'w', name: 'X', profile: P }, { id: 'v', name: 'Y', profile: { body: 'Full', aromas: ['<b>', 'oak', 'oak', 'spice', 'mineral', 'floral', 'honey'] } }],
+      opened: [{ id: 'o', wineId: 'w', label: 'X' }, { id: 'o2', wineId: 'w', label: 'X', profile: { body: 'light' } }] });
+    eq(st.wines[0].profile, P, 'a whole profile is kept');
+    eq(st.wines[1].profile, { sweetness: null, body: null, acidity: null, tannin: null, style: null, aromas: ['oak', 'spice', 'mineral', 'floral'] },
+       'a word is not a code; notes de-duplicated and capped at four');
+    eq(H.normalizeState({ wines: [{ id: 'z', profile: { body: 'heavy', aromas: [] } }] }).wines[0].profile, null, 'nothing valid is no profile');
+    eq(st.opened[0].profile, P, 'an opened bottle with none takes its wine\'s');
+    eq(st.opened[1].profile.body, 'light', 'one with its own keeps it');
+    eq(H.profileText(P), 'Dry · Full body · High acidity · Medium tannin · Earthy and savoury — Black fruit, Oak and vanilla');
+    const tool = H.LOOKUP_TOOL.input_schema;
+    ok(tool.required.indexOf('profile') > -1, 'Look Up always answers it');
+    eq(tool.properties.profile.properties.aromas.items.enum, Object.keys(H.AROMAS), 'from exactly the app\'s notes');
+    const r = H.readLookup({ confidence: 'high', profile: Object.assign({}, P, { tannin: 'grippy' }) }, { name: 'X' });
+    eq([r.profile.body, r.profile.tannin], ['full', null], 'readLookup keeps the codes and drops the rest');
+    ok(H.SCHEMA >= 20, 'SCHEMA moved on with the new field');
+  });
+  t('Check Wines offers a profile — ticked when there is none, left when one differs', () => {
+    const P = { sweetness: 'dry', body: 'full', acidity: 'high', tannin: 'medium', style: 'earthy', aromas: ['oak'] };
+    const r = { confidence: 'high', profile: P, sources: [] };
+    const d = H.lookupDiffs({ id: 'w', name: 'X', profile: null }, r).find((x) => x.key === 'profile');
+    ok(d && d.tick, 'an empty profile starts ticked');
+    const d2 = H.lookupDiffs({ id: 'w', name: 'X', profile: Object.assign({}, P, { body: 'light' }) }, r).find((x) => x.key === 'profile');
+    ok(d2 && !d2.tick, 'a different one is left');
+    ok(!H.lookupDiffs({ id: 'w', name: 'X', profile: P }, r).some((x) => x.key === 'profile'), 'the same one is not offered');
+    const w = { id: 'w', name: 'X', profile: null, log: [] };
+    H.applyLookupTo(w, r, ['profile'], '2026-10-31T10:00:00Z');
+    eq(w.profile, P, 'Save takes it');
+  });
+  t('By Style: notes count under each, a pick narrows the list, Group by swaps and lets go', () => {
+    const D = W.document;
+    const c = H.computeOpened(H.normalizeState(H.sampleData()));
+    const by = (g, n) => g.rows.find((r) => r.name === n) || {};
+    ok(by(c.aromas, 'Black fruit').bottles >= 2 && by(c.aromas, 'Spice').bottles >= 2, 'a bottle counts under each of its notes');
+    eq(c.body.rows.map((r) => r.name).sort(), ['Full', 'Light', 'Medium'], 'every body in the sample');
+    ok(c.aromas.blank >= 1, 'the mystery bottle has no profile');
+    H.__plant(H.sampleData());
+    W.setTab('opened');
+    const sel = (id, v) => { const x = D.getElementById(id); x.value = v; x.dispatchEvent(new W.Event('change')); };
+    const head = (id) => D.querySelector('#' + id + ' thead th').textContent.trim();
+    const lines = () => D.querySelectorAll('#openedTable tbody tr, #openedWrap tbody tr').length;
+    try {
+      eq([head('likeStyleA'), head('likeStyleB')], ['Style', 'Notes'], 'What You Like: Style beside Notes');
+      const all = lines();
+      const earthy = [...D.querySelectorAll('#likeStyleA tbody tr')].find((r) => /Earthy/.test(r.textContent));
+      earthy.click();
+      ok(lines() < all && lines() > 0, 'pressing Earthy narrows the opened list', lines() + ' of ' + all);
+      sel('likeStyleByA', 'tannin');
+      eq(lines(), all, 'a table switched away lets its pick go');
+      sel('likeStyleByA', 'aromas');
+      eq([head('likeStyleA'), head('likeStyleB')], ['Notes', 'Tannin'], 'choosing the other table\'s field swaps them');
+      W.setTab('cellar');
+      eq([head('makeStyleA'), head('makeStyleB')], ['Body', 'Notes'], 'Cellar Makeup: Body beside Notes');
+      ok(/style profile/.test(D.getElementById('makeWarn').textContent), 'the profile-less bottle is counted out loud');
+    } finally { sel('likeStyleByA', 'style'); sel('likeStyleByB', 'aromas'); W.setTab('cellar'); H.__plant(FIXTURE); }
+  });
+  t('Pair Meal sends each wine\'s style, and says how to use it', () => {
+    const st = H.normalizeState(H.sampleData());
+    const b = H.buildPairRequest('Steak', H.pairWines(st, 2026, 1), '2026-10-31');
+    const text = JSON.stringify(b);
+    ok(/style: Dry · Full body · Medium acidity · High tannin/.test(text), 'a profiled wine goes with its style');
+    ok(/weight of the wine to the weight of/.test(b.system), 'and the prompt says what to do with it');
   });
   t('a pick is a number from the list sent — anything else is dropped', () => {
     const r = H.readPairing({ meal_name: 'Lamb', classic_pairings: ['Syrah', '<b>Rioja</b>', 'a', 'b', 'c'],

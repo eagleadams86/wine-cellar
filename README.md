@@ -18,7 +18,9 @@ cellar on your other devices.
 - **Cellar Makeup** (above the Cellar list) — what your cellar is made of right now: every wine with
   bottles left, grouped by **grape**, **region**, **sub-region**, **colour**, **Drink By** (the year
   the window closes, soonest first — when bottles start running out of time) and **Where It Is**
-  (the place you keep them), with how many
+  (the place you keep them) — and **By Style**, two more tables over Look Up's style profile, each
+  with a **Group by** box (Body and Notes to start; Sweetness, Acidity, Tannin and Style too) —
+  with how many
   wines and bottles, each one's **share** of the cellar, and how many of those bottles are
   **ready** to open this year (Ready, Drink Soon or Past Window). Most bottles first; every heading
   sorts. A name counts as written, ignoring only capitals and extra spaces — a Tempranillo blend
@@ -99,7 +101,10 @@ cellar on your other devices.
   the window the wine had on the day it was opened, plus the **Average Age** from vintage to
   opening. Press Early, In Window or Late to narrow the list to them, or tick them — and No
   Window — in the list's **Timing** box beside Find; Clear takes them off.
-- **What You Like** — your opened bottles grouped by grape and by region, with how many you
+- **What You Like** — your opened bottles grouped by grape and by region, and **By Style** by
+  their wine's style profile (Style and Notes to start, any two of the six by **Group by**) —
+  so a few months in it can say you rate earthy, high-acid wines above jammy, full-bodied ones —
+  with how many you
   opened, how many you rated and the average stars of those, best-rated first. Press a heading to
   sort; press a row to narrow Bottles Opened to it (see Cellar Makeup above). Find never changes
   either card, and both hide until a bottle is opened. Names count as written, capitals and
@@ -167,8 +172,21 @@ cellar on your other devices.
 ## Look Up with Claude
 
 **✦ Look Up with Claude** in the wine window and the paste window asks Claude (Opus 5.5) to search
-the web for a wine and come back with its value, drinking window, region, grape and colour, plus
-the pages it used.
+the web for a wine and come back with its value, drinking window, region, grape and colour, its
+**style profile**, plus the pages it used.
+
+- **The style profile** is the wine's typical style as critics' and the producer's tasting notes
+  describe it — or, failing those, as its grape, place and vintage make likely: **Sweetness** (Dry,
+  Off-dry, Medium sweet, Sweet), **Body** (Light, Medium, Full), **Acidity** and **Tannin** (Low,
+  Medium, High; tannin reds only), **Style** (Fruit-forward, Balanced, Earthy and savoury) and up
+  to four **Notes** from a fixed list of families: Red fruit, Black fruit, Citrus, Orchard fruit,
+  Tropical fruit, Floral, Herbal or green, Spice, Oak and vanilla, Butter or cream, Earthy,
+  Mineral, Leather or tobacco, Honey or nutty, Jammy or dried fruit. It is the wine's usual
+  profile, not your bottle on one night — an old bottle will have moved on. It sits in a
+  **Style profile** fold in the wine window (and an opened bottle's), where you can change any of
+  it; an opened bottle with none takes its wine's, so profiling a wine lends it to the bottles
+  you've already opened. Codes, not free text, so the By Style tables can group by them.
+  **Pair Meal** sends each wine's profile, so it can match weight to weight and acid to acid.
 
 - **A wine pasted twice is looked up once** — the rows merge on Add, so the second lookup would
   be paid for and thrown away.
@@ -269,7 +287,9 @@ photo from the iPhone works directly. The window says which of these happened.
 ### Check Wines
 
 **✦ Check Wines** at the top of the Cellar runs the same lookup on the wines you pick — any
-wine with bottles left (finished wines are skipped), three at a time. A wine with a label photo sends its kept
+wine with bottles left (finished wines are skipped), three at a time. It offers the **style
+profile** like any other line: ticked when the wine has none, left alone when it has a different
+one (a second reading of the same wine is not better evidence). A wine with a label photo sends its kept
 copy with the question, as Look Up does, so the label settles which bottle it is (about a cent
 more for each such wine; the cost shown up front doesn't count it).
 
