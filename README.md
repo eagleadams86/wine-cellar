@@ -325,11 +325,22 @@ dinner. Type a dish — "grilled lamb chops with rosemary" — or paste a whole 
   and your average **Pairing Rating**; press Planned, Overdue or Had to narrow the list to those
   (several at once). The list's **Status** box is the same filter as tick boxes, as on the Cellar
   and Opened tabs — a tile and its box always agree — and **Clear** lets them all go. **What Pairs Well** is the Opened tab's What You Like for
-  pairings: the pairings you've had, in two tables side by side — by the **kind of food** (Red
-  Meat, Poultry, Pork, Fish & Seafood, Vegetarian, Spicy, Cheese, Dessert, Other) and by the
-  wine's **grape** — with how many, how many you rated and the average **pairing** rating, best
-  first; every heading sorts, names as written. Pair Meal tags the kind of food for you; a
-  pairing you add or edit has a **Kind of food** dropdown. Press a row to narrow the list to
+  pairings: the pairings you've had, in two tables side by side, with how many, how many you
+  rated and the average **pairing** rating, best first; every heading sorts, names as written.
+  Each table has a **Group by** box, so you choose which two of these to compare (Food beside
+  Grape to start; the choice is remembered on this device):
+  - **Food** — the main ingredient: Red Meat, Poultry, Pork, Fish & Seafood, Vegetarian, Cheese,
+    Dessert, Other.
+  - **Flavour** — what leads the dish, usually the sauce: Tomato, Cream or Butter, Savoury, Herb or
+    Green, Citrus or Tangy, Sweet or Glazed, Smoky or BBQ, Plain.
+  - **Weight** — Light, Medium or Rich. **Heat** — No Heat, Mild or Hot.
+  - **Grape** — the wine's.
+
+  A wine pairs with the sauce, the weight and the heat as much as with the meat — a pepperoni and a
+  Hawaiian pizza are both pork, but one is Tomato and the other Sweet. Pair Meal and Ask Claude
+  fill all four labels for you (Ask Claude only fills ones still Not said, so pressing it on an
+  older pairing tags it); a pairing you add or edit has a dropdown for each. A pairing saved as
+  **Spicy** before these labels existed now reads as Heat: Hot. Press a row to narrow the list to
   those pairings, planned ones included. Find never changes either card; the Planned / Overdue / Had tiles narrow What Pairs Well (it counts only had pairings, so Planned alone dims it all).
 - **The list** has every pairing: planned ones first (soonest day first, undecided
   last, a day gone by marked *Was planned*), then the ones you've had, newest first. Find
@@ -348,7 +359,7 @@ dinner. Type a dish — "grilled lamb chops with rosemary" — or paste a whole 
   on the **Opened** tab and press **Pair With a Meal**: the pairing window opens with that bottle
   fixed, marked had, dated the day you opened it. Type the meal ("pepperoni pizza") and press
   **✦ Ask Claude** — it writes **Claude's Notes**, two short sentences on how this bottle, at its
-  age and as you said it held up, suited the dish, and picks the kind of food if you haven't.
+  age and as you said it held up, suited the dish, and fills in the meal's labels you haven't.
   The notes are yours to edit; nothing is saved until **Save**, and the pairing links to the
   opened line (the button then reads **Open Its Pairing**). Claude is told the meal, the wine's
   name, vintage, grape, region and drinking window, when it was opened and how old it was, and

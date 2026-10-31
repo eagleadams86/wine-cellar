@@ -113,6 +113,26 @@ the family doesn't.
   in the CSP on the shared origin; don't re-offer it. Synthetic ⌘V in the Browser pane
   fires no paste event; test pastes in headful Playwright with a pasteboard built in JXA.
 
+- **SCHEMA 19 (2026-10-31, Charles: "make this a bit more complex to match how claude was
+  trained"): three more meal labels, `flavour`, `weight`, `heat`.** `MEAL_TAGS` (field → [codes,
+  window label, table heading, blank wording]) is the one list; `FLAVOUR` / `WEIGHT` / `HEAT`
+  beside `FOOD`; `cleanTag(f, v)` is the boundary and `tagsOf(r)` the one way every writer copies
+  all four (addPairing, Plan for Later, Opened One's `drinkPairing`, the window's Save and We Had
+  It). **Spicy LEFT `FOOD`** — normalizeState turns an old `food: 'spicy'` into `heat: 'hot'`
+  (unless heat is set) and food null. Both strict tools (PAIR_TOOL; JUDGE_TOOL reuses its
+  properties) REQUIRE all four, enums built from the code lists; the descriptions steer pepperoni
+  to pork and "the sauce matters more than the meat". The window's four `<select>`s are FILLED
+  from MEAL_TAGS at boot (a test pins tool enum = window options). Ask Claude fills only boxes
+  still Not said — that is the backfill path for older pairings; no batch tagger was built.
+  What Pairs Well: two hosts `#pairLikeA` / `#pairLikeB`, each with a Group by select over the
+  five fields (`PAIR_LIKE_TABLES` is now field → [heading, computePairings key, blank wording]);
+  `pairLikeShow` remembered in localStorage `wine-pairlike-by` (guarded); choosing the other
+  table's field SWAPS; a field leaving view CLEARS its picks (no invisible filter). Measured on
+  five real pizzas with Ask Claude: pepperoni pork/tomato/medium/mild, Hawaiian
+  pork/sweet/medium/none, chicken finger poultry/cream/rich/mild, breakfast pork/savoury,
+  vegetarian veg/tomato; ~1330 in / ~500 out, ~10 s. The sample's lamb tagine stays untagged on
+  purpose (the warn line). Step two, Pair Meal reading the owner's past ratings by label, is
+  NOT built — Charles agreed to labels first.
 - **SCHEMA 18 (2026-10-31, Charles): a pairing's `food`** — a `FOOD` code (redmeat, poultry, pork,
   seafood, veg, spicy, cheese, dessert, other) or null; `cleanFood` is the boundary. Pair Meal's
   strict tool has a required `food_kind` enum built from the same list (a test pins them equal),
@@ -588,6 +608,6 @@ was a one-line version of the cellar rule.
 
 ## Tests
 
-`tests.html`, `EXPECTED = 345`. Run it headless (Playwright) rather than in the Browser pane:
+`tests.html`, `EXPECTED = 347`. Run it headless (Playwright) rather than in the Browser pane:
 the pane throttles hidden timers and its focus heuristics turn the 705px keyboard-focus check
 red on untouched code.

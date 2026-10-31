@@ -808,6 +808,12 @@
   .likes { display: grid; gap: var(--sp-5); grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
            align-items: start; }
   .likes table { width: 100%; }
+  /* What Pairs Well's "Group by" box over each table (SCHEMA 19). A grid item
+     holding a scroller needs min-width: 0 or a wide table widens the page. */
+  .likes > div { min-width: 0; }
+  .pairlike-by { display: flex; align-items: center; gap: var(--sp-2); margin: 0 0 var(--sp-2); }
+  .pairlike-by label { margin: 0; }
+  .pairlike-by select { width: auto; }
   /* Cellar Makeup's tables have five columns, What You Like's four: a narrower
      share would hide Ready behind a scrollbar, so these go two across. */
   #makeupCard .likes { grid-template-columns: repeat(auto-fit, minmax(min(100%, 23rem), 1fr)); }
@@ -1957,11 +1963,17 @@ html[data-booting] footer { visibility: hidden; }
         <span class="spacer"></span>
         <button type="button" class="link no-print" data-facet-clear style="visibility: hidden">Clear</button>
       </h2>
-      <p class="chart-title">The pairings you have had, by the kind of food and by the wine’s grape, best-rated first — how each one went together. Press a row to narrow the list below.</p>
-      <!-- Food beside Grape (Charles, 2026-10-31: "put it next to the existing
-           what pairs well for now") — by grape alone averaged a ribeye with a
-           lava cake. -->
-      <div class="likes"><div class="table-scroll" id="pairLikeFoods"></div><div class="table-scroll" id="pairLikeGrapes"></div></div>
+      <p class="chart-title">The pairings you have had, grouped two ways side by side, best-rated first — how each one went together. Choose what each table groups by; press a row to narrow the list below.</p>
+      <!-- Two tables, each grouping by any of the five (SCHEMA 19, Charles,
+           2026-10-31): main ingredient, leading flavour, weight, heat or the
+           wine's grape. Five side by side would not fit; two is What You
+           Like's width. The choice is remembered on this device only. -->
+      <div class="likes">
+        <div><div class="field pairlike-by"><label for="pairLikeByA">Group by</label><select id="pairLikeByA" data-slot="0"></select></div>
+          <div class="table-scroll" id="pairLikeA"></div></div>
+        <div><div class="field pairlike-by"><label for="pairLikeByB">Group by</label><select id="pairLikeByB" data-slot="1"></select></div>
+          <div class="table-scroll" id="pairLikeB"></div></div>
+      </div>
       <p class="warn-line" id="pairLikeWarn" role="status"></p>
     </div>
 
@@ -2500,22 +2512,16 @@ html[data-booting] footer { visibility: hidden; }
     <label for="p_meal">Meal</label>
     <input type="text" id="p_meal" maxlength="60" autocomplete="off" placeholder="e.g. Short ribs with polenta">
   </div>
-  <!-- The kind of food (SCHEMA 18): What Pairs Well groups by it. Pair Meal
-       fills it; the options are FOOD's, in its order (a test pins them). -->
-  <div class="field">
-    <label for="p_food">Kind of food</label>
-    <select id="p_food">
-      <option value="">Not said</option>
-      <option value="redmeat">Red Meat</option>
-      <option value="poultry">Poultry</option>
-      <option value="pork">Pork</option>
-      <option value="seafood">Fish &amp; Seafood</option>
-      <option value="veg">Vegetarian</option>
-      <option value="spicy">Spicy</option>
-      <option value="cheese">Cheese</option>
-      <option value="dessert">Dessert</option>
-      <option value="other">Other</option>
-    </select>
+  <!-- The meal's four labels (SCHEMA 18 + 19): What Pairs Well groups by
+       them, and Claude fills any left Not said. The options come from
+       MEAL_TAGS, in its order (a test pins them). -->
+  <div class="grid2">
+    <div class="field"><label for="p_food">Main ingredient</label><select id="p_food"></select></div>
+    <div class="field"><label for="p_flavour">Leading flavour</label><select id="p_flavour"></select></div>
+  </div>
+  <div class="grid2">
+    <div class="field"><label for="p_weight">Weight</label><select id="p_weight"></select></div>
+    <div class="field"><label for="p_heat">Heat</label><select id="p_heat"></select></div>
   </div>
   <div class="field">
     <label for="p_wine">Wine</label>
@@ -2870,7 +2876,7 @@ const TABS        = ['cellar', 'opened', 'pairings', 'history'];
    with the pairing's own rating and note; History's `plan` kind and `meal`.
    16 (2026-10-26): a pairing keeps its own History (`log`), and History names
    its wine, status and day. */
-const SCHEMA = 18;
+const SCHEMA = 19;
 
 /* ── Ids from outside are not trusted ──────────────────────────────────────
    Ids reach `data-id` attributes and <option value>s in a dozen places, so an
@@ -3015,9 +3021,33 @@ const HELD_UP = {
    pairing window has a dropdown. The order is the dropdown's. */
 const FOOD = {
   redmeat: 'Red Meat', poultry: 'Poultry', pork: 'Pork', seafood: 'Fish & Seafood',
-  veg: 'Vegetarian', spicy: 'Spicy', cheese: 'Cheese', dessert: 'Dessert', other: 'Other',
+  veg: 'Vegetarian', cheese: 'Cheese', dessert: 'Dessert', other: 'Other',
 };
-const cleanFood = (v) => (typeof v === 'string' && Object.prototype.hasOwnProperty.call(FOOD, v) ? v : null);
+/* Three more labels on a meal (SCHEMA 19, Charles, 2026-10-31: "make this a
+   bit more complex to match how claude was trained"). A wine is paired to the
+   sauce, the weight and the heat as much as the meat — a Hawaiian and a
+   pepperoni pizza are both pork and want different bottles. Spicy LEFT the
+   food list to become Heat; normalizeState moves an old spicy pairing over.
+   Codes, never free text, each list in its dropdown's order. */
+const FLAVOUR = {
+  tomato: 'Tomato', cream: 'Cream or Butter', savoury: 'Savoury', herb: 'Herb or Green',
+  citrus: 'Citrus or Tangy', sweet: 'Sweet or Glazed', smoky: 'Smoky or BBQ', plain: 'Plain',
+};
+const WEIGHT = { light: 'Light', medium: 'Medium', rich: 'Rich' };
+const HEAT = { none: 'No Heat', mild: 'Mild', hot: 'Hot' };
+/* field → [its codes, the window's label, the table's heading, what a blank lacks]. */
+const MEAL_TAGS = {
+  food:    [FOOD,    'Main ingredient', 'Food',    'no main ingredient'],
+  flavour: [FLAVOUR, 'Leading flavour', 'Flavour', 'no leading flavour'],
+  weight:  [WEIGHT,  'Weight',          'Weight',  'no weight'],
+  heat:    [HEAT,    'Heat',            'Heat',    'no heat level'],
+};
+const TAG_FIELDS = Object.keys(MEAL_TAGS);
+const cleanTag = (f, v) => (typeof v === 'string' && Object.prototype.hasOwnProperty.call(MEAL_TAGS[f][0], v) ? v : null);
+const cleanFood = (v) => cleanTag('food', v);
+/* A record's four labels, each through the boundary — every writer uses it. */
+const tagsOf = (r) => Object.fromEntries(TAG_FIELDS.map((f) => [f, cleanTag(f, r && r[f])]));
+const tagName = (f, r) => (r && r[f] ? MEAL_TAGS[f][0][r[f]] : '');
 const cleanHeldUp = (v) => (typeof v === 'string' && Object.prototype.hasOwnProperty.call(HELD_UP, v) ? v : null);
 /* A pairing's meal, as its list shows it: "Short ribs with polenta". The
    recipe itself is never kept. Up here because normalizeState reads it. */
@@ -3070,7 +3100,7 @@ const LOG_VAL_MAX = 60;
 const LOG_KINDS = ['add', 'paste', 'edit', 'ai', 'check', 'look', 'open', 'back', 'undo', 'revive', 'plan'];
 const LOG_CODES = ['name', 'vintage', 'color', 'region', 'subregion', 'grape', 'qty', 'location',
   'value', 'paid', 'window', 'source', 'added', 'notes', 'photo', 'opened', 'rating', 'place', 'meal',
-  'wine', 'status', 'day', 'heldup', 'food', 'why'];
+  'wine', 'status', 'day', 'heldup', 'food', 'why', 'flavour', 'weight', 'heat'];
 const LOG_CONF = ['high', 'medium', 'low'];
 const HOST_RE = /^[a-z0-9-]+(\.[a-z0-9-]+)+$/i;
 function cleanLogChanges(v) {
@@ -3535,8 +3565,12 @@ function normalizeState(raw) {
         wineId: it.wineId == null || it.wineId === '' ? null : fixId(it.wineId),
         label: cleanLine(it.label, 100) || 'A deleted wine',
         meal: cleanLine(it.meal, PAIR_MEAL_MAX) || 'A meal',
-        /* The kind of food, a FOOD code or null (SCHEMA 18). */
+        /* The main ingredient, a FOOD code or null (SCHEMA 18), and its three
+           other labels (SCHEMA 19). An old `spicy` food becomes Heat: Hot. */
         food: cleanFood(it.food),
+        flavour: cleanTag('flavour', it.flavour),
+        weight: cleanTag('weight', it.weight),
+        heat: cleanTag('heat', it.heat) || (it.food === 'spicy' ? 'hot' : null),
         /* A planned meal may have no day yet; '' is "not decided". */
         date: DATE_RE.test(String(it.date || '')) ? it.date : '',
         status: it.status === 'had' ? 'had' : 'planned',
@@ -3956,7 +3990,7 @@ function groupedGrape(name) {
 function facetWritten(rec, field) {
   /* Drink By is the year the window closes; an open end has none. */
   return field === 'color' ? (COLOR_LABEL[rec.color] || '')
-    : field === 'food' ? (rec.food ? FOOD[rec.food] : '')
+    : MEAL_TAGS[field] ? tagName(field, rec)
     : field === 'drinkTo' ? (rec.drinkTo == null ? '' : String(rec.drinkTo))
     : String(rec[field] || '').trim().replace(/\s+/g, ' ');
 }
@@ -4350,7 +4384,7 @@ const timingPick = new Set();
 const makePick = { grape: new Map(), region: new Map(), subregion: new Map(), color: new Map(),
   drinkTo: new Map(), location: new Map() };
 const likePick = { grape: new Map(), region: new Map(), subregion: new Map() };
-const pairLikePick = { food: new Map(), grape: new Map() };
+const pairLikePick = { food: new Map(), flavour: new Map(), weight: new Map(), heat: new Map(), grape: new Map() };
 /* The tiles (and their Status / Timing boxes) narrow the grouping tables too
    (Charles, 2026-10-27): rows with none of the tile-picked records go dead.
    The tiles themselves always count the whole set. */
@@ -6302,7 +6336,10 @@ const LINE_FIELDS = [
    (rating, notes) print as a line's do — here the rating is the pairing's. */
 const PAIR_FIELDS = [
   ['meal', 'Meal', (p) => p.meal || ''],
-  ['food', 'Food', (p) => (p.food ? FOOD[p.food] : '')],
+  ['food', 'Food', (p) => tagName('food', p)],
+  ['flavour', 'Flavour', (p) => tagName('flavour', p)],
+  ['weight', 'Weight', (p) => tagName('weight', p)],
+  ['heat', 'Heat', (p) => tagName('heat', p)],
   ['wine', 'Wine', (p) => p.label || ''],
   ['status', 'Status', (p) => (p.status === 'had' ? 'Had' : p.status ? 'Planned' : '')],
   ['day', 'Day', (p) => (p.date ? fmtDate(p.date) : '')],
@@ -6497,19 +6534,19 @@ function sampleData() {
        high and low, one unrated. */
     pairings: [
       { id: 'demo-p1', wineId: 'demo-soon', label: (Y - 6) + ' Invented Hills Old Vine Zinfandel',
-        meal: 'Smoked brisket and slaw', food: 'redmeat', date: back(-6), status: 'planned', rating: null, note: '',
+        meal: 'Smoked brisket and slaw', food: 'redmeat', flavour: 'smoky', weight: 'rich', heat: 'mild', date: back(-6), status: 'planned', rating: null, note: '',
         openedId: null, why: 'Ripe, peppery Zinfandel stands up to smoke and a sweet rub, and its window closes this year.' },
-      { id: 'demo-p2', wineId: 'demo-sparkling', label: 'NV Fictional Brut Rosé', meal: 'Fried chicken night', food: 'poultry',
+      { id: 'demo-p2', wineId: 'demo-sparkling', label: 'NV Fictional Brut Rosé', meal: 'Fried chicken night', food: 'poultry', flavour: 'plain', weight: 'rich', heat: 'none',
         date: '', status: 'planned', rating: null, note: '', openedId: null,
         why: 'Bubbles and acid cut through the fat and salt of anything fried.' },
       { id: 'demo-p6', wineId: 'demo-ready', label: (Y - 3) + ' Example Ridge Pinot Noir',
-        meal: 'Mushroom tart for book club', food: 'veg', date: back(3), status: 'planned', rating: null, note: '', openedId: null,
+        meal: 'Mushroom tart for book club', food: 'veg', flavour: 'savoury', weight: 'medium', heat: 'none', date: back(3), status: 'planned', rating: null, note: '', openedId: null,
         why: 'Pinot Noir’s earthiness meets the mushrooms, and its light body suits pastry.' },
       { id: 'demo-p3', wineId: 'demo-ready', label: (Y - 3) + ' Example Ridge Pinot Noir',
-        meal: 'Roast salmon with mushrooms', food: 'seafood', date: back(5), status: 'had', rating: 5,
+        meal: 'Roast salmon with mushrooms', food: 'seafood', flavour: 'savoury', weight: 'medium', heat: 'none', date: back(5), status: 'had', rating: 5,
         note: 'Earthy mushrooms brought the Pinot alive.', openedId: 'demo-o4',
         why: 'A light, earthy Pinot Noir matches salmon and mushrooms without drowning them.' },
-      { id: 'demo-p4', wineId: 'demo-past', label: (Y - 9) + ' Placeholder Bianco', meal: 'Lemon pasta', food: 'veg',
+      { id: 'demo-p4', wineId: 'demo-past', label: (Y - 9) + ' Placeholder Bianco', meal: 'Lemon pasta', food: 'veg', flavour: 'citrus', weight: 'light', heat: 'none',
         date: back(25), status: 'had', rating: 2, note: 'The wine had faded; the lemon made it taste flat.',
         openedId: 'demo-o6', why: 'Friulano’s almond note and freshness suit a lemon-and-butter sauce.' },
       { id: 'demo-p5', wineId: 'demo-finished', label: (Y - 5) + ' Long Gone Grenache', meal: 'Lamb tagine',
@@ -6522,40 +6559,40 @@ function sampleData() {
          one through a deleted wine's line and one logged away from home (both
          take the line's grape), and one with no grape for the warning line. */
       { id: 'demo-p7', wineId: 'demo-ready', label: (Y - 3) + ' Example Ridge Pinot Noir',
-        meal: 'Duck breast with cherry sauce', food: 'poultry', date: back(12), status: 'had', rating: 4,
+        meal: 'Duck breast with cherry sauce', food: 'poultry', flavour: 'sweet', weight: 'rich', heat: 'none', date: back(12), status: 'had', rating: 4,
         note: 'The cherry sauce and the fruit met in the middle.', openedId: 'demo-o3',
         why: 'Pinot Noir’s red cherry echoes the sauce, and its acid cuts the duck fat.' },
       { id: 'demo-p8', wineId: 'demo-ready', label: (Y - 3) + ' Example Ridge Pinot Noir',
-        meal: 'Roast chicken and root vegetables', food: 'poultry', date: back(75), status: 'had', rating: 5, note: 'Easy and perfect.',
+        meal: 'Roast chicken and root vegetables', food: 'poultry', flavour: 'savoury', weight: 'medium', heat: 'none', date: back(75), status: 'had', rating: 5, note: 'Easy and perfect.',
         openedId: null, why: 'A light red that will not bury roast chicken.' },
-      { id: 'demo-p9', wineId: 'demo-sparkling', label: 'NV Fictional Brut Rosé', meal: 'Oysters and fries', food: 'seafood',
+      { id: 'demo-p9', wineId: 'demo-sparkling', label: 'NV Fictional Brut Rosé', meal: 'Oysters and fries', food: 'seafood', flavour: 'citrus', weight: 'light', heat: 'none',
         date: back(150), status: 'had', rating: 5, note: 'Salt, bubbles, done.', openedId: 'demo-o7',
         why: 'Sparkling wine with oysters is a classic; the acid loves the salt.' },
       { id: 'demo-p10', wineId: 'demo-soon', label: (Y - 6) + ' Invented Hills Old Vine Zinfandel',
-        meal: 'Barbecue ribs', food: 'pork', date: back(90), status: 'had', rating: 5, note: 'Smoke and jammy fruit — made for each other.',
+        meal: 'Barbecue ribs', food: 'pork', flavour: 'smoky', weight: 'rich', heat: 'mild', date: back(90), status: 'had', rating: 5, note: 'Smoke and jammy fruit — made for each other.',
         openedId: null, why: 'Big, fruity Zinfandel matches sweet barbecue sauce.' },
       { id: 'demo-p11', wineId: 'demo-soon', label: (Y - 6) + ' Invented Hills Old Vine Zinfandel',
-        meal: 'Spicy Thai green curry', food: 'spicy', date: back(55), status: 'had', rating: 2,
+        meal: 'Spicy Thai green curry', food: 'poultry', flavour: 'cream', weight: 'medium', heat: 'hot', date: back(55), status: 'had', rating: 2,
         note: 'The alcohol made the chili burn hotter.', openedId: null,
         why: 'Ripe fruit can soften a little heat.' },
       { id: 'demo-p12', wineId: 'demo-hold', label: (Y - 2) + ' Sample Estate Cabernet Sauvignon',
-        meal: 'Grilled ribeye', food: 'redmeat', date: back(60), status: 'had', rating: 4.5,
+        meal: 'Grilled ribeye', food: 'redmeat', flavour: 'savoury', weight: 'rich', heat: 'none', date: back(60), status: 'had', rating: 4.5,
         note: 'The steak tamed the young tannin — better with food than alone.', openedId: 'demo-o5',
         why: 'Cabernet’s tannin needs fat and protein, and a ribeye has both.' },
       { id: 'demo-p13', wineId: 'demo-hold', label: (Y - 2) + ' Sample Estate Cabernet Sauvignon',
-        meal: 'Chocolate lava cake', food: 'dessert', date: back(130), status: 'had', rating: 1,
+        meal: 'Chocolate lava cake', food: 'dessert', flavour: 'sweet', weight: 'rich', heat: 'none', date: back(130), status: 'had', rating: 1,
         note: 'The sweet dessert made the wine taste sour and bitter.', openedId: null,
         why: 'Dark fruit and chocolate are sometimes paired.' },
       { id: 'demo-p14', wineId: 'demo-finished', label: (Y - 5) + ' Long Gone Grenache',
-        meal: 'Pork shoulder with fennel', food: 'pork', date: back(100), status: 'had', rating: 4, note: '', openedId: 'demo-o1',
+        meal: 'Pork shoulder with fennel', food: 'pork', flavour: 'herb', weight: 'rich', heat: 'none', date: back(100), status: 'had', rating: 4, note: '', openedId: 'demo-o1',
         why: 'Grenache’s spice and soft tannin suit slow-roast pork.' },
-      { id: 'demo-p15', wineId: null, label: (Y - 7) + ' Imaginary Cellars Malbec', meal: 'Steak frites', food: 'redmeat',
+      { id: 'demo-p15', wineId: null, label: (Y - 7) + ' Imaginary Cellars Malbec', meal: 'Steak frites', food: 'redmeat', flavour: 'savoury', weight: 'rich', heat: 'none',
         date: back(18), status: 'had', rating: 5, note: 'Could not have picked better off the list.', openedId: 'demo-o10',
         why: '' },
-      { id: 'demo-p16', wineId: 'demo-gone', label: (Y - 12) + ' Retired Rioja Reserva', meal: 'Lamb chops with rosemary', food: 'redmeat',
+      { id: 'demo-p16', wineId: 'demo-gone', label: (Y - 12) + ' Retired Rioja Reserva', meal: 'Lamb chops with rosemary', food: 'redmeat', flavour: 'herb', weight: 'rich', heat: 'none',
         date: back(300), status: 'had', rating: 4, note: '', openedId: 'demo-o9',
         why: 'Tempranillo and lamb are a Spanish classic.' },
-      { id: 'demo-p17', wineId: 'demo-none', label: (Y - 4) + ' Mystery Bottle From a Friend', meal: 'Pizza night', food: 'other',
+      { id: 'demo-p17', wineId: 'demo-none', label: (Y - 4) + ' Mystery Bottle From a Friend', meal: 'Pizza night', food: 'other', flavour: 'tomato', weight: 'medium', heat: 'mild',
         date: back(80), status: 'had', rating: 3, note: 'Fine with pizza — whatever it was.', openedId: 'demo-o8',
         why: '' },
     ],
@@ -7393,7 +7430,7 @@ $('openSave').addEventListener('click', () => {
       Object.assign(planned, { status: 'had', date: date, openedId: line.id });
       logTo(planned, { at: nowStamp(), k: 'open', c: diffPairing(was, planned) });
     }
-    else addPairing(w, { meal: dp.meal, food: dp.food, why: dp.why, status: 'had', date: date, openedId: line.id });
+    else addPairing(w, Object.assign(tagsOf(dp), { meal: dp.meal, why: dp.why, status: 'had', date: date, openedId: line.id }));
   }
   save();
   $('openDialog').close();
@@ -8069,10 +8106,20 @@ const PAIR_TOOL = {
     properties: {
       meal_name: { type: 'string', description: 'A short name for the dish, under 60 characters, '
         + 'e.g. "Short ribs with polenta".' },
-      food_kind: { type: 'string', enum: ['redmeat', 'poultry', 'pork', 'seafood', 'veg', 'spicy', 'cheese', 'dessert', 'other'],
-        description: 'The kind of dish, for grouping the owner\'s pairings: redmeat (beef, lamb, game), poultry, pork, '
-          + 'seafood (fish or shellfish), veg (no meat or fish), spicy (when chili heat dominates, whatever the protein), '
+      /* The four labels the owner's pairings are grouped by (SCHEMA 18 + 19). */
+      food_kind: { type: 'string', enum: Object.keys(FOOD),
+        description: 'The main ingredient, for grouping the owner\'s pairings: redmeat (beef, lamb, game), poultry, '
+          + 'pork (ham, bacon, sausage, pepperoni too), seafood (fish or shellfish), veg (no meat or fish), '
           + 'cheese (a cheese course or cheese-led dish), dessert (anything sweet), other (none of these).' },
+      flavour: { type: 'string', enum: Object.keys(FLAVOUR),
+        description: 'The flavour that leads the dish - usually the sauce, which matters to the wine more than the '
+          + 'meat: tomato, cream (cream, butter, cheese sauce), savoury (mushroom, soy, roasted, umami), herb (herbs, '
+          + 'greens, pesto), citrus (lemon, vinegar, tangy), sweet (fruit, glazes, honey), smoky (grilled char, BBQ), '
+          + 'plain (simply cooked, nothing leads).' },
+      weight: { type: 'string', enum: Object.keys(WEIGHT),
+        description: 'How rich and heavy the dish is: light, medium or rich.' },
+      heat: { type: 'string', enum: Object.keys(HEAT),
+        description: 'Chilli heat: none, mild, or hot (when the heat is a main part of the dish).' },
       classic_pairings: { type: 'array', items: { type: 'string' },
         description: 'Two to four classic wine styles for this dish, a few words each, best first, '
           + 'e.g. "Northern Rhône Syrah".' },
@@ -8092,7 +8139,7 @@ const PAIR_TOOL = {
       if_none: { type: 'string', description: 'Only when no wine in the cellar suits the dish: one short '
         + 'phrase on what style to buy. Empty otherwise.' },
     },
-    required: ['meal_name', 'food_kind', 'classic_pairings', 'picks', 'if_none'],
+    required: ['meal_name', 'food_kind', 'flavour', 'weight', 'heat', 'classic_pairings', 'picks', 'if_none'],
   },
 };
 
@@ -8219,7 +8266,8 @@ function readPairing(found, sent) {
   });
   return {
     meal: cleanLine(f.meal_name, PAIR_MEAL_MAX),
-    food: cleanFood(f.food_kind),
+    food: cleanFood(f.food_kind), flavour: cleanTag('flavour', f.flavour),
+    weight: cleanTag('weight', f.weight), heat: cleanTag('heat', f.heat),
     classic: (Array.isArray(f.classic_pairings) ? f.classic_pairings : [])
       .map((x) => cleanLine(x, 60)).filter(Boolean).slice(0, 4),
     picks: picks,
@@ -8246,12 +8294,15 @@ const JUDGE_TOOL = {
     properties: {
       meal_name: { type: 'string', description: 'A short name for the dish, under 60 characters.' },
       food_kind: PAIR_TOOL.input_schema.properties.food_kind,
+      flavour: PAIR_TOOL.input_schema.properties.flavour,
+      weight: PAIR_TOOL.input_schema.properties.weight,
+      heat: PAIR_TOOL.input_schema.properties.heat,
       /* Words, not characters: measured 2026-10-31, "under 250 characters"
          came back ~280 and was clipped mid-sentence. BASIS_MAX still guards. */
       notes: { type: 'string', description: 'At most two short sentences, about 35 words in all: how THIS '
         + 'bottle suits the dish - what works, what fights - allowing for its age and condition.' },
     },
-    required: ['meal_name', 'food_kind', 'notes'],
+    required: ['meal_name', 'food_kind', 'flavour', 'weight', 'heat', 'notes'],
   },
 };
 const JUDGE_SYSTEM = [
@@ -8304,7 +8355,8 @@ function buildJudgeRequest(meal, bottle, today, told, opts) {
 /* The boundary for the answer. */
 function readJudge(found) {
   const f = found && typeof found === 'object' ? found : {};
-  return { meal: cleanLine(f.meal_name, PAIR_MEAL_MAX), food: cleanFood(f.food_kind), notes: clipWords(f.notes, BASIS_MAX) };
+  return { meal: cleanLine(f.meal_name, PAIR_MEAL_MAX), food: cleanFood(f.food_kind), flavour: cleanTag('flavour', f.flavour),
+    weight: cleanTag('weight', f.weight), heat: cleanTag('heat', f.heat), notes: clipWords(f.notes, BASIS_MAX) };
 }
 async function judgePairing(meal, bottle, told, key, opts) {
   const o = opts || {};
@@ -8413,7 +8465,7 @@ $('pairResults').addEventListener('click', (e) => {
     if (!w || !pick) { pairPlanning = null; renderPairResults(); return; }
     const meal = cleanLine($('pp_meal').value, PAIR_MEAL_MAX) || pairLast.r.meal || 'A meal';
     const date = DATE_RE.test($('pp_date').value) ? $('pp_date').value : '';
-    addPairing(w, { meal: meal, food: pairLast.r.food, date: date, status: 'planned', why: pick.why });
+    addPairing(w, Object.assign(tagsOf(pairLast.r), { meal: meal, date: date, status: 'planned', why: pick.why }));
     pairLast.planned.push(w.id);
     pairPlanning = null;
     save();
@@ -8426,7 +8478,7 @@ $('pairResults').addEventListener('click', (e) => {
     const pick = pairLast && pairLast.r.picks.find((p) => p.wineId === drink.dataset.pairDrink);
     $('pairDialog').close();
     openDrink(drink.dataset.pairDrink);
-    if ($('openDialog').open) setDrinkPairing({ meal: pairLast.r.meal || 'A meal', food: pairLast.r.food, why: pick ? pick.why : '' });
+    if ($('openDialog').open) setDrinkPairing(Object.assign(tagsOf(pairLast.r), { meal: pairLast.r.meal || 'A meal', why: pick ? pick.why : '' }));
     return;
   }
   const open = e.target.closest('[data-pair-open]');
@@ -8439,7 +8491,7 @@ $('pairResults').addEventListener('click', (e) => {
    `w` may be null when its wine is gone. */
 function addPairing(w, p) {
   const rec = { id: uid(), wineId: w ? w.id : null, label: cleanLine(p.label || (w ? wineLabel(w) : ''), 100) || 'A deleted wine',
-    meal: cleanLine(p.meal, PAIR_MEAL_MAX) || 'A meal', food: cleanFood(p.food), date: p.date || '', status: p.status === 'had' ? 'had' : 'planned',
+    meal: cleanLine(p.meal, PAIR_MEAL_MAX) || 'A meal', ...tagsOf(p), date: p.date || '', status: p.status === 'had' ? 'had' : 'planned',
     rating: p.rating || null, note: cleanLine(p.note, NOTES_MAX), openedId: p.openedId || null,
     why: clipWords(p.why, BASIS_MAX), at: nowStamp(), log: [] };
   /* Its own History starts with how it began: planned, opened for, or added. */
@@ -8488,7 +8540,7 @@ function computePairings(st, today, picks, keep) {
   const lines = new Map((st.opened || []).map((o) => [o.id, o]));
   const wines = new Map((st.wines || []).map((w) => [w.id, w]));
   const had = ps.filter((p) => p.status === 'had')
-    .map((p) => ({ grape: pairingGrape(p, lines, wines), food: p.food, rating: p.rating, kind: pairingKind(p, today) }));
+    .map((p) => Object.assign({ grape: pairingGrape(p, lines, wines), rating: p.rating, kind: pairingKind(p, today) }, tagsOf(p)));
   return {
     all: ps.length, count: count,
     next: next ? { id: next.id, date: next.date, meal: next.meal } : null,
@@ -8496,6 +8548,9 @@ function computePairings(st, today, picks, keep) {
               rated: rated.length, had: count.had },
     grapes: likeGroups(had, 'grape', picks, keep),
     foods: likeGroups(had, 'food', picks, keep),
+    flavours: likeGroups(had, 'flavour', picks, keep),
+    weights: likeGroups(had, 'weight', picks, keep),
+    heats: likeGroups(had, 'heat', picks, keep),
   };
 }
 /* Which tile a pairing counts under. */
@@ -8543,25 +8598,59 @@ const pairLikeColumns = (label) => [
   { key: 'rated',   label: 'Rated',    desc: true, num: true },
   { key: 'avg',     label: 'Avg ★',    desc: true, num: true },
 ];
-/* Its two tables: field → [host, heading, computePairings key, what a blank lacks]. */
-const PAIR_LIKE_TABLES = { food: ['pairLikeFoods', 'Food', 'foods', 'no kind of food'],
-  grape: ['pairLikeGrapes', 'Grape', 'grapes', 'no grape recorded'] };
-let pairLikeSort = { food: { key: null, dir: 'desc' }, grape: { key: null, dir: 'desc' } };
+/* What a table can group by: field → [heading, computePairings key, what a blank lacks]. */
+const PAIR_LIKE_TABLES = Object.assign(
+  Object.fromEntries(TAG_FIELDS.map((f) => [f, [MEAL_TAGS[f][2], f === 'food' ? 'foods' : f + 's', MEAL_TAGS[f][3]]])),
+  { grape: ['Grape', 'grapes', 'no grape recorded'] });
+let pairLikeSort = Object.fromEntries(Object.keys(PAIR_LIKE_TABLES).map((f) => [f, { key: null, dir: 'desc' }]));
+/* The two tables' hosts, and which field each shows — remembered on this
+   device (a viewer's convenience, so localStorage, guarded). */
+const PAIR_LIKE_HOSTS = ['pairLikeA', 'pairLikeB'];
+const PAIR_LIKE_KEY = 'wine-pairlike-by';
+let pairLikeShow = (() => {
+  try {
+    const v = JSON.parse(localStorage.getItem(PAIR_LIKE_KEY) || 'null');
+    if (Array.isArray(v) && v.length === 2 && v[0] !== v[1] && v.every((f) => PAIR_LIKE_TABLES[f])) return v;
+  } catch (e) { /* private window: the default */ }
+  return ['food', 'grape'];
+})();
+const pairLikeHost = (field) => PAIR_LIKE_HOSTS[pairLikeShow.indexOf(field)];
+['pairLikeByA', 'pairLikeByB'].forEach((id, i) => {
+  $(id).innerHTML = Object.keys(PAIR_LIKE_TABLES).map((f) => '<option value="' + f + '">'
+    + esc(PAIR_LIKE_TABLES[f][0]) + '</option>').join('');
+  $(id).value = pairLikeShow[i];
+});
+/* Choosing the other table's field swaps the two; a field leaving view lets
+   its picks go, so nothing narrows the list from a table you cannot see. */
+function setPairLikeShow(slot, field) {
+  if (!PAIR_LIKE_TABLES[field] || pairLikeShow[slot] === field) return;
+  const other = 1 - slot, next = pairLikeShow.slice();
+  if (next[other] === field) next[other] = next[slot];
+  else pairLikePick[next[slot]].clear();
+  next[slot] = field;
+  pairLikeShow = next;
+  $('pairLikeByA').value = next[0]; $('pairLikeByB').value = next[1];
+  try { localStorage.setItem(PAIR_LIKE_KEY, JSON.stringify(next)); } catch (e) { /* not kept */ }
+  FACET_TABS.pairings.draw();
+}
+$('pairLikeByA').addEventListener('change', (e) => setPairLikeShow(0, e.target.value));
+$('pairLikeByB').addEventListener('change', (e) => setPairLikeShow(1, e.target.value));
 /* Both tables, the Clear link and the warn line. */
 function renderPairLike(c) {
   /* Kept in its place while hidden, so it appearing never re-wraps the
      card's heading on a phone and moves the tables under it. */
   $('pairLikeCard').querySelector('[data-facet-clear]').style.visibility = facetAny(pairLikePick) ? '' : 'hidden';
-  Object.keys(PAIR_LIKE_TABLES).forEach((f) => renderPairLikeTable(f, c));
-  $('pairLikeWarn').textContent = Object.keys(PAIR_LIKE_TABLES).map((f) => {
-    const n = c[PAIR_LIKE_TABLES[f][2]].blank, label = PAIR_LIKE_TABLES[f][1];
-    return n ? plural(n, 'had pairing') + ' with ' + PAIR_LIKE_TABLES[f][3] + ' ' + (n === 1 ? 'is' : 'are')
+  pairLikeShow.forEach((f) => renderPairLikeTable(f, c));
+  $('pairLikeWarn').textContent = pairLikeShow.map((f) => {
+    const n = c[PAIR_LIKE_TABLES[f][1]].blank, label = PAIR_LIKE_TABLES[f][0];
+    return n ? plural(n, 'had pairing') + ' with ' + PAIR_LIKE_TABLES[f][2] + ' ' + (n === 1 ? 'is' : 'are')
       + ' left out of the ' + label + ' table.' : '';
   }).filter(Boolean).join(' ');
 }
 /* One table. Its own order is renderLike's: best-rated first, unrated last, then the most. */
 function renderPairLikeTable(field, c) {
-  const [hostId, label, gkey] = PAIR_LIKE_TABLES[field];
+  const hostId = pairLikeHost(field), [label, gkey, lacks] = PAIR_LIKE_TABLES[field];
+  if (!hostId) return;
   const g = c[gkey], srt = pairLikeSort[field];
   const key = srt.key || 'avg', sign = (srt.key ? srt.dir : 'desc') === 'asc' ? 1 : -1;
   const blankLast = (x, y, f) => (x == null && y == null) ? 0 : x == null ? 1 : y == null ? -1 : f(x, y) * sign;
@@ -8571,7 +8660,7 @@ function renderPairLikeTable(field, c) {
       : (a[key] - b[key]) * sign)
     || b.bottles - a.bottles || a.name.localeCompare(b.name));
   $(hostId).innerHTML = !rows.length ? '<p class="empty">' + (c.count.had
-      ? 'No pairing you have had has ' + (field === 'food' ? 'a kind of food' : 'a grape') + ' recorded.'
+      ? 'Every pairing you have had has ' + lacks + '.'
       : 'No pairing has been had yet.') + '</p>'
     : '<table data-pair-like="' + field + '"><thead><tr>' + sortHead(pairLikeColumns(label), srt.key, srt.dir) + '</tr></thead><tbody>'
       + rows.map((r) => facetRowOpen(r, rows, '') + facetHead(field, r)
@@ -8670,7 +8759,7 @@ $('pairLikeCard').addEventListener('click', (e) => {
   pairLikeSort[field] = nextSort(cur.key, cur.dir, sort.dataset.sort, !!sort.dataset.desc);
   /* Only its own table is redrawn — the iPhone Safari jump rule. */
   renderPairLikeTable(field, pairingsNow());
-  const again = $(PAIR_LIKE_TABLES[field][0]).querySelector('[data-sort="' + sort.dataset.sort + '"]');
+  const again = $(pairLikeHost(field)).querySelector('[data-sort="' + sort.dataset.sort + '"]');
   if (again) again.focus({ preventScroll: true });
 });
 
@@ -8696,9 +8785,9 @@ function visiblePairings() {
   if (pairingPick.size) rows = rows.filter((p) => pairingPick.has(pairingKind(p, today)));
   if (facetAny(pairLikePick)) {
     const lines = new Map(state.opened.map((o) => [o.id, o])), wines = new Map(state.wines.map((w) => [w.id, w]));
-    rows = rows.filter((p) => facetMatch({ grape: pairingGrape(p, lines, wines), food: p.food }, pairLikePick));
+    rows = rows.filter((p) => facetMatch(Object.assign({ grape: pairingGrape(p, lines, wines) }, tagsOf(p)), pairLikePick));
   }
-  if (q) rows = rows.filter((p) => [p.meal, p.label, p.note, p.why, p.date ? fmtDate(p.date) : '', p.food ? FOOD[p.food] : '',
+  if (q) rows = rows.filter((p) => [p.meal, p.label, p.note, p.why, p.date ? fmtDate(p.date) : '', ...TAG_FIELDS.map((f) => tagName(f, p)),
     pairingStatus(p, today).label].some((t) => foldHas(t, q)));
   const own = (a, b) => {
     if (a.status !== b.status) return a.status === 'planned' ? -1 : 1;
@@ -8734,7 +8823,7 @@ function renderPairingList() {
   const planned = state.pairings.filter((p) => p.status === 'planned').length;
   $('pairingCount').textContent = total ? planned + ' planned · ' + (total - planned) + ' had' : 'none yet';
   $('pairingFindNote').textContent = ($('pairingFind').value.trim() || pairingPick.size || facetAny(pairLikePick)) && total
-    ? 'Showing ' + rows.length + ' of ' + total + facetNote(pairLikePick, { food: 'Food', grape: 'Grape' })
+    ? 'Showing ' + rows.length + ' of ' + total + facetNote(pairLikePick, Object.fromEntries(Object.keys(PAIR_LIKE_TABLES).map((f) => [f, PAIR_LIKE_TABLES[f][0]])))
       + ' — the tiles above always count every pairing.' : '';
   const wrap = $('pairingWrap');
   if (!total) {
@@ -8780,13 +8869,18 @@ $('pairingFind').addEventListener('input', renderPairingList);
 $('clearPairingFind').addEventListener('click', () => {
   $('pairingFind').value = '';
   $('pairingPickBox').open = false;
-  pairLikePick.grape.clear();
+  Object.keys(pairLikePick).forEach((f) => pairLikePick[f].clear());
   setPairingPick([]);
   $('pairingFind').focus();
 });
 
 /* ── One pairing's window ────────────────────────────────────────────────── */
 let editingPairingId = null;
+/* The four label boxes, filled once from MEAL_TAGS so a list never drifts from its markup. */
+TAG_FIELDS.forEach((f) => {
+  $('p_' + f).innerHTML = '<option value="">Not said</option>' + Object.entries(MEAL_TAGS[f][0])
+    .map(([k, v]) => '<option value="' + esc(k) + '">' + esc(v) + '</option>').join('');
+});
 function pairingWineOptions(p) {
   const opts = state.wines.slice().sort((a, b) => wineLabel(a).localeCompare(wineLabel(b)))
     .filter((w) => w.qty > 0 || (p && p.wineId === w.id))
@@ -8812,7 +8906,7 @@ function openPairing(id, line) {
   $('p_wine').disabled = !!pairingFromLine;
   $('p_wine').value = p && state.wines.some((w) => w.id === p.wineId) ? p.wineId : '';
   $('p_meal').value = p ? p.meal : '';
-  $('p_food').value = p && p.food ? p.food : '';
+  TAG_FIELDS.forEach((f) => { $('p_' + f).value = p && p[f] ? p[f] : ''; });
   $('p_status').value = p ? p.status : line ? 'had' : 'planned';
   $('p_date').value = p ? p.date : line ? line.date : '';
   $('p_rating').value = p && p.rating ? String(p.rating) : '';
@@ -8837,7 +8931,8 @@ function readPairingBoxes() {
   const meal = cleanLine($('p_meal').value, PAIR_MEAL_MAX);
   if (!meal) { $('pairingWarn').textContent = 'Name the meal.'; $('p_meal').focus(); return null; }
   return { meal: meal, wineId: $('p_wine').value, status: $('p_status').value === 'had' ? 'had' : 'planned',
-    date: DATE_RE.test($('p_date').value) ? $('p_date').value : '', food: cleanFood($('p_food').value),
+    date: DATE_RE.test($('p_date').value) ? $('p_date').value : '',
+    ...Object.fromEntries(TAG_FIELDS.map((f) => [f, cleanTag(f, $('p_' + f).value)])),
     rating: cleanRating($('p_rating').value), note: cleanLine($('p_note').value, NOTES_MAX),
     why: clipWords($('p_why').value, BASIS_MAX) };
 }
@@ -8857,7 +8952,7 @@ $('pairingSave').addEventListener('click', () => {
     addPairing(w, line ? Object.assign({}, b, { label: line.label, openedId: line.id }) : b);
   } else {
     const was = Object.assign({}, p);
-    Object.assign(p, { meal: b.meal, food: b.food, status: b.status, date: b.date, rating: b.rating, note: b.note, why: b.why });
+    Object.assign(p, tagsOf(b), { meal: b.meal, status: b.status, date: b.date, rating: b.rating, note: b.note, why: b.why });
     /* A wine chosen again is copied again; a gone one keeps its old name. */
     if (w) { p.wineId = w.id; p.label = cleanLine(wineLabel(w), 100); }
     /* What the window changed, as History — nothing, no entry. */
@@ -8872,7 +8967,7 @@ $('pairingCancel').addEventListener('click', () => $('pairingDialog').close());
 /* Ask Claude — notes on THIS wine with THIS meal (2026-10-31). The bottle is
    the opened line when there is one (its age, window, note and Held Up are
    the facts of the night), else the chosen Cellar wine. It fills Claude's
-   Notes, and the kind of food only while that is still Not said; nothing is
+   Notes, and each of the meal's four labels only while it is still Not said; nothing is
    saved until Save. Closing the window stops it. */
 let judgeCtl = null;
 function judgeStop() {
@@ -8913,7 +9008,7 @@ $('p_ask').addEventListener('click', async () => {
     const r = readJudge(got.found);
     if (!r.notes) throw new Error('Claude came back without notes — try again.');
     $('p_why').value = r.notes;
-    if (!$('p_food').value && r.food) $('p_food').value = r.food;
+    TAG_FIELDS.forEach((f) => { if (!$('p_' + f).value && r[f]) $('p_' + f).value = r[f]; });
     $('p_askNote').textContent = 'Answered in ' + plural(Math.round((Date.now() - t0) / 1000), 'second')
       + ' — keep the notes, edit them, or clear them, then Save.';
   } catch (e) {
@@ -8935,7 +9030,7 @@ $('pairingHad').addEventListener('click', () => {
   const b = readPairingBoxes();
   if (!b) return;
   const was = Object.assign({}, p);
-  Object.assign(p, { meal: b.meal, food: b.food, rating: b.rating, note: b.note, why: b.why });
+  Object.assign(p, tagsOf(b), { meal: b.meal, rating: b.rating, note: b.note, why: b.why });
   const hand = diffPairing(was, p);
   if (hand.length) { logTo(p, { at: nowStamp(), k: 'edit', c: hand }); save(); }
   $('pairingDialog').close();
@@ -10108,7 +10203,7 @@ const SYNC_FIELD = {
   opened: { wineId: 'Wine', label: 'Name', vintage: 'Vintage', region: 'Region', subregion: 'Sub-region',
     grape: 'Grape', paid: 'Price paid', drinkFrom: 'Drinking window', drinkTo: 'Drinking window',
     date: 'Date opened', rating: 'Rating', heldUp: 'Held up', note: 'Tasting note', place: 'Where opened', photoAt: 'Label photo' },
-  pairings: { wineId: 'Wine', label: 'Wine', meal: 'Meal', food: 'Food', date: 'Day', status: 'Planned or had',
+  pairings: { wineId: 'Wine', label: 'Wine', meal: 'Meal', food: 'Main ingredient', flavour: 'Leading flavour', weight: 'Weight', heat: 'Heat', date: 'Day', status: 'Planned or had',
     rating: 'Rating', note: 'Note', openedId: 'Opened bottle', why: 'Claude’s notes', at: 'When picked' },
 };
 const SYNC_SETTING = { soonYears: 'Drink soon within', showFinished: 'Show wines with no bottles left' };

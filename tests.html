@@ -51,7 +51,7 @@
    go MISSING look exactly like tests that pass — a suite that quietly shrank to
    three checks still says "all 3 tests pass". RAISE THIS when you add tests, and
    lower it only when you retire one deliberately. */
-const EXPECTED = 345;
+const EXPECTED = 347;
 
 /* ── It refuses to run anywhere but localhost, and that is load-bearing ──────
    GitHub Pages publishes this page BESIDE the app, where the iframe below would
@@ -3045,12 +3045,12 @@ function define() {
 
       W.setTab('pairings');
       const pRows = () => D.querySelectorAll('#pairingWrap tbody tr').length;
-      const pAll = pRows(), pr = D.querySelector('#pairLikeGrapes tbody tr');
+      const pAll = pRows(), pr = D.querySelector('#pairLikeB tbody tr');
       if (pr) {
         const planned = D.querySelector('#pairStats [data-pairing-pick="planned"]');
         planned.click();
-        ok(D.querySelectorAll('#pairLikeGrapes tbody tr').length > 0
-           && !D.querySelector('#pairLikeGrapes tbody tr:not(.dead)'),
+        ok(D.querySelectorAll('#pairLikeB tbody tr').length > 0
+           && !D.querySelector('#pairLikeB tbody tr:not(.dead)'),
            'Planned alone leaves What Pairs Well all dead — it counts only had pairings');
         planned.click();
         const had = Number(pr.querySelector('td').textContent);
@@ -3123,7 +3123,7 @@ function define() {
       pairings: [{ id: '<p>', wineId: '"><x>', openedId: '<o>', meal: 'M'.repeat(200), status: 'eaten',
                    rating: 7, date: 'soon', note: 'n'.repeat(900), why: 'w', secret: 1 }] });
     const p = out.pairings[0];
-    eq(Object.keys(p).sort(), ['at', 'date', 'food', 'id', 'label', 'log', 'meal', 'note', 'openedId', 'rating', 'status', 'why', 'wineId'],
+    eq(Object.keys(p).sort(), ['at', 'date', 'flavour', 'food', 'heat', 'id', 'label', 'log', 'meal', 'note', 'openedId', 'rating', 'status', 'weight', 'why', 'wineId'],
        'a new stored field must be added to normalizeState AND bump SCHEMA');
     ok(H.ID_RE.test(p.id), 'a bad id is replaced');
     eq([p.wineId, p.openedId], [out.wines[0].id, out.opened[0].id], 'and its references follow through the same map');
@@ -3162,11 +3162,59 @@ function define() {
     const tool = H.buildPairRequest('Fish', [], '2026-10-31').tools[0].input_schema;
     eq(tool.properties.food_kind.enum, Object.keys(H.FOOD), 'Claude chooses from exactly the app\'s list');
     ok(tool.required.indexOf('food_kind') > -1, 'and always names one');
-    eq(H.readPairing({ food_kind: 'spicy', picks: [] }, []).food, 'spicy');
+    eq(H.readPairing({ food_kind: 'pork', picks: [] }, []).food, 'pork');
+    eq(H.readPairing({ food_kind: 'spicy', picks: [] }, []).food, null, 'Spicy left the list for Heat (SCHEMA 19)');
     eq(H.readPairing({ food_kind: 'brunch', picks: [] }, []).food, null, 'an unknown kind is no kind');
     eq(['', ...Object.keys(H.FOOD)], [...W.document.getElementById('p_food').options].map((o) => o.value),
        'the window offers the same list, in its order');
     ok(H.SCHEMA >= 18, 'SCHEMA moved on with the new field');
+  });
+  t('a meal has three more labels — flavour, weight, heat — codes Claude names every time (SCHEMA 19)', () => {
+    const n = (it) => H.normalizeState({ pairings: [Object.assign({ id: 'p' }, it)] }).pairings[0];
+    const p = n({ food: 'pork', flavour: 'tomato', weight: 'rich', heat: 'mild' });
+    eq([p.food, p.flavour, p.weight, p.heat], ['pork', 'tomato', 'rich', 'mild']);
+    const bad = n({ flavour: 'Tomato', weight: '<b>', heat: 'constructor' });
+    eq([bad.flavour, bad.weight, bad.heat], [null, null, null], 'codes only, never a word or an inherited key');
+    const old = n({ food: 'spicy' });
+    eq([old.food, old.heat], [null, 'hot'], 'an old Spicy pairing moves to Heat: Hot');
+    eq(n({ food: 'spicy', heat: 'mild' }).heat, 'mild', 'unless it already says');
+    ok(!('spicy' in H.FOOD), 'Spicy is no longer a main ingredient');
+    ['buildPairRequest', 'buildJudgeRequest'].forEach((fn) => {
+      const tool = fn === 'buildPairRequest' ? H.buildPairRequest('Pizza', [], '2026-10-31').tools[0].input_schema
+        : H.buildJudgeRequest('Pizza', { name: 'X' }, '2026-10-31', {}).tools[0].input_schema;
+      ['flavour', 'weight', 'heat'].forEach((f) => {
+        ok(tool.required.indexOf(f) > -1, fn + ' always asks for ' + f);
+        eq(tool.properties[f].enum, [...W.document.getElementById('p_' + f).options].slice(1).map((o) => o.value),
+           fn + ': Claude\'s ' + f + ' list is the window\'s, in its order');
+      });
+    });
+    const r = H.readPairing({ food_kind: 'pork', flavour: 'sweet', weight: 'medium', heat: 'none', picks: [] }, []);
+    eq([r.flavour, r.weight, r.heat], ['sweet', 'medium', 'none'], 'Pair Meal reads them back');
+    ok(H.SCHEMA >= 19, 'SCHEMA moved on with the new fields');
+  });
+  t('What Pairs Well: each table groups by any of the five, and switching lets a hidden pick go', () => {
+    const D = W.document;
+    H.__plant(H.sampleData());
+    W.setTab('pairings');
+    const by = (id, v) => { const sel = D.getElementById(id); sel.value = v; sel.dispatchEvent(new W.Event('change')); };
+    const head = (id) => D.querySelector('#' + id + ' thead th').textContent.trim();
+    try {
+      eq([head('pairLikeA'), head('pairLikeB')], ['Food', 'Grape'], 'Food beside Grape by default');
+      eq([...D.getElementById('pairLikeByA').options].map((o) => o.textContent),
+         ['Food', 'Flavour', 'Weight', 'Heat', 'Grape'], 'five to choose from');
+      by('pairLikeByA', 'heat');
+      eq(head('pairLikeA'), 'Heat', 'the left table now groups by heat');
+      const hot = [...D.querySelectorAll('#pairLikeA tbody tr')].find((r) => /Hot/.test(r.textContent));
+      ok(hot, 'the sample has a Hot row');
+      const all = D.querySelectorAll('#pairingWrap tbody tr').length;
+      hot.click();
+      ok(D.querySelectorAll('#pairingWrap tbody tr').length < all, 'and pressing it narrows the list');
+      by('pairLikeByA', 'weight');
+      eq(D.querySelectorAll('#pairingWrap tbody tr').length, all, 'a table switched away lets its pick go');
+      by('pairLikeByA', 'grape');
+      eq([head('pairLikeA'), head('pairLikeB'), D.getElementById('pairLikeByB').value], ['Grape', 'Weight', 'weight'],
+         'choosing the other table\'s field swaps the two');
+    } finally { by('pairLikeByA', 'food'); by('pairLikeByB', 'grape'); W.setTab('cellar'); H.__plant(FIXTURE); }
   });
   t('a pick is a number from the list sent — anything else is dropped', () => {
     const r = H.readPairing({ meal_name: 'Lamb', classic_pairings: ['Syrah', '<b>Rioja</b>', 'a', 'b', 'c'],
@@ -3180,7 +3228,8 @@ function define() {
     eq(r.classic.length, 4, 'four classic styles at most');
     eq(r.ifNone, '', 'no buying advice once something in the cellar fits');
     eq(H.readPairing({ picks: [], if_none: 'Buy Syrah' }, []).ifNone, 'Buy Syrah');
-    eq(H.readPairing(null, null), { meal: '', food: null, classic: [], picks: [], ifNone: '' }, 'nothing back reads as nothing');
+    eq(H.readPairing(null, null), { meal: '', food: null, flavour: null, weight: null, heat: null, classic: [], picks: [], ifNone: '' },
+       'nothing back reads as nothing');
   });
   t('a silent finish is asked once, and the answer comes back with the ids sent', async () => {
     const replies = [
@@ -3224,7 +3273,8 @@ function define() {
     ok(!/sk-ant|x-api-key/i.test(JSON.stringify(b)), 'the key is never in the body');
     const r = H.readJudge({ meal_name: 'Pizza', food_kind: 'other', notes: 'x '.repeat(300) });
     ok(r.notes.length <= 250 && /…$/.test(r.notes), 'long notes are clipped on a word');
-    eq(H.readJudge({ food_kind: 'brunch' }), { meal: '', food: null, notes: '' }, 'an unknown kind is no kind');
+    eq(H.readJudge({ food_kind: 'brunch', flavour: 'umami', weight: 'heavy', heat: 'spicy' }),
+       { meal: '', food: null, flavour: null, weight: null, heat: null, notes: '' }, 'an unknown label is no label');
   });
   t('Pair With a Meal: an opened bottle gets a had pairing, linked, with Claude\'s notes', async () => {
     const D = W.document, proto = W.Storage.prototype, realSet = proto.setItem, realGet = proto.getItem;
@@ -3369,6 +3419,11 @@ function define() {
     eq(fd('Dessert').avg, 1, 'the lava cake is its own row');
     ok(fd('Red Meat').avg >= 4.5 && fd('Red Meat').bottles >= 3, 'red meat pairs well', fd('Red Meat').avg);
     eq(f.blank, 1, 'and the untagged lamb tagine fills the Food warning');
+    /* By the three labels of SCHEMA 19: the sample reaches every one. */
+    const c19 = H.computePairings(H.normalizeState(H.sampleData()), '2026-10-30');
+    ok(c19.flavours.rows.length >= 6, 'the sample has many leading flavours', c19.flavours.rows.length);
+    eq(c19.weights.rows.map((r) => r.name).sort(), ['Light', 'Medium', 'Rich'], 'every weight');
+    eq(c19.heats.rows.map((r) => r.name).sort(), ['Hot', 'Mild', 'No Heat'], 'every heat');
     /* Every sample region is Look Up's "Area, State or Country" shape. */
     const d = H.sampleData();
     d.wines.concat(d.opened).filter((x) => x.region).forEach((x) =>
@@ -3383,9 +3438,9 @@ function define() {
       const tile = (k) => D.querySelector('#pairStats [data-pairing-pick="' + k + '"]');
       ['planned', 'overdue', 'had'].forEach((k) => ok(Number(tile(k).querySelector('.v').firstChild.textContent) > 0,
         'sample data reaches the ' + k + ' tile'));
-      eq(D.querySelectorAll('#pairLikeGrapes tbody tr').length, 8, 'and What Pairs Well has a row per grape');
-      ok(D.querySelectorAll('#pairLikeFoods tbody tr').length >= 6, 'and one per kind of food, beside it');
-      ok(/no kind of food/.test(D.getElementById('pairLikeWarn').textContent), 'the warn line counts the untagged one');
+      eq(D.querySelectorAll('#pairLikeB tbody tr').length, 8, 'and What Pairs Well has a row per grape');
+      ok(D.querySelectorAll('#pairLikeA tbody tr').length >= 6, 'and one per kind of food, beside it');
+      ok(/no main ingredient/.test(D.getElementById('pairLikeWarn').textContent), 'the warn line counts the untagged one');
       tile('had').focus();
       tile('had').click();
       eq(D.querySelectorAll('#pairingTable tbody tr').length, 14, 'Had shows had only');
@@ -4872,7 +4927,7 @@ function define() {
         { id: 'pr-only', wineId: 'fx-ready', label: '2019 Alpha Pinot', meal: 'Lamb', date: '',
           status: 'planned', rating: null, note: '', openedId: null, why: '' }] }));
       W.setTab('pairings');
-      eq(D.getElementById('pairLikeGrapes').textContent.trim(), 'No pairing has been had yet.',
+      eq(D.getElementById('pairLikeB').textContent.trim(), 'No pairing has been had yet.',
          'never that a grape is missing');
     } finally { H.__plant(FIXTURE); W.setTab('cellar'); }
   });
