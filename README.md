@@ -62,10 +62,13 @@ cellar on your other devices.
   tap the wine to see it all in its window.
 - **Opened tab** — every bottle you have opened, with the date, the wine's region, grape and what
   you paid (copied when you press Opened One, so the log reads the same after the wine is edited
-  or deleted; Paid shows once any bottle has one), your 1–5 rating and a note. **Find** narrows
+  or deleted; Paid shows once any bottle has one), your 1–5 rating (in half points — a 4.5 is a 4.5) and a note. **Held Up** says how the bottle had
+  aged — Great, Fine, Faded or Gone — kept apart from the rating, so the rating can judge the glass the
+  way you would at its peak and an old bottle isn't graded on a curve; the column shows once any
+  bottle has one. Pairing ratings take half points too. **Find** narrows
   the list by any of those words, like the Cellar's.
   Press a line to change **anything** on it — the wine's name, vintage, region, grape, price,
-  drinking window, where, date, rating and note. That changes the line only, never the wine in
+  drinking window, where, date, rating, Held Up and note. That changes the line only, never the wine in
   the Cellar, and the bottle count is left alone.
   Each line also says its **Timing** and **Age** (see below), and **Where** it was opened once any
   line has a place.

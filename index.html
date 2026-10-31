@@ -2355,13 +2355,29 @@ html[data-booting] footer { visibility: hidden; }
       <label for="o_rating">How was it?</label>
       <select id="o_rating">
         <option value="">No rating</option>
-        <option value="5">★★★★★ Outstanding</option>
-        <option value="4">★★★★ Very good</option>
-        <option value="3">★★★ Good</option>
-        <option value="2">★★ Disappointing</option>
-        <option value="1">★ Poor or faulty</option>
+        <option value="5">★★★★★ 5 Outstanding</option>
+        <option value="4.5">★★★★½ 4.5</option>
+        <option value="4">★★★★ 4 Very good</option>
+        <option value="3.5">★★★½ 3.5</option>
+        <option value="3">★★★ 3 Good</option>
+        <option value="2.5">★★½ 2.5</option>
+        <option value="2">★★ 2 Disappointing</option>
+        <option value="1.5">★½ 1.5</option>
+        <option value="1">★ 1 Poor or faulty</option>
       </select>
     </div>
+  </div>
+  <!-- How well it had aged, apart from how good it was (SCHEMA 17): rate the
+       glass as you would at its peak, and say here how the years treated it. -->
+  <div class="field">
+    <label for="o_heldup">How did it hold up?</label>
+    <select id="o_heldup">
+      <option value="">Not said</option>
+      <option value="great">Great — still at its best</option>
+      <option value="fine">Fine — sound, but fading</option>
+      <option value="faded">Faded — past it, still drinkable</option>
+      <option value="gone">Gone — over the hill</option>
+    </select>
   </div>
   <div class="field">
     <label for="o_note">Note</label>
@@ -2516,11 +2532,15 @@ html[data-booting] footer { visibility: hidden; }
     <label for="p_rating">How was the pairing?</label>
     <select id="p_rating">
       <option value="">No rating</option>
-      <option value="5">★★★★★ Perfect match</option>
-      <option value="4">★★★★ Very good together</option>
-      <option value="3">★★★ Fine</option>
-      <option value="2">★★ Didn’t suit each other</option>
-      <option value="1">★ Clashed</option>
+      <option value="5">★★★★★ 5 Perfect match</option>
+      <option value="4.5">★★★★½ 4.5</option>
+      <option value="4">★★★★ 4 Very good together</option>
+      <option value="3.5">★★★½ 3.5</option>
+      <option value="3">★★★ 3 Fine</option>
+      <option value="2.5">★★½ 2.5</option>
+      <option value="2">★★ 2 Didn’t suit each other</option>
+      <option value="1.5">★½ 1.5</option>
+      <option value="1">★ 1 Clashed</option>
     </select>
   </div>
   <div class="field">
@@ -2834,7 +2854,7 @@ const TABS        = ['cellar', 'opened', 'pairings', 'history'];
    with the pairing's own rating and note; History's `plan` kind and `meal`.
    16 (2026-10-26): a pairing keeps its own History (`log`), and History names
    its wine, status and day. */
-const SCHEMA = 16;
+const SCHEMA = 17;
 
 /* ── Ids from outside are not trusted ──────────────────────────────────────
    Ids reach `data-id` attributes and <option value>s in a dozen places, so an
@@ -2951,6 +2971,27 @@ function cleanLine(v, cap) {
    the reader's alone: what Claude did lives in the wine's History (SCHEMA 12). */
 const BASIS_MAX = 250;
 const NOTES_MAX = 600;
+/* A rating is 1 to 5 in half points (SCHEMA 17, Charles, 2026-10-31: a 4 and
+   a 3.5 were both "4" before). Anything else is no rating, never a guess;
+   null is checked first because Number(null) is 0. */
+function cleanRating(v) {
+  if (v == null || v === '') return null;
+  const r = Number(v);
+  return Number.isFinite(r) && r >= 1 && r <= 5 && Number.isInteger(r * 2) ? r : null;
+}
+/* The stars for a rating: "★★★★½". Decoration — the number is the fact. */
+const starsOf = (r) => '★'.repeat(Math.floor(r)) + (r % 1 ? '½' : '');
+/* How well an opened bottle had AGED, kept apart from how good the glass was
+   (SCHEMA 17, Charles, 2026-10-31): a modest Pinot merely drinkable at 14 is a
+   fine ageing result but a so-so wine, and one number can't say both. A code,
+   never free text; rank orders the column best first. */
+const HELD_UP = {
+  great: { label: 'Great', rank: 0 },
+  fine:  { label: 'Fine',  rank: 1 },
+  faded: { label: 'Faded', rank: 2 },
+  gone:  { label: 'Gone',  rank: 3 },
+};
+const cleanHeldUp = (v) => (typeof v === 'string' && Object.prototype.hasOwnProperty.call(HELD_UP, v) ? v : null);
 /* A pairing's meal, as its list shows it: "Short ribs with polenta". The
    recipe itself is never kept. Up here because normalizeState reads it. */
 const PAIR_MEAL_MAX = 60;
@@ -3002,7 +3043,7 @@ const LOG_VAL_MAX = 60;
 const LOG_KINDS = ['add', 'paste', 'edit', 'ai', 'check', 'look', 'open', 'back', 'undo', 'revive', 'plan'];
 const LOG_CODES = ['name', 'vintage', 'color', 'region', 'subregion', 'grape', 'qty', 'location',
   'value', 'paid', 'window', 'source', 'added', 'notes', 'photo', 'opened', 'rating', 'place', 'meal',
-  'wine', 'status', 'day'];
+  'wine', 'status', 'day', 'heldup'];
 const LOG_CONF = ['high', 'medium', 'low'];
 const HOST_RE = /^[a-z0-9-]+(\.[a-z0-9-]+)+$/i;
 function cleanLogChanges(v) {
@@ -3394,14 +3435,15 @@ function normalizeState(raw) {
   out.opened = (Array.isArray(raw.opened) ? raw.opened : [])
     .filter((it) => it && typeof it === 'object')
     .map((it) => {
-      const r = Number(it.rating);
       return {
         id: fixId(it.id),
         /* Rewritten through the SAME map as the wines' ids, so a reference to a
            wine whose id was replaced still points at it. */
         wineId: it.wineId == null || it.wineId === '' ? null : fixId(it.wineId),
         date: DATE_RE.test(String(it.date || '')) ? it.date : todayISO(),
-        rating: it.rating != null && Number.isInteger(r) && r >= 1 && r <= 5 ? r : null,
+        rating: cleanRating(it.rating),
+        /* How well it had aged, apart from how good it was (SCHEMA 17). */
+        heldUp: cleanHeldUp(it.heldUp),
         note: cleanLine(it.note, NOTES_MAX),
         /* The wine's name as it was when the bottle was opened, so the log still
            reads after the wine itself is deleted. */
@@ -3460,7 +3502,6 @@ function normalizeState(raw) {
   out.pairings = (Array.isArray(raw.pairings) ? raw.pairings : [])
     .filter((it) => it && typeof it === 'object')
     .map((it) => {
-      const r = Number(it.rating);
       return {
         id: fixId(it.id),
         wineId: it.wineId == null || it.wineId === '' ? null : fixId(it.wineId),
@@ -3469,7 +3510,7 @@ function normalizeState(raw) {
         /* A planned meal may have no day yet; '' is "not decided". */
         date: DATE_RE.test(String(it.date || '')) ? it.date : '',
         status: it.status === 'had' ? 'had' : 'planned',
-        rating: it.rating != null && Number.isInteger(r) && r >= 1 && r <= 5 ? r : null,
+        rating: cleanRating(it.rating),
         note: cleanLine(it.note, NOTES_MAX),
         /* The opened line it became, when it was had through Opened One. */
         openedId: it.openedId == null || it.openedId === '' ? null : fixId(it.openedId),
@@ -4253,6 +4294,7 @@ const OPENED_COLUMNS = [
   { key: 'paid',   label: 'Paid',   desc: true, num: true },
   { key: 'rating', label: 'Rating', desc: true, num: true },
   { key: 'timing', label: 'Timing', desc: false },
+  { key: 'heldup', label: 'Held Up', desc: false },
   { key: 'age',    label: 'Age',    desc: true, num: true },
   { key: 'note',   label: 'Note',   desc: false },
 ];
@@ -4420,12 +4462,15 @@ function visibleOpened() {
   const q = searchFold(document.getElementById('openedFind').value.trim());
   let rows = !q ? state.opened.slice() : state.opened.filter((o) =>
     [o.label, o.region, o.subregion, o.grape, o.place, o.note, fmtDate(o.date), o.paid == null ? '' : fmtPaid(o.paid),
-     TIMING[timingOf(o)].label].some((t) => foldHas(t, q)));
+     TIMING[timingOf(o)].label, o.heldUp ? HELD_UP[o.heldUp].label : ''].some((t) => foldHas(t, q)));
   if (timingPick.size) rows = rows.filter((o) => timingPick.has(timingOf(o)));
   if (facetAny(likePick)) rows = rows.filter((o) => facetMatch(o, likePick, likeGrouped));
   return rows.sort((a, b) => {
     if (key === 'timing')
       return (TIMING[timingOf(a)].rank - TIMING[timingOf(b)].rank) * sign || b.date.localeCompare(a.date);
+    if (key === 'heldup')
+      return blankLast(a.heldUp ? HELD_UP[a.heldUp].rank : null, b.heldUp ? HELD_UP[b.heldUp].rank : null,
+        (x, z) => x - z) || b.date.localeCompare(a.date);
     if (key === 'age') return blankLast(ageAtOpening(a), ageAtOpening(b), (x, z) => x - z) || b.date.localeCompare(a.date);
     if (key === 'region' || key === 'grape' || key === 'place')
       return blankLast(a[key] || null, b[key] || null, (x, z) => x.localeCompare(z)) || b.date.localeCompare(a.date);
@@ -4641,7 +4686,10 @@ function renderOpened() {
   const hasPaid = state.opened.some((o) => o.paid != null);
   /* Where follows the same rule: no column until some line has a place. */
   const hasPlace = state.opened.some((o) => o.place);
-  const cols = OPENED_COLUMNS.filter((c) => (c.key !== 'paid' || hasPaid) && (c.key !== 'place' || hasPlace));
+  /* And Held Up (SCHEMA 17), until some line says how a bottle aged. */
+  const hasHeld = state.opened.some((o) => o.heldUp);
+  const cols = OPENED_COLUMNS.filter((c) => (c.key !== 'paid' || hasPaid) && (c.key !== 'place' || hasPlace)
+    && (c.key !== 'heldup' || hasHeld));
   const shown = cols.map((c) => c.key);
   wrap.innerHTML = '<table id="openedTable" class="cards"><thead><tr>'
     + sortHead(cols, openedSortKey, openedSortDir)
@@ -4662,9 +4710,10 @@ function renderOpened() {
       /* The stars are decoration over a number: aria-hidden, so a screen reader
          and the CSV both get "4/5" rather than a row of glyphs. */
       + '<td class="num nowrap" data-label="Rating">' + (o.rating ? '<span aria-hidden="true" class="stars">'
-          + '★'.repeat(o.rating) + '</span> ' + o.rating + '/5' : '—')
+          + starsOf(o.rating) + '</span> ' + o.rating + '/5' : '—')
       + '</td>'
       + '<td data-label="Timing">' + timingPill(timingOf(o)) + '</td>'
+      + (hasHeld ? '<td data-label="Held Up">' + (o.heldUp ? esc(HELD_UP[o.heldUp].label) : '—') + '</td>' : '')
       + '<td class="num nowrap" data-label="Age">' + esc(fmtAge(ageAtOpening(o))) + '</td>'
       + '<td data-label="Note">' + esc(o.note) + '</td>'
       + '</tr>').join('')
@@ -5512,7 +5561,7 @@ const SHARE_FORMAT = 1;
    4: an opened line carries its own snapshot — a bottle logged away from home
    has no wine to be filled from — and its place, with the notes.
    5: a wine's and a line's sub-region. */
-const SHARE_PAYLOAD_V = 5;
+const SHARE_PAYLOAD_V = 6;
 const SHARE_WARN_AT = 8000;
 
 const b64urlEncode = (bytes) => {
@@ -5585,7 +5634,7 @@ function buildSharePayload(st, opts) {
     }),
   };
   if (o.opened === true) out.opened = st.opened.map((x) => {
-    const r = { id: x.id, wineId: x.wineId, date: x.date, rating: x.rating, note: notes ? x.note : '',
+    const r = { id: x.id, wineId: x.wineId, date: x.date, rating: x.rating, heldUp: x.heldUp, note: notes ? x.note : '',
                 label: x.label, region: x.region, subregion: x.subregion, grape: x.grape, vintage: x.vintage,
                 drinkFrom: x.drinkFrom, drinkTo: x.drinkTo, place: notes ? x.place : '' };
     if (o.paid === true) r.paid = x.paid;
@@ -6219,7 +6268,8 @@ const LINE_FIELDS = [
   ['paid', 'Paid', (o) => (o.paid == null ? '' : fmtPaid(o.paid))],
   ['window', 'Window', (o) => (o.drinkFrom == null && o.drinkTo == null ? '' : fmtWindow(o))],
   ['opened', 'Opened on', (o) => (o.date ? fmtDate(o.date) : '')],
-  ['rating', 'Rating', (o) => (o.rating ? '★'.repeat(o.rating) : '')],
+  ['rating', 'Rating', (o) => (o.rating ? starsOf(o.rating) : '')],
+  ['heldup', 'Held up', (o) => (o.heldUp ? HELD_UP[o.heldUp].label : '')],
   ['place', 'Where opened', (o) => o.place || ''],
   ['notes', 'Notes', (o) => o.note || ''],
   ['photo', 'Photo', (o) => o.photoAt || ''],
@@ -6233,7 +6283,7 @@ const PAIR_FIELDS = [
   ['wine', 'Wine', (p) => p.label || ''],
   ['status', 'Status', (p) => (p.status === 'had' ? 'Had' : p.status ? 'Planned' : '')],
   ['day', 'Day', (p) => (p.date ? fmtDate(p.date) : '')],
-  ['rating', 'Rating', (p) => (p.rating ? '★'.repeat(p.rating) : '')],
+  ['rating', 'Rating', (p) => (p.rating ? starsOf(p.rating) : '')],
   ['notes', 'Notes', (p) => p.note || ''],
 ];
 const ALL_LOG_FIELDS = LOG_FIELDS.concat(LINE_FIELDS.filter(([f]) => !LOG_FIELDS.some((d) => d[0] === f)),
@@ -6400,13 +6450,13 @@ function sampleData() {
         label: (Y - 3) + ' Example Ridge Pinot Noir' },
       { id: 'demo-o5', wineId: 'demo-hold', date: back(60), rating: 3,
         note: 'Opened far too young — tight and closed.', label: (Y - 2) + ' Sample Estate Cabernet Sauvignon' },
-      { id: 'demo-o6', wineId: 'demo-past', date: back(25), rating: 2,
+      { id: 'demo-o6', wineId: 'demo-past', date: back(25), rating: 2.5, heldUp: 'faded',
         note: 'Faded; should have gone two years ago.', label: (Y - 9) + ' Placeholder Bianco' },
       { id: 'demo-o7', wineId: 'demo-sparkling', date: back(150), rating: 5, note: 'A birthday toast.',
         label: 'NV Fictional Brut Rosé' },
       { id: 'demo-o8', wineId: 'demo-none', date: back(80), rating: null, note: '',
         label: (Y - 4) + ' Mystery Bottle From a Friend' },
-      { id: 'demo-o9', wineId: 'demo-gone', date: back(300), rating: 4, note: '',
+      { id: 'demo-o9', wineId: 'demo-gone', date: back(300), rating: 4.5, heldUp: 'great', note: '',
         label: (Y - 12) + ' Retired Rioja Reserva', region: 'Rioja', grape: 'Tempranillo', paid: null },
       /* Logged away from home: no wine behind it, a place, its own snapshot. */
       { id: 'demo-o10', wineId: null, date: back(18), rating: 4, note: 'Ordered off the list with the steak.',
@@ -6461,7 +6511,7 @@ function sampleData() {
         note: 'The alcohol made the chili burn hotter.', openedId: null,
         why: 'Ripe fruit can soften a little heat.' },
       { id: 'demo-p12', wineId: 'demo-hold', label: (Y - 2) + ' Sample Estate Cabernet Sauvignon',
-        meal: 'Grilled ribeye', date: back(60), status: 'had', rating: 4,
+        meal: 'Grilled ribeye', date: back(60), status: 'had', rating: 4.5,
         note: 'The steak tamed the young tannin — better with food than alone.', openedId: 'demo-o5',
         why: 'Cabernet’s tannin needs fat and protein, and a ribeye has both.' },
       { id: 'demo-p13', wineId: 'demo-hold', label: (Y - 2) + ' Sample Estate Cabernet Sauvignon',
@@ -7178,6 +7228,7 @@ function fillOpenDialog(o) {
   $('o_place').value = o ? o.place || '' : '';
   $('o_date').value = o ? o.date : todayISO();
   $('o_rating').value = o && o.rating ? String(o.rating) : '';
+  $('o_heldup').value = o && o.heldUp ? o.heldUp : '';
   $('o_note').value = o ? o.note || '' : '';
 }
 function openBottleEdit(id) {
@@ -7233,8 +7284,7 @@ function readOpenWineBoxes() {
 $('openSave').addEventListener('click', () => {
   const date = $('o_date').value;
   if (!DATE_RE.test(date)) { $('openWarn').textContent = 'Pick the day you opened it.'; $('o_date').focus(); return; }
-  const r = Number($('o_rating').value);
-  const told = { date: date, rating: r >= 1 && r <= 5 ? r : null,
+  const told = { date: date, rating: cleanRating($('o_rating').value), heldUp: cleanHeldUp($('o_heldup').value),
                  note: cleanLine($('o_note').value, NOTES_MAX), place: cleanLine($('o_place').value, 40) };
   if (editingBottleId || loggingBottle) {
     const wine = readOpenWineBoxes();
@@ -8557,7 +8607,7 @@ function renderPairingList() {
         + '<td data-label="Wine">' + esc(p.label) + '</td>'
         + '<td class="cardtop" data-label="Status"><span class="pill ' + s.cls + '">' + esc(s.label) + '</span></td>'
         + '<td class="num nowrap" data-label="Rating">' + (p.rating ? '<span aria-hidden="true" class="stars">'
-            + '★'.repeat(p.rating) + '</span> ' + p.rating + '/5' : '—') + '</td>'
+            + starsOf(p.rating) + '</span> ' + p.rating + '/5' : '—') + '</td>'
         + '<td data-label="Note">' + esc(p.note) + '</td>'
         + '<td data-label="Why Claude Picked It">' + esc(p.why) + '</td>'
         + '</tr>';
@@ -8631,10 +8681,9 @@ function dressPairingHad() {
 function readPairingBoxes() {
   const meal = cleanLine($('p_meal').value, PAIR_MEAL_MAX);
   if (!meal) { $('pairingWarn').textContent = 'Name the meal.'; $('p_meal').focus(); return null; }
-  const r = Number($('p_rating').value);
   return { meal: meal, wineId: $('p_wine').value, status: $('p_status').value === 'had' ? 'had' : 'planned',
     date: DATE_RE.test($('p_date').value) ? $('p_date').value : '',
-    rating: r >= 1 && r <= 5 ? r : null, note: cleanLine($('p_note').value, NOTES_MAX) };
+    rating: cleanRating($('p_rating').value), note: cleanLine($('p_note').value, NOTES_MAX) };
 }
 $('pairingSave').addEventListener('click', () => {
   const b = readPairingBoxes();
@@ -9072,10 +9121,10 @@ function csvWines(st) {
   return toCsv(rows);
 }
 function csvOpened(st) {
-  const rows = [['Opened', 'Wine', 'Region', 'Sub-region', 'Grape', 'Paid', 'Rating', 'Note', 'Where']].concat(st.opened.slice()
+  const rows = [['Opened', 'Wine', 'Region', 'Sub-region', 'Grape', 'Paid', 'Rating', 'Held Up', 'Note', 'Where']].concat(st.opened.slice()
     .sort((a, b) => a.date.localeCompare(b.date))
     .map((o) => [o.date, o.label, o.region, o.subregion, o.grape, o.paid == null ? '' : o.paid,
-      o.rating == null ? '' : o.rating, o.note, o.place]));
+      o.rating == null ? '' : o.rating, o.heldUp ? HELD_UP[o.heldUp].label : '', o.note, o.place]));
   return toCsv(rows);
 }
 function downloadCsv(text, name) {
@@ -9845,7 +9894,7 @@ const SYNC_FIELD = {
     source: 'Came from', added: 'Added', notes: 'Notes', photoAt: 'Label photo' },
   opened: { wineId: 'Wine', label: 'Name', vintage: 'Vintage', region: 'Region', subregion: 'Sub-region',
     grape: 'Grape', paid: 'Price paid', drinkFrom: 'Drinking window', drinkTo: 'Drinking window',
-    date: 'Date opened', rating: 'Rating', note: 'Tasting note', place: 'Where opened', photoAt: 'Label photo' },
+    date: 'Date opened', rating: 'Rating', heldUp: 'Held up', note: 'Tasting note', place: 'Where opened', photoAt: 'Label photo' },
   pairings: { wineId: 'Wine', label: 'Wine', meal: 'Meal', date: 'Day', status: 'Planned or had',
     rating: 'Rating', note: 'Note', openedId: 'Opened bottle', why: 'Claude’s reason', at: 'When picked' },
 };
@@ -10139,7 +10188,7 @@ window.__wineTestHooks = {
   cleanPhoto: cleanPhoto, photoIdsGone: photoIdsGone, backupPhotoEntries: backupPhotoEntries,
   __lookupStampKey: () => (lookupStamp ? lookupStamp.key : ''), photoContent: photoContent, imageFromTransfer: imageFromTransfer, photoFit: photoFit, clipWords: clipWords, labelNameFor: labelNameFor, heicBrand: heicBrand, isHeic: isHeic, readPicked: readPicked, PHOTO_MAX: PHOTO_MAX, PHOTO_SEND_MAX: PHOTO_SEND_MAX,
   SCHEMA: SCHEMA, ID_RE: ID_RE, STORAGE_KEY: STORAGE_KEY, THEME_KEY: THEME_KEY,
-  TAB_KEY: TAB_KEY, TABS: TABS, SHARE_FORMAT: SHARE_FORMAT, SHARE_PAYLOAD_V: SHARE_PAYLOAD_V,
+  TAB_KEY: TAB_KEY, TABS: TABS, SHARE_FORMAT: SHARE_FORMAT, SHARE_PAYLOAD_V: SHARE_PAYLOAD_V, starsOf: starsOf,
   blankState: blankState, normalizeState: normalizeState, defaultSettings: defaultSettings,
   sampleData: sampleData, computeAll: computeAll, buildSharePayload: buildSharePayload,
   /* Pure, and the only place a link's wines are chosen — pinned directly rather

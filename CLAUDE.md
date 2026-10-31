@@ -109,6 +109,13 @@ the family doesn't.
   in the CSP on the shared origin; don't re-offer it. Synthetic ⌘V in the Browser pane
   fires no paste event; test pastes in headful Playwright with a pasteboard built in JXA.
 
+- **SCHEMA 17 / SHARE_PAYLOAD_V 6 (2026-10-31, Charles): half-point ratings and `heldUp`.** Ratings
+  (opened lines AND pairings) are 1–5 in steps of .5 — `cleanRating` is the one boundary, `starsOf`
+  the one printer ("★★★★½"). `heldUp` on an opened line is a CODE from `HELD_UP` (great / fine /
+  faded / gone, or null) — how the bottle AGED, kept apart from how good it was, so the rating is
+  never a curve for age. History code `heldup`; the Opened list's Held Up column hides until a line
+  has one (Paid/Where's rule); CSV has it; share links carry it.
+
 ## Decisions — Don't Undo
 
 - **The 📌 pins the tab row** (2026-10-26, Charles: "like my other apps") — League Night's shape:
@@ -553,6 +560,6 @@ was a one-line version of the cellar rule.
 
 ## Tests
 
-`tests.html`, `EXPECTED = 339`. Run it headless (Playwright) rather than in the Browser pane:
+`tests.html`, `EXPECTED = 341`. Run it headless (Playwright) rather than in the Browser pane:
 the pane throttles hidden timers and its focus heuristics turn the 705px keyboard-focus check
 red on untouched code.

@@ -51,7 +51,7 @@
    go MISSING look exactly like tests that pass — a suite that quietly shrank to
    three checks still says "all 3 tests pass". RAISE THIS when you add tests, and
    lower it only when you retire one deliberately. */
-const EXPECTED = 339;
+const EXPECTED = 341;
 
 /* ── It refuses to run anywhere but localhost, and that is load-bearing ──────
    GitHub Pages publishes this page BESIDE the app, where the iframe below would
@@ -1037,8 +1037,29 @@ function define() {
         'qty', 'region', 'source', 'subregion', 'valueEst', 'valueHigh', 'valueLow', 'vintage'],
        'a new stored field must be added to normalizeState AND bump SCHEMA');
     const o = H.normalizeState({ opened: [{ id: 'o', secret: 1 }] }).opened[0];
-    eq(Object.keys(o).sort(), ['date', 'drinkFrom', 'drinkTo', 'grape', 'id', 'label', 'log', 'note', 'paid', 'photoAt', 'place',
-       'rating', 'region', 'subregion', 'vintage', 'wineId'], 'an opened bottle too');
+    eq(Object.keys(o).sort(), ['date', 'drinkFrom', 'drinkTo', 'grape', 'heldUp', 'id', 'label', 'log', 'note', 'paid', 'photoAt',
+       'place', 'rating', 'region', 'subregion', 'vintage', 'wineId'], 'an opened bottle too');
+  });
+  t('a rating is 1 to 5 in half points, and anything else is no rating (SCHEMA 17)', () => {
+    const r = (v) => H.normalizeState({ opened: [{ id: 'o', rating: v }] }).opened[0].rating;
+    eq(r(4.5), 4.5); eq(r('3.5'), 3.5); eq(r(5), 5); eq(r(1), 1);
+    eq(r(4.25), null, 'a quarter point is not a rating');
+    eq(r(0.5), null); eq(r(0), null); eq(r(5.5), null); eq(r(null), null, 'Number(null) is 0 — still no rating');
+    eq(r(''), null); eq(r('x'), null);
+    eq(H.normalizeState({ pairings: [{ id: 'p', rating: 2.5 }] }).pairings[0].rating, 2.5, 'a pairing takes halves too');
+    eq(H.starsOf(4.5), '★★★★½'); eq(H.starsOf(3), '★★★');
+    H.__plant(FIXTURE);
+    const opts = [...W.document.getElementById('o_rating').options].map((x) => x.value);
+    eq(opts, ['', '5', '4.5', '4', '3.5', '3', '2.5', '2', '1.5', '1'], 'every half point is offered, best first');
+    eq([...W.document.getElementById('p_rating').options].map((x) => x.value), opts, 'and the pairing window matches');
+  });
+  t('Held Up is a code from the list, never free text (SCHEMA 17)', () => {
+    const h = (v) => H.normalizeState({ opened: [{ id: 'o', heldUp: v }] }).opened[0].heldUp;
+    eq(h('great'), 'great'); eq(h('gone'), 'gone');
+    eq(h('Great'), null, 'case matters — a code, not a word');
+    eq(h('<b>'), null); eq(h('constructor'), null, 'not an inherited key'); eq(h(undefined), null);
+    eq([...W.document.getElementById('o_heldup').options].map((x) => x.value), ['', 'great', 'fine', 'faded', 'gone']);
+    ok(H.SCHEMA >= 17, 'SCHEMA moved on with the new field');
   });
   t('a new wine has no colour until one is chosen or looked up', () => {
     /* Charles, 2026-10-25: Colour defaulted to Red, so a wine saved without
@@ -1235,7 +1256,7 @@ function define() {
     ok(csv.indexOf('\r\n') > -1, 'CRLF, so Excel on Windows reads it as one file');
     ok(csv.split('\r\n')[0].indexOf('Wine') > -1, 'a header row');
     eq(csv.split('\r\n').length, 4, 'one row per wine');
-    ok(/Opened,Wine,Region,Sub-region,Grape,Paid,Rating,Note/.test(H.csvOpened(H.normalizeState(FIXTURE))), 'and the opened log has its own');
+    ok(/Opened,Wine,Region,Sub-region,Grape,Paid,Rating,Held Up,Note/.test(H.csvOpened(H.normalizeState(FIXTURE))), 'and the opened log has its own');
   });
 
   group('share links carry figures, never identity');
