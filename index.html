@@ -846,15 +846,16 @@
      the heading band, hover and a picked row are --surface — the old hover
      colour IS the well now — so in the dark themes a hovered row goes a
      shade darker. Never --accent-bg behind these rows: muted text on it is
-     3.43 in Dark. The grid is a well only as a grid; as cards each wine is
-     its own surface-alt card and the wrapper stays bare. No shadow (rule 14). */
-  :is(:is(#makeupCard, #likeCard, #pairLikeCard) .likes > .table-scroll, #listWrap:has(> table:not(.cardview))):not([hidden]) {
+     3.43 in Dark. The four lists (Cellar, Opened, Pairings, History) are
+     wells only as grids; as cards each row is its own surface-alt card and
+     the wrapper stays bare. No shadow (rule 14). */
+  :is(:is(#makeupCard, #likeCard, #pairLikeCard) .likes > .table-scroll, :is(#listWrap, #openedWrap, #pairingWrap, #historyWrap):has(> table:not(.cardview))):not([hidden]) {
     border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface-alt); }
-  :is(:is(#makeupCard, #likeCard, #pairLikeCard) .likes > .table-scroll, #listWrap:has(> table:not(.cardview))) thead th { background: var(--surface); }
-  :is(:is(#makeupCard, #likeCard, #pairLikeCard) .likes > .table-scroll, #listWrap:has(> table:not(.cardview))) :is(tbody tr:hover, tr.rowlink:hover :is(th, td), tr.facetrow:hover :is(th, td), tr.facetrow.picked :is(th, td)) { background: var(--surface); }
-  :is(:is(#makeupCard, #likeCard, #pairLikeCard) .likes > .table-scroll, #listWrap:has(> table:not(.cardview))) tr.facetrow.dead:hover :is(th, td) { background: none; }
-  :is(:is(#makeupCard, #likeCard, #pairLikeCard) .likes > .table-scroll, #listWrap:has(> table:not(.cardview))) tbody tr:last-child :is(th, td) { border-bottom: 0; }
-  :is(:is(#makeupCard, #likeCard, #pairLikeCard) .likes > .table-scroll, #listWrap:has(> table:not(.cardview))) > p.empty { margin: var(--sp-3); }
+  :is(:is(#makeupCard, #likeCard, #pairLikeCard) .likes > .table-scroll, :is(#listWrap, #openedWrap, #pairingWrap, #historyWrap):has(> table:not(.cardview))) thead th { background: var(--surface); }
+  :is(:is(#makeupCard, #likeCard, #pairLikeCard) .likes > .table-scroll, :is(#listWrap, #openedWrap, #pairingWrap, #historyWrap):has(> table:not(.cardview))) :is(tbody tr:hover, tr.rowlink:hover :is(th, td), tr.facetrow:hover :is(th, td), tr.facetrow.picked :is(th, td)) { background: var(--surface); }
+  :is(:is(#makeupCard, #likeCard, #pairLikeCard) .likes > .table-scroll, :is(#listWrap, #openedWrap, #pairingWrap, #historyWrap):has(> table:not(.cardview))) tr.facetrow.dead:hover :is(th, td) { background: none; }
+  :is(:is(#makeupCard, #likeCard, #pairLikeCard) .likes > .table-scroll, :is(#listWrap, #openedWrap, #pairingWrap, #historyWrap):has(> table:not(.cardview))) tbody tr:last-child :is(th, td) { border-bottom: 0; }
+  :is(:is(#makeupCard, #likeCard, #pairLikeCard) .likes > .table-scroll, :is(#listWrap, #openedWrap, #pairingWrap, #historyWrap):has(> table:not(.cardview))) > p.empty { margin: var(--sp-3); }
   /* And on a phone the fifth column still needs ~45px more than the screen
      has: the cells lose half their side padding and the headings their
      letter spacing, so all five fit unscrolled (measured at 375px). */

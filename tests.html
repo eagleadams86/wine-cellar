@@ -3228,12 +3228,14 @@ function define() {
       W.setTab('cellar'); H.__plant(FIXTURE);
     }
   });
-  t('Content wells: tiles, grouping tables, the grid and the wine cards are one fill in every theme', () => {
+  t('Content wells: tiles, grouping tables, every list and the wine cards are one fill in every theme', () => {
     /* Charles, 2026-10-31. The pack's content-well rule: --surface-alt, never
        --bg (which matched in Light and fell darker in the dark themes) and never
        a bare --surface (the grid's old look, lighter than the tiles in Light). */
     const D = W.document, el = D.documentElement, was = el.getAttribute('data-theme');
-    H.__plant(H.sampleData());
+    const sx = H.sampleData();
+    sx.wines[0].log = [{ at: '2026-10-25T12:00:00.000Z', k: 'add' }];   /* the sample keeps no History */
+    H.__plant(sx);
     W.setTab('cellar');
     const tbl = D.querySelector('#listWrap table'), wasCards = tbl.classList.contains('cardview');
     const bg = (e) => W.getComputedStyle(e).backgroundColor;
@@ -3252,6 +3254,18 @@ function define() {
         ok(bg(panel.querySelector('thead th')) !== fills[0], th + ': the heading band stands apart from the well');
         eq(bare, 'rgba(0, 0, 0, 0)', th + ': as cards the wrapper is bare — each card is its own well');
         ok(well.length > 0, th + ': --surface-alt resolves');
+        /* Charles, same day: "you missed wine cellar's history tab" — the
+           other three lists are the same well, as grids. */
+        [['opened', 'openedWrap'], ['pairings', 'pairingWrap'], ['history', 'historyWrap']].forEach(([tab, id]) => {
+          W.setTab(tab);
+          const wrap = D.getElementById(id), t2 = wrap.querySelector(':scope > table');
+          ok(t2, th + ': ' + tab + ' draws a table from the sample');
+          const was2 = t2.classList.contains('cardview');
+          t2.classList.remove('cardview');
+          eq(bg(wrap), fills[0], th + ': ' + tab + '’s list is the same well');
+          t2.classList.toggle('cardview', was2);
+        });
+        W.setTab('cellar');
       });
     } finally {
       tbl.classList.toggle('cardview', wasCards);

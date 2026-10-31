@@ -152,13 +152,15 @@ the family doesn't.
   a JS shortest-column packer was considered and declined — it moves table nodes on every redraw
   (focus, scroll, "nothing moves under the finger") for ~10% less height.
   **Content wells (2026-10-31, Charles: tiles, grouping tables, grid and cards ONE colour in
-  every theme) — the theme pack's rule 21.** Each grouping table and the wine grid
-  (`#listWrap:has(> table:not(.cardview))`) is a ruled `--surface-alt` box, the tiles' and the
+  every theme) — the theme pack's rule 21.** Each grouping table and all four lists as grids
+  (`:is(#listWrap, #openedWrap, #pairingWrap, #historyWrap):has(> table:not(.cardview))`) is a ruled `--surface-alt` box, the tiles' and the
   cards' fill; heading band, hover and picked rows are `--surface` inside it (the card-view
   hover too). It was `--bg` for a day: matched in Light, a step darker in Midnight/Dark,
   because the pack's surfaces stack the other way round there. Never `--accent-bg` behind
-  rows (muted text 3.43 in Dark). As cards, `#listWrap` stays bare. Opened, Pairings and History
-  tables are not wells yet. Pinned by the "Content wells" test in four themes.
+  rows (muted text 3.43 in Dark). As cards, the list wrappers stay bare. Opened, Pairings and History joined the
+  same day ("you missed wine cellar's history tab"). The paste preview is in a dialog — left
+  out, as in every app. Pinned by the "Content wells" test in four themes; it adds a log
+  entry because the sample keeps no History.
   `tablePicker` (was `styleSlots`) runs BEFORE `const $` exists (MAKE_TABLES' place) — it uses
   getElementById; a `$` there was a boot-time TDZ that left the suite with no hooks. Profile fields sit in MAKE_TABLES
   with host null (`makeHost`). Pair Meal: `pairLine` adds "style: …"; PAIR_SYSTEM says match
