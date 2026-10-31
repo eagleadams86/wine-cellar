@@ -2911,25 +2911,28 @@ function define() {
   group('Cellar Makeup');
   t('the makeup counts bottles left, by grape, region, sub-region and colour', () => {
     const st = H.normalizeState({ wines: [
-      { id: 'a', name: 'A', qty: 3, grape: 'Cabernet Sauvignon', region: 'Napa Valley, CA', subregion: 'Oakville',
+      { id: 'a', name: 'A', qty: 3, grape: 'Cabernet Sauvignon', region: 'Napa Valley, California', subregion: 'Oakville',
         color: 'red', drinkFrom: 2020, drinkTo: 2030 },
-      { id: 'b', name: 'B', qty: 2, grape: '75% Cabernet Sauvignon, 25% Merlot', region: 'Napa Valley, California',
+      { id: 'b', name: 'B', qty: 2, grape: 'cabernet sauvignon', region: ' napa valley,  california',
         color: 'red', drinkFrom: 2030, drinkTo: 2040 },
       { id: 'c', name: 'C', qty: 1, grape: 'Chardonnay', region: 'Burgundy, France', color: 'white', drinkFrom: 2000, drinkTo: 2010 },
       { id: 'd', name: 'D', qty: 4, grape: '', region: '', color: '' },
       { id: 'e', name: 'E', qty: 0, grape: 'Syrah', region: 'Rhône, France', color: 'red', drinkFrom: 2020, drinkTo: 2030 },
     ] });
-    const c = H.computeMakeup(st, 2026, true);
+    const c = H.computeMakeup(st, 2026);
     eq(c.bottles, 10, 'every bottle left; a finished wine is not in it');
     const row = (g, n) => g.rows.find((r) => r.name === n);
     const cab = row(c.grapes, 'Cabernet Sauvignon');
     eq([cab.wines, cab.bottles, cab.ready], [2, 5, 3], 'bottles summed, not wines; Ready Now leaves Hold out');
-    eq(row(c.regions, 'Napa Valley, California').bottles, 5, 'Grouped folds "Napa Valley, CA" in');
+    eq(row(c.regions, 'Napa Valley, California').bottles, 5, 'capitals and spaces aside, one row');
     eq(row(c.grapes, 'Chardonnay').ready, 1, 'Past Window counts as ready to open');
     eq(!row(c.grapes, 'Syrah'), true, 'a wine with no bottles left is in no table');
     eq([c.grapes.blank, c.subregions.blank, c.colours.blank], [4, 7, 4], 'blanks are bottles, counted aloud');
     eq(row(c.colours, 'Red').bottles, 5);
-    eq(H.computeMakeup(st, 2026, false).grapes.rows.length, 3, 'As written keeps each spelling apart');
+    /* Names count as written (Charles, 2026-10-31): a blend is not its lead grape. */
+    eq(H.computeMakeup(H.normalizeState({ wines: [{ id: 'x', name: 'X', qty: 1, grape: 'Tempranillo' },
+      { id: 'y', name: 'Y', qty: 1, grape: 'Tempranillo blend' }] }), 2026).grapes.rows.length, 2,
+       'a Tempranillo blend has its own row, apart from Tempranillo');
     /* Drink By and Where It Is (Charles, 2026-10-26): six tables fill three
        across and two across alike. */
     eq(c.drinkBy.rows.map((r) => [r.name, r.bottles]).sort(), [['2010', 1], ['2030', 3], ['2040', 2]],
@@ -2937,23 +2940,23 @@ function define() {
     eq(c.drinkBy.blank, 4, 'a wine with no end to its window is counted aloud');
     const placed = H.computeMakeup(H.normalizeState({ wines: [
       { id: 'a', name: 'A', qty: 2, location: 'Rack A' }, { id: 'b', name: 'B', qty: 1, location: 'rack a ' },
-      { id: 'c', name: 'C', qty: 1 }] }), 2026, true).places;
+      { id: 'c', name: 'C', qty: 1 }] }), 2026).places;
     eq([placed.rows.length, placed.rows[0].bottles, placed.rows[0].name, placed.blank], [1, 3, 'Rack A', 1],
        'Where It Is ignores capitals and spaces, names it the way most bottles say it');
   });
   t('a pick narrows the OTHER tables; its own keeps its siblings, and a picked row never vanishes', () => {
     const st = H.normalizeState({ wines: [
-      { id: 'a', name: 'A', qty: 3, grape: 'Cabernet Sauvignon', region: 'Napa Valley, CA', color: 'red' },
+      { id: 'a', name: 'A', qty: 3, grape: 'Cabernet Sauvignon', region: 'Napa Valley, California', color: 'red' },
       { id: 'b', name: 'B', qty: 2, grape: 'Merlot', region: 'Napa Valley, California', color: 'red' },
       { id: 'c', name: 'C', qty: 1, grape: 'Merlot', region: 'Sonoma County, California', color: 'red' },
       { id: 'd', name: 'D', qty: 4, grape: 'Pinot Noir', region: 'Willamette Valley, Oregon', color: 'red' },
-      { id: 'e', name: 'E', qty: 2, grape: '', region: 'Napa Valley, CA', color: 'red' },
+      { id: 'e', name: 'E', qty: 2, grape: '', region: 'napa valley, california', color: 'red' },
     ] });
     const napa = 'napa valley, california';
-    eq(H.facetKey(st.wines[0], 'region', true), napa, 'the key is the grouped name, lower-cased');
+    eq(H.facetKey(st.wines[0], 'region'), napa, 'the key is the name, lower-cased');
     const pick = (o) => Object.fromEntries(Object.keys(o).map((f) => [f, new Map(o[f].map((k) => [k, k]))]));
     const names = (g) => g.rows.filter((r) => !r.dead).map((r) => [r.name, r.bottles, r.picked]).sort();
-    let c = H.computeMakeup(st, 2026, true, pick({ region: [napa] }));
+    let c = H.computeMakeup(st, 2026, pick({ region: [napa] }));
     eq(names(c.grapes), [['Cabernet Sauvignon', 3, false], ['Merlot', 2, false]], 'Grape recounts to Napa');
     const pinot = c.grapes.rows.find((r) => r.key === 'pinot noir');
     eq([c.grapes.rows.length, pinot.bottles, pinot.dead], [3, 0, true],
@@ -2962,28 +2965,28 @@ function define() {
     eq(c.regions.rows.length, 3, 'Region keeps its siblings, so a second region can still be pressed');
     ok(c.regions.rows.find((r) => r.key === napa).picked, 'and marks the picked one');
     eq(c.bottles, 12, 'the card’s own total is still the whole cellar');
-    c = H.computeMakeup(st, 2026, true, pick({ region: [napa, 'sonoma county, california'] }));
+    c = H.computeMakeup(st, 2026, pick({ region: [napa, 'sonoma county, california'] }));
     eq(names(c.grapes), [['Cabernet Sauvignon', 3, false], ['Merlot', 3, false]], 'two rows in one table: either');
-    c = H.computeMakeup(st, 2026, true, pick({ region: [napa, 'sonoma county, california'], grape: ['merlot'] }));
+    c = H.computeMakeup(st, 2026, pick({ region: [napa, 'sonoma county, california'], grape: ['merlot'] }));
     eq(c.regions.rows.map((r) => [r.name, r.bottles, r.dead]).sort(),
        [['Napa Valley, California', 2, false], ['Sonoma County, California', 1, false],
         ['Willamette Valley, Oregon', 0, true]], 'two tables: both — Oregon goes dead');
-    c = H.computeMakeup(st, 2026, true, pick({ region: [napa], grape: ['pinot noir'] }));
+    c = H.computeMakeup(st, 2026, pick({ region: [napa], grape: ['pinot noir'] }));
     const np = c.regions.rows.find((r) => r.key === napa);
     eq([np.bottles, np.dead], [0, false], 'a picked row the other table empties is never dead');
     ok(c.grapes.rows.find((r) => r.key === 'pinot noir').picked, 'so it can still be pressed off');
-    ok(H.facetMatch(st.wines[1], pick({ region: [napa], grape: ['merlot'] }), true), 'facetMatch: in both');
-    ok(!H.facetMatch(st.wines[2], pick({ region: [napa], grape: ['merlot'] }), true), 'facetMatch: not in one');
-    ok(H.facetMatch(st.wines[2], pick({ region: [napa] }), true, 'region'), 'facetMatch skips the table asked about');
+    ok(H.facetMatch(st.wines[1], pick({ region: [napa], grape: ['merlot'] })), 'facetMatch: in both');
+    ok(!H.facetMatch(st.wines[2], pick({ region: [napa], grape: ['merlot'] })), 'facetMatch: not in one');
+    ok(H.facetMatch(st.wines[2], pick({ region: [napa] }), 'region'), 'facetMatch skips the table asked about');
     const o = H.computeOpened(H.normalizeState({ opened: [
-      { id: '1', date: '2026-01-01', grape: 'Merlot', region: 'Napa Valley, CA', rating: 4 },
+      { id: '1', date: '2026-01-01', grape: 'Merlot', region: 'Napa Valley, California', rating: 4 },
       { id: '2', date: '2026-01-02', grape: 'Merlot', region: 'Bordeaux, France', rating: 2 },
-      { id: '3', date: '2026-01-03', grape: 'Syrah', region: 'Napa Valley, CA' }] }), true, pick({ region: [napa] }));
+      { id: '3', date: '2026-01-03', grape: 'Syrah', region: 'Napa Valley, California' }] }), pick({ region: [napa] }));
     eq(o.grapes.rows.filter((r) => !r.dead).map((r) => [r.name, r.bottles, r.avg]).sort(), [['Merlot', 1, 4], ['Syrah', 1, null]],
        'What You Like recounts the same way');
     eq(o.all, 3, 'the timing figures still count every bottle');
   });
-  t('pressing a row narrows the list and the other tables; Clear and Grouped let it go', () => {
+  t('pressing a row narrows the list and the other tables; Clear lets it go', () => {
     const D = W.document;
     H.__plant(H.sampleData());
     W.setTab('cellar');
@@ -3017,14 +3020,11 @@ function define() {
       ok(listRows() <= wines && listRows() > 0, 'a second table narrows further, never to nothing');
       D.querySelector('#makeupCard [data-facet-clear]').click();
       eq([listRows(), D.querySelectorAll('#makeupCard [aria-pressed="true"][data-facet]').length], [all, 0], 'Clear lets go');
+      ok(D.activeElement && D.activeElement.matches('#makeupCard [data-facet]'), 'and the focus lands on the card’s first row, not lost');
       eq(D.querySelector('#makeupCard [data-facet-clear]').style.visibility, 'hidden', 'and hides, keeping its place');
       D.querySelector('#makeRegions tbody tr').click();
       D.getElementById('clearFind').click();
       eq(listRows(), all, 'the list’s own Clear lets the picks go too');
-      D.querySelector('#makeRegions tbody tr').click();
-      D.querySelector('#makeupCard [data-like-view="written"]').click();
-      eq(listRows(), all, 'Grouped / As written empties the picks');
-      D.querySelector('#makeupCard [data-like-view="grouped"]').click();
 
       W.setTab('opened');
       const late = D.querySelector('#openedStats [data-timing="late"]');
@@ -3236,14 +3236,14 @@ function define() {
         { id: 'e', wineId: 'gone', status: 'had', date: '2026-10-05', rating: 2 },
         { id: 'f', wineId: 'w1', status: 'planned', date: '2026-11-01' },
       ] });
-    const g = H.computePairings(st, '2026-10-26', true).grapes;
+    const g = H.computePairings(st, '2026-10-26').grapes;
     const pinot = g.rows.find((r) => r.name === 'Pinot Noir'), syrah = g.rows.find((r) => r.name === 'Syrah');
-    eq([pinot.bottles, pinot.rated, pinot.avg], [3, 3, 4], 'the opened line’s grape wins over the wine’s, and is grouped');
+    eq([pinot.bottles, pinot.rated, pinot.avg], [2, 2, 4.5], 'the wine’s grape, as written');
+    const gamay = g.rows.find((r) => r.name === 'Pinot Noir, Gamay');
+    eq([gamay.bottles, gamay.avg], [1, 3], 'the opened line’s grape wins over the wine’s, and keeps its own row');
     eq([syrah.bottles, syrah.rated, syrah.avg], [1, 0, null], 'an unrated pairing counts, out of the average');
     eq(g.blank, 1, 'a pairing whose wine is gone has no grape, and is counted aloud');
     eq(g.rows.reduce((a, r) => a + r.bottles, 0) + g.blank, 5, 'planned pairings are not in it');
-    eq(H.computePairings(st, '2026-10-26', false).grapes.rows.map((r) => r.name).sort(),
-       ['Pinot Noir', 'Pinot Noir, Gamay', 'Syrah'], 'As written keeps each spelling apart');
   });
   t('a second Load Sample Data replaces the demo rows, never merges into them', () => {
     /* A demo line leaves region/grape to its wine; a merge kept an old copy. */
@@ -3262,7 +3262,7 @@ function define() {
   t('the sample data gives What Pairs Well a real spread', () => {
     /* Charles, 2026-10-30: "add more pairings with ratings so i can get a
        better feel for how the what pairs well section works". */
-    const g = H.computePairings(H.normalizeState(H.sampleData()), '2026-10-30', true).grapes;
+    const g = H.computePairings(H.normalizeState(H.sampleData()), '2026-10-30').grapes;
     const by = (n) => g.rows.find((r) => r.name === n) || {};
     eq(g.rows.length, 8, 'eight grapes');
     eq([by('Pinot Noir').bottles, by('Pinot Noir').rated], [3, 3], 'the Pinot Noirs alone');
@@ -3270,10 +3270,8 @@ function define() {
     ok(by('Pinot Noir').avg > 4.5 && by('Cabernet Sauvignon').avg < 3, 'a clear top and bottom',
        by('Pinot Noir').avg + ' / ' + by('Cabernet Sauvignon').avg);
     eq([by('Grenache').bottles, by('Grenache').rated], [2, 1], 'an unrated pairing counts, out of the average');
-    ok(by('Malbec').bottles === 1 && by('Tempranillo').bottles === 1, 'a logged bottle and a deleted wine take the line’s grape');
+    ok(by('Malbec').bottles === 1 && by('Tempranillo blend').bottles === 1, 'a logged bottle and a deleted wine take the line’s grape');
     eq(g.blank, 1, 'and one with no grape fills the warning line');
-    const written = H.computePairings(H.normalizeState(H.sampleData()), '2026-10-30', false).grapes.rows;
-    ok(written.some((r) => r.name === 'Tempranillo blend'), 'As written keeps the word blend');
     /* Every sample region is Look Up's "Area, State or Country" shape. */
     const d = H.sampleData();
     d.wines.concat(d.opened).filter((x) => x.region).forEach((x) =>
@@ -4867,18 +4865,19 @@ function define() {
       eq(H.__state().opened.find((o) => o.id === line.id).region, 'Napa Valley', 'a snapshot, like the name');
     } finally { proto.setItem = realStore; D.getElementById('openDialog').close(); H.__plant(FIXTURE); }
   });
-  t('What You Like\'s view buttons redraw only What You Like', () => {
+  t('What You Like\'s sort headings redraw only What You Like', () => {
     const D = W.document;
     try {
       H.__plant(FIXTURE); W.setTab('opened');
       /* Replacing the timing tiles while they sat half above the screen made
          iPhone Safari drop the page ~700px (Charles, 2026-10-25). */
       const tile = D.querySelector('#openedStats > *');
-      D.querySelector('[data-like-view="written"]').click();
-      ok(D.querySelector('#openedStats > *') === tile, 'As written leaves the tiles alone');
-      D.querySelector('[data-like-view="grouped"]').click();
-      ok(D.querySelector('#openedStats > *') === tile, 'and so does Grouped');
-      eq(D.querySelector('[data-like-view="grouped"]').getAttribute('aria-pressed'), 'true', 'the view still switches');
+      D.querySelector('#likeCard [data-sort]').click();
+      ok(D.querySelector('#openedStats > *') === tile, 'a sort leaves the tiles alone');
+      /* Three presses go round to the table's own order again (nextSort). */
+      D.querySelector('#likeCard [data-sort]').click(); D.querySelector('#likeCard [data-sort]').click();
+      /* The Grouped / As written switch was removed (Charles, 2026-10-31). */
+      eq(D.querySelectorAll('[data-like-view], .likeview').length, 0, 'no card has a view switch');
     } finally { W.setTab('cellar'); H.__plant(FIXTURE); }
   });
   t('Load Sample Data shows only while the cellar holds nothing of your own', () => {
@@ -5227,7 +5226,9 @@ function define() {
          'a hidden Paid and Where come into the tip');
     } finally { H.__plant(FIXTURE); W.setTab('cellar'); }
   });
-  t('Grouped folds the region spellings Look Up wrote into one area', () => {
+  /* groupedRegion / groupedGrape now serve only Check Wines' tickRule ("the
+     same place, written another way"); the tables count names as written. */
+  t('Check Wines reads the region spellings Look Up wrote as one area', () => {
     const g = H.groupedRegion;
     ['Napa Valley, California', 'Stags Leap District, Napa Valley, California', 'Stags Leap District, Napa Valley, CA',
      'Napa Valley (mostly Stags Leap District), California', 'Napa Valley, CA']
@@ -5239,7 +5240,7 @@ function define() {
     eq(g('California (Central Coast), USA'), 'California', 'a trailing USA goes');
     eq(g('Navarra, Spain'), 'Navarra, Spain', 'a tidy name is left alone');
   });
-  t('Grouped takes the first grape named, without percentages or "blend"', () => {
+  t('Check Wines reads a grape as the first one named, without percentages or "blend"', () => {
     const g = H.groupedGrape;
     eq(g('75% Cabernet Sauvignon, 18.2% Cabernet Franc, 6.8% Petit Verdot'), 'Cabernet Sauvignon');
     eq(g('Cabernet Sauvignon blend (87% CS, Merlot, Petit Verdot, Cab Franc)'), 'Cabernet Sauvignon');
@@ -5255,32 +5256,23 @@ function define() {
     eq(g('Tempranillo blend'), 'Tempranillo', 'a lead-grape blend still counts with its grape');
     eq(g('Pinot Noir'), 'Pinot Noir');
   });
-  t('What You Like counts grouped by default, says what it merged, and switches to As written', () => {
+  t('What You Like counts names as written — capitals and spaces aside, a blend apart', () => {
+    /* Charles, 2026-10-31: the Grouped view only ever stripped "blend" on his
+       cellar, putting a Tempranillo blend in with Tempranillo. */
     const D = W.document;
     const fx = JSON.parse(JSON.stringify(FIXTURE));
     fx.opened = [
-      { id: 'a', wineId: null, date: '2026-03-01', label: '2009 A', region: 'Napa Valley, California', grape: 'Cabernet Sauvignon', rating: 4 },
-      { id: 'b', wineId: null, date: '2026-03-02', label: '2007 B', region: 'Stags Leap District, Napa Valley, CA',
-        grape: '75% Cabernet Sauvignon, 25% Merlot', rating: 2 }];
-    const realGet = W.Storage.prototype.getItem, realSet = W.Storage.prototype.setItem;
-    W.Storage.prototype.setItem = function () {};
+      { id: 'a', wineId: null, date: '2026-03-01', label: '2009 A', region: 'Rioja, Spain', grape: 'Tempranillo', rating: 4 },
+      { id: 'b', wineId: null, date: '2026-03-02', label: '2007 B', region: ' rioja,  spain', grape: 'Tempranillo blend', rating: 2 }];
     try {
       H.__plant(fx); W.setTab('opened');
-      D.querySelector('[data-like-view="grouped"]').click();
       const rows = (id) => [...D.querySelectorAll('#' + id + ' tbody tr')];
-      eq(rows('likeRegions').map((r) => r.querySelector('th').textContent), ['Napa Valley, California'], 'one Napa row');
+      eq(rows('likeRegions').map((r) => r.querySelector('th').textContent), ['Rioja, Spain'], 'one Rioja row, capitals aside');
       eq(rows('likeRegions')[0].querySelector('td').textContent, '2');
-      ok(/Grouped from:[\s\S]*Stags Leap District, Napa Valley, CA/.test(rows('likeRegions')[0].dataset.tip), 'its tip lists the spellings');
-      eq(rows('likeGrapes').length, 1, 'one Cabernet row');
-      eq(D.querySelector('[data-like-view="grouped"]').getAttribute('aria-pressed'), 'true');
-      D.querySelector('[data-like-view="written"]').click();
-      eq(rows('likeRegions').length, 2, 'As written counts each spelling apart');
-      ok(!rows('likeRegions')[0].dataset.tip, 'with nothing grouped to explain');
-    } finally {
-      W.Storage.prototype.setItem = realSet; W.Storage.prototype.getItem = realGet;
-      D.querySelector('[data-like-view="grouped"]').click();
-      H.__plant(FIXTURE); W.setTab('cellar');
-    }
+      eq(rows('likeGrapes').map((r) => r.querySelector('th').textContent).sort(), ['Tempranillo', 'Tempranillo blend'],
+         'the blend keeps its own row');
+      ok(!rows('likeRegions')[0].dataset.tip, 'and no "Grouped from" tip');
+    } finally { H.__plant(FIXTURE); W.setTab('cellar'); }
   });
   t('Look Up is told the house format and sent the names already in the cellar', () => {
     const names = H.knownNames(H.normalizeState({ wines: [
@@ -5323,7 +5315,7 @@ function define() {
     const c = H.computeOpened(H.normalizeState({ opened: [
       { id: 'a', date: '2026-01-01', label: 'A', region: 'Napa Valley, California', subregion: 'Stags Leap District', rating: 4 },
       { id: 'b', date: '2026-01-02', label: 'B', region: 'Napa Valley, CA', subregion: 'stags leap district', rating: 2 },
-      { id: 'c', date: '2026-01-03', label: 'C', region: 'Navarra, Spain', subregion: '', rating: 5 }] }), true);
+      { id: 'c', date: '2026-01-03', label: 'C', region: 'Navarra, Spain', subregion: '', rating: 5 }] }));
     eq(c.subregions.rows.map((r) => [r.name, r.bottles, r.avg]), [['Stags Leap District', 2, 3]]);
     eq(c.subregions.blank, 1, 'a bottle with none is counted aloud');
   });

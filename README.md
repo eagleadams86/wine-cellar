@@ -21,16 +21,15 @@ cellar on your other devices.
   (the place you keep them), with how many
   wines and bottles, each one's **share** of the cellar, and how many of those bottles are
   **ready** to open this year (Ready, Drink Soon or Past Window). Most bottles first; every heading
-  sorts; the same **Grouped / As written** switch as What You Like (one setting for all three
-  tables). Find never changes it; the status tiles narrow it (see below).
+  sorts. A name counts as written, ignoring only capitals and extra spaces — a Tempranillo blend
+  has its own row, apart from Tempranillo. Find never changes it; the status tiles narrow it (see below).
 - **The grouping tables are filters too.** Press a row in Cellar Makeup — Napa Valley, say — and
   the Cellar list shows only those wines, while the other five tables recount to them (Grape now
   lists Napa's grapes, with Napa's bottles and shares). Press a row in another table to narrow
   further (wines in both). The other rows of the table you picked from fade but stay — press one to
   add it (either one). A row with
   none of the picked wines stays in its table at 0, dimmed and locked, so the page never jumps. A picked row is marked with a ✓; press it again,
-  or **Clear** on the card or in the list, to let it go. Switching Grouped / As written lets every
-  pick go. Pressing a status tile (or ticking the Status box) narrows the tables the same way — on
+  or **Clear** on the card or in the list, to let it go. Pressing a status tile (or ticking the Status box) narrows the tables the same way — on
   the Opened and Pairings tabs, their tiles do too — while the tiles themselves always count everything. **What You Like** (Opened tab) and
   **What Pairs Well** (Pairings tab) work the same way on their lists.
 - **The status tiles are filters.** Press **Past Window**, **Drink Soon**, **Ready** or
@@ -103,11 +102,8 @@ cellar on your other devices.
 - **What You Like** — your opened bottles grouped by grape and by region, with how many you
   opened, how many you rated and the average stars of those, best-rated first. Press a heading to
   sort; press a row to narrow Bottles Opened to it (see Cellar Makeup above). Find never changes
-  either card, and both hide until a bottle is opened.
-  **Grouped** (the usual view) counts names written different ways together — "Stags Leap
-  District, Napa Valley, CA" as Napa Valley, California, and "75% Cabernet Sauvignon, …" as
-  Cabernet Sauvignon; point at a row to see what it took in. **As written** counts every spelling
-  apart.
+  either card, and both hide until a bottle is opened. Names count as written, capitals and
+  extra spaces aside.
 - **Consistent names from Look Up** — Claude writes a region as "Area, State or Country", and a
   grape as the single grape when it is 75% or more of a wine labelled by grape, a classic blend's
   name (**Bordeaux blend**, **Rhône blend**, **Port blend**, **Champagne blend**) — a red Bordeaux
@@ -328,8 +324,8 @@ dinner. Type a dish — "grilled lamb chops with rosemary" — or paste a whole 
   (several at once). The list's **Status** box is the same filter as tick boxes, as on the Cellar
   and Opened tabs — a tile and its box always agree — and **Clear** lets them all go. **What Pairs Well** is the Opened tab's What You Like for
   pairings: the pairings you've had, grouped by the wine's grape, with how many, how many you
-  rated and the average **pairing** rating — best first, every heading sorts, and the same
-  Grouped / As written switch (one setting for both tables). Press a grape to narrow the list to
+  rated and the average **pairing** rating — best first, every heading sorts, names as written.
+  Press a grape to narrow the list to
   pairings with that grape, planned ones included. Find never changes either card; the Planned / Overdue / Had tiles narrow What Pairs Well (it counts only had pairings, so Planned alone dims it all).
 - **The list** has every pairing: planned ones first (soonest day first, undecided
   last, a day gone by marked *Was planned*), then the ones you've had, newest first. Find

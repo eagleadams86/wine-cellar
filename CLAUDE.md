@@ -50,10 +50,14 @@ the family doesn't.
   the old mess is never offered back. A **statewide/country-wide wine** ("California" on a Josh
   Cellars label) has that state ALONE as its region: the schema says so, `readLookup` moves a
   lone appellation UP when region came back empty, and `knownNames` accepts a bare US state. privacy.html says these names are sent; keep them in step.
-- What You Like defaults to **Grouped** (`groupedRegion`: brackets/classification dropped, "/" as a
-  comma, US state spelled out, last two parts; `groupedGrape`: first grape named, no %/blend, a
-  "-style" kept whole; `CLASSIC_BLENDS` — Bordeaux/Rhône/Port/Champagne blend — checked FIRST and kept
-  whole, older spellings like "Bordeaux-style red blend" or "other Port varieties" folded in). It is a VIEW, never written back; `wine-like-view` remembers it per device.
+- **The grouping tables count names AS WRITTEN** (trimmed, case-blind) — the Grouped / As written
+  switch was REMOVED 2026-10-31 (Charles: on his cellar Grouped only stripped "blend", putting a
+  Tempranillo blend in with Tempranillo; Look Up already writes tidy names). Gone with it:
+  `likeGrouped`, `setLikeView`, the `grouped` argument of facetName/facetKey/facetMatch/likeGroups/
+  makeupGroups/computeOpened/computeMakeup/computePairings, the "Grouped from" row tip, `.likeview`.
+  `groupedRegion` / `groupedGrape` / `CLASSIC_BLENDS` STAY — Check Wines' `tickRule` uses them to tell
+  "the same name, written another way" from a different one. A stale `wine-like-view` key may sit
+  in old browsers; nothing reads it. Don't bring a Grouped view back.
 - **SCHEMA 8 / SHARE_PAYLOAD_V 5: `subregion`** on a wine and (snapshot) an opened line. Look Up's
   `appellation` becomes `r.subregion`; it is a LOOKUP_FIELDS/LOOKUP_BOXES row, NOT in the note line
   any more (and since SCHEMA 12 there is no note line). A wine with no `subregion` key has the old second part of its Looked up line moved in
@@ -165,21 +169,19 @@ the family doesn't.
   `pairingPick` reach the tables as `keep` (makeupNow / openedNow / pairingsNow), the same
   dead-not-gone rule; each set*Pick redraws its grouping card. Find does NOT reach them. Planned
   or Overdue alone leaves What Pairs Well all dead — it counts had pairings only; honest, kept.
-  Grouped / As written empties every pick (`setLikeView` — a key means another group in the other
-  view); each list's Clear empties its tab's picks; `__plant` empties them all. A pairing's grape
+  Each list's Clear empties its tab's picks (the card's Clear sends focus to its first row); `__plant` empties them all. A pairing's grape
   is `pairingGrape` (opened line's, else wine's), for What Pairs Well and the list alike; the list
   filter covers planned pairings too. **The Drinking Windows Ahead chart was REMOVED the same day** (Charles),
   with its SVG, hover panel, `#chartMaxi` full-screen overlay, `computeAll().years`, `inWindow`
   and 8 tests — so this app is no longer one of the family's ⤢ full-screen-chart apps.
 - **Cellar Makeup** (2026-10-26, Charles): `#makeupCard` (above the Cellar list since 2026-10-27) — What You
-  Like for the cellar as it stands (above the list since 2026-10-27). `computeMakeup(st, yr, grouped)` → `makeupGroups` (likeGroups'
-  folding/naming, but weighted by `qty`; counts wines, bottles, `ready` = ready/soon/past). Share is
+  Like for the cellar as it stands (above the list since 2026-10-27). `computeMakeup(st, yr, picks, keep)` → `makeupGroups` (likeGroups'
+  naming, but weighted by `qty`; counts wines, bottles, `ready` = ready/soon/past). Share is
   of EVERY bottle, blanks included. Columns Wines · Bottles · Share · Ready (5, not What You Like's
   4) — so the grid is 23rem min (two across only when they fit; half-screen 756px is one across)
   and under 30rem the cells lose half their side padding and the headings their letter spacing;
   measured: all four tables fit 313px exactly. Don't add a sixth column without re-measuring.
-  Grouped / As written is ONE setting (`likeGrouped`) across What You Like, What Pairs Well and
-  this — each switch redraws all three. **Six tables on purpose** (Charles, same day: Colour sat
+  **Six tables on purpose** (Charles, same day: Colour sat
   alone on a second row with four): + Drink By (`drinkTo` as a year; its OWN order is the calendar,
   soonest first — it stands in for the removed Drinking Windows chart) and Where It Is (`location`,
   case-blind). Six fills 3-across and 2-across evenly; keep the count divisible by 6 or re-check.
@@ -217,12 +219,11 @@ the family doesn't.
   markup) — the Cellar's tiles + Status box and the Opened tab's tiles + Timing box, the same shape.
   The tiles were first shipped as a REPLACEMENT for a filter (wrong; Charles caught it): every tab
   keeps its dropdown beside its tiles. **What Pairs Well**
-  (`computePairings(st, today, grouped).grapes` → `likeGroups`, rendered by `renderPairLike`)
+  (`computePairings(st, today, picks, keep).grapes` → `likeGroups`, rendered by `renderPairLike`)
   REPLACED a Best and Worst list the same day — Charles: "if there are five 5-star reviews, which
   one is the best?" It picked the three newest and silently dropped the rest; don't bring a
   ranked top-N back. Only HAD pairings; a pairing's grape is its opened line's copy, else its
-  wine's, else blank (counted in the warn line). Grouped / As written is ONE setting
-  (`likeGrouped`) — each card's switch redraws both tables.
+  wine's, else blank (counted in the warn line).
 
 - **Lookup `confidence` is WHICH bottle, nothing else** (2026-10-25, Charles). The schema and
   `LOOKUP_SYSTEM` both say so; how firm the value/window are lives in `value_is_estimate` and
@@ -390,7 +391,7 @@ the family doesn't.
   Playwright WebKit with `devices['iPhone 13']` + `touchscreen.tap` — Chromium never showed it, and
   moving focus around was a red herring.
 - **Redraw only what a press changed — iPhone Safari jumps otherwise** (2026-10-25). What You
-  Like's Grouped / As written and its sort headings called `renderOpenedDash`, which rewrote the
+  Like's view switch (since removed) and its sort headings called `renderOpenedDash`, which rewrote the
   timing tiles; with the tiles half above the screen WebKit dropped the page ~700px (a final-layout
   effect: any forced layout in between hid it, so checkpointing scrollY "fixed" it). They now call
   `renderLikeTables`, and the tiles are written only when their HTML changed. Reproduce such jumps
