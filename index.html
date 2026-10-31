@@ -835,6 +835,16 @@
   #makeupCard .likes, #likeCard .likes, #pairLikeCard .likes { display: block; columns: 23rem; column-gap: var(--sp-5); }
   #likeCard .likes, #pairLikeCard .likes { columns: 300px; }
   #makeupCard .likes > *, #likeCard .likes > *, #pairLikeCard .likes > * { break-inside: avoid; margin: 0 0 var(--sp-5); }
+  /* Each table its own panel (Charles, 2026-10-31: "make the tables stand
+     apart from each other"): a ruled box sunk to the page colour, its heading
+     row a band in the card's colour. Existing tokens only — no new colour —
+     and no shadow (pack rule 14). Hover and a picked row keep --surface-alt,
+     a step lighter than either, so a pick still reads. */
+  :is(#makeupCard, #likeCard, #pairLikeCard) .likes > .table-scroll:not([hidden]) {
+    border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg); }
+  :is(#makeupCard, #likeCard, #pairLikeCard) .likes > .table-scroll thead th { background: var(--surface); }
+  :is(#makeupCard, #likeCard, #pairLikeCard) .likes > .table-scroll tbody tr:last-child :is(th, td) { border-bottom: 0; }
+  :is(#makeupCard, #likeCard, #pairLikeCard) .likes > .table-scroll > p.empty { margin: var(--sp-3); }
   /* And on a phone the fifth column still needs ~45px more than the screen
      has: the cells lose half their side padding and the headings their
      letter spacing, so all five fit unscrolled (measured at 375px). */

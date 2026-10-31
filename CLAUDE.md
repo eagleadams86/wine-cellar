@@ -151,6 +151,10 @@ the family doesn't.
   Where It Is, then the two Group by tables. Columns balance in ORDER, so the bottoms are uneven;
   a JS shortest-column packer was considered and declined — it moves table nodes on every redraw
   (focus, scroll, "nothing moves under the finger") for ~10% less height.
+  **Panels (2026-10-31, Charles: "make the tables stand apart"):** each `.likes > .table-scroll`
+  in the three cards is a bordered panel (`--border`, `--radius-sm`) sunk to `--bg`, its thead a
+  `--surface` band; last row loses its rule. Existing tokens only, no shadow (pack rule 14); hover
+  and picked rows keep `--surface-alt`, so they still read inside the sunk panel.
   `tablePicker` (was `styleSlots`) runs BEFORE `const $` exists (MAKE_TABLES' place) — it uses
   getElementById; a `$` there was a boot-time TDZ that left the suite with no hooks. Profile fields sit in MAKE_TABLES
   with host null (`makeHost`). Pair Meal: `pairLine` adds "style: …"; PAIR_SYSTEM says match
