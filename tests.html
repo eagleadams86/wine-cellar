@@ -51,7 +51,7 @@
    go MISSING look exactly like tests that pass — a suite that quietly shrank to
    three checks still says "all 3 tests pass". RAISE THIS when you add tests, and
    lower it only when you retire one deliberately. */
-const EXPECTED = 343;
+const EXPECTED = 345;
 
 /* ── It refuses to run anywhere but localhost, and that is load-bearing ──────
    GitHub Pages publishes this page BESIDE the app, where the iframe below would
@@ -3201,6 +3201,84 @@ function define() {
     let msg = '';
     try { await H.pairMeal('Lamb', 'k', { fetch: bad, wines: [] }); } catch (e) { msg = e.message; }
     ok(/did not accept the API key/.test(msg), msg);
+  });
+  t('Claude\'s pairing notes: told the bottle as it was that night, one strict tool, nothing stored unasked', () => {
+    /* Charles, 2026-10-31: a pepperoni pizza with a past-window 2009 Cab. */
+    const line = H.normalizeState({ opened: [{ id: 'o', wineId: null, date: '2026-10-30', label: '2009 Stags Cab',
+      vintage: 2009, drinkFrom: 2014, drinkTo: 2024, grape: 'Cabernet Sauvignon', region: 'Napa Valley, California',
+      note: 'Tannins intact', heldUp: 'great', paid: 80, place: 'Home' }] }).opened[0];
+    const b = H.buildJudgeRequest('Pepperoni pizza', Object.assign({}, line, { color: 'red' }), '2026-10-31',
+      { bottleNote: line.note, heldUp: line.heldUp, rating: 3.5, note: 'Better than expected' });
+    const text = b.messages[0].content;
+    eq([b.model, b.output_config.effort], ['claude-opus-5-5', 'low'], 'Pair Meal’s model and effort');
+    eq(b.tools.map((x) => x.name), ['note_pairing'], 'one tool, no web search');
+    ok(b.tools[0].strict === true && b.tools[0].input_schema.additionalProperties === false, 'strict');
+    eq(b.tools[0].input_schema.properties.food_kind.enum, Object.keys(H.FOOD), 'the same food list');
+    ok(!/cache_control/.test(JSON.stringify(b)), 'no caching — a one-off');
+    ok(/2009 Stags Cab — Red · Cabernet Sauvignon · Napa Valley, California · opened 2026-10-30 at 17 years old, late \(drink 2014–2024\)/.test(text),
+       'the bottle as it was: age and timing at opening', text);
+    ok(/Their note on the bottle: Tannins intact/.test(text) && /How it held up: Great/.test(text), 'what the owner found in the glass');
+    ok(/rated the pairing 3\.5 of 5/.test(text) && /Their note on the pairing: Better than expected/.test(text), 'and of the pairing');
+    ok(/The meal:\nPepperoni pizza/.test(text), 'the meal');
+    ok(!/80|Home/.test(text), 'never the price paid or where it was opened');
+    ok(!/sk-ant|x-api-key/i.test(JSON.stringify(b)), 'the key is never in the body');
+    const r = H.readJudge({ meal_name: 'Pizza', food_kind: 'other', notes: 'x '.repeat(300) });
+    ok(r.notes.length <= 250 && /…$/.test(r.notes), 'long notes are clipped on a word');
+    eq(H.readJudge({ food_kind: 'brunch' }), { meal: '', food: null, notes: '' }, 'an unknown kind is no kind');
+  });
+  t('Pair With a Meal: an opened bottle gets a had pairing, linked, with Claude\'s notes', async () => {
+    const D = W.document, proto = W.Storage.prototype, realSet = proto.setItem, realGet = proto.getItem;
+    const realFetch = W.fetch;
+    proto.setItem = function () {};
+    proto.getItem = function (k) { return k === H.LOOKUP_KEY_STORE ? 'sk-ant-test' : realGet.call(this, k); };
+    const asked = [];
+    W.fetch = async (url, init) => { asked.push(JSON.parse(init.body)); return { ok: true, status: 200, json: async () => ({
+      stop_reason: 'tool_use', usage: { input_tokens: 400, output_tokens: 120 },
+      content: [{ type: 'tool_use', id: 't', name: 'note_pairing',
+        input: { meal_name: 'Pepperoni pizza', food_kind: 'other', notes: 'Soft old tannin meets the fat; the tomato dulls the fruit.' } }] }) }; };
+    try {
+      /* Its only bottle is opened: the wine is at 0, so Add Pairing could never offer it. */
+      const fx = JSON.parse(JSON.stringify(FIXTURE));
+      fx.wines.find((w) => w.id === 'fx-past').qty = 0;
+      fx.opened.push({ id: 'fx-o2', wineId: 'fx-past', date: '2026-10-30', label: '2010 Bravo Bianco', note: 'Faded', heldUp: 'faded' });
+      H.__plant(fx);
+      W.openBottleEdit('fx-o2');
+      const btn = D.getElementById('openPair');
+      ok(!btn.hidden && btn.textContent === 'Pair With a Meal', 'an opened line offers it');
+      btn.click();
+      ok(!D.getElementById('openDialog').open && D.getElementById('pairingDialog').open, 'the pairing window takes over');
+      eq([D.getElementById('p_wine').disabled, D.getElementById('p_wine').selectedOptions[0].textContent,
+          D.getElementById('p_status').value, D.getElementById('p_date').value],
+         [true, '2010 Bravo Bianco', 'had', '2026-10-30'], 'its wine fixed, had, on the day it was opened');
+      D.getElementById('p_ask').click();
+      eq(D.getElementById('p_askNote').textContent, 'Name the meal first.', 'a meal is needed first');
+      D.getElementById('p_meal').value = 'Mama Cozzi pepperoni pizza';
+      D.getElementById('p_ask').click();
+      for (let i = 0; i < 50 && !D.getElementById('p_why').value; i++) await new Promise((r) => setTimeout(r, 20));
+      ok(/Soft old tannin/.test(D.getElementById('p_why').value), 'Claude’s notes fill the box');
+      eq(D.getElementById('p_food').value, 'other', 'and the kind of food, while it was Not said');
+      ok(/opened 2026-10-30/.test(asked[0].messages[0].content) && /Their note on the bottle: Faded/.test(asked[0].messages[0].content),
+         'the bottle sent is the opened line, with its note');
+      D.getElementById('p_rating').value = '3.5';
+      D.getElementById('pairingSave').click();
+      const p = H.__state().pairings.find((x) => x.openedId === 'fx-o2');
+      ok(p, 'saved, linked to the line');
+      eq([p.wineId, p.label, p.status, p.date, p.meal, p.food, p.rating], ['fx-past', '2010 Bravo Bianco', 'had', '2026-10-30',
+         'Mama Cozzi pepperoni pizza', 'other', 3.5], 'the line’s wine and name, the meal as typed');
+      ok(/Soft old tannin/.test(p.why), 'with Claude’s notes');
+      W.openBottleEdit('fx-o2');
+      eq(D.getElementById('openPair').textContent, 'Open Its Pairing', 'the next time, the button opens it');
+      D.getElementById('openPair').click();
+      eq(D.getElementById('pairingTitle').textContent, 'Edit a Pairing');
+      D.getElementById('pairingDialog').close();
+      W.openDrink('fx-ready');
+      ok(D.getElementById('openPair').hidden, 'Opened One has no such button — there is no line yet');
+      D.getElementById('openDialog').close();
+    } finally {
+      proto.setItem = realSet; proto.getItem = realGet; W.fetch = realFetch;
+      ['openDialog', 'pairingDialog'].forEach((id) => { if (D.getElementById(id).open) D.getElementById(id).close(); });
+      H.__plant(FIXTURE);
+    }
   });
   t('the Pairings tab lists planned first, then had, and every cell names itself', () => {
     const D = W.document;

@@ -1061,7 +1061,7 @@
     :is(#listWrap, #openedWrap, #pairingWrap, #historyWrap) table.cards.cardview tbody td:is([data-label="Region"],
       [data-label="Changed"], [data-label="Left"]) { grid-column: span 2; }
     :is(#listWrap, #openedWrap, #pairingWrap, #historyWrap) table.cards.cardview tbody td:is([data-label="Note"],
-      [data-label="Why Claude Picked It"]) { grid-column: 1 / -1; }
+      [data-label="Claude’s Notes"]) { grid-column: 1 / -1; }
     :is(#listWrap, #openedWrap, #pairingWrap, #historyWrap) table.cards.cardview tbody td:empty { display: flex; visibility: hidden; }
     :is(#listWrap, #openedWrap, #pairingWrap, #historyWrap) table.cards.cardview tbody td:empty:not(:has(~ td:not(:empty))) { display: none; }
     /* A pairing's Note has the whole line to itself, so an empty one holds no
@@ -2388,6 +2388,9 @@ html[data-booting] footer { visibility: hidden; }
     <button type="button" class="danger" id="openRemove">Remove This Bottle</button>
   </details>
   <div class="row-actions">
+    <!-- A meal this bottle went with, and Claude's notes on it (2026-10-31).
+         An opened line only; "Open Its Pairing" once it has one. -->
+    <button type="button" id="openPair" hidden>Pair With a Meal</button>
     <span class="act-end">
       <button type="button" id="openCancel">Cancel</button>
       <button type="button" class="primary" id="openSave">Take One Off the Count</button>
@@ -2551,7 +2554,17 @@ html[data-booting] footer { visibility: hidden; }
     <textarea id="p_note" maxlength="600" rows="3" data-keep-caret
               placeholder="What worked, what you’d pour next time…"></textarea>
   </div>
-  <p class="hint" id="p_why" hidden></p>
+  <!-- Claude's notes on the pairing (2026-10-31): Pair Meal's reason for a
+       pick, or Ask Claude's notes on a pairing you chose. Yours to edit. -->
+  <div class="field">
+    <label for="p_why">Claude’s Notes</label>
+    <textarea id="p_why" maxlength="250" rows="3" data-keep-caret
+              placeholder="Press Ask Claude for notes on how this wine suits the meal."></textarea>
+  </div>
+  <div class="lookupbar no-print">
+    <button type="button" id="p_ask"><span aria-hidden="true">✦</span> Ask Claude</button>
+    <span class="hint" id="p_askNote" role="status"></span>
+  </div>
   <!-- This pairing's History, newest first — a saved pairing only (SCHEMA 16). -->
   <details class="winehist" id="pairingHistory" hidden>
     <summary>History</summary>
@@ -3057,7 +3070,7 @@ const LOG_VAL_MAX = 60;
 const LOG_KINDS = ['add', 'paste', 'edit', 'ai', 'check', 'look', 'open', 'back', 'undo', 'revive', 'plan'];
 const LOG_CODES = ['name', 'vintage', 'color', 'region', 'subregion', 'grape', 'qty', 'location',
   'value', 'paid', 'window', 'source', 'added', 'notes', 'photo', 'opened', 'rating', 'place', 'meal',
-  'wine', 'status', 'day', 'heldup', 'food'];
+  'wine', 'status', 'day', 'heldup', 'food', 'why'];
 const LOG_CONF = ['high', 'medium', 'low'];
 const HOST_RE = /^[a-z0-9-]+(\.[a-z0-9-]+)+$/i;
 function cleanLogChanges(v) {
@@ -3067,7 +3080,8 @@ function cleanLogChanges(v) {
     if (!d || typeof d !== 'object' || LOG_CODES.indexOf(d.f) === -1 || seen.has(d.f)) return;
     seen.add(d.f);
     const one = { f: d.f };
-    if (d.f !== 'notes' && d.f !== 'photo') {
+    /* Long text names its field only — notes, Claude's notes, a photo. */
+    if (d.f !== 'notes' && d.f !== 'photo' && d.f !== 'why') {
       if (typeof d.o === 'string') one.o = cleanLine(d.o, LOG_VAL_MAX);
       if (typeof d.n === 'string') one.n = cleanLine(d.n, LOG_VAL_MAX);
     }
@@ -4749,7 +4763,7 @@ function historyWhat(e) {
 /* One change as words. Notes and the photo carry no values, only that they changed. */
 function changeText(d) {
   const label = LOG_LABEL[d.f];
-  if (d.f === 'notes') return label + ' changed';
+  if (d.f === 'notes' || d.f === 'why') return label + ' changed';
   if (d.f === 'photo') return !d.n ? 'Photo removed' : !d.o ? 'Photo added' : 'Photo replaced';
   if (!d.o) return label + ': ' + (d.n || '—');
   return label + ': ' + d.o + ' → ' + (d.n || '(cleared)');
@@ -6294,6 +6308,7 @@ const PAIR_FIELDS = [
   ['day', 'Day', (p) => (p.date ? fmtDate(p.date) : '')],
   ['rating', 'Rating', (p) => (p.rating ? starsOf(p.rating) : '')],
   ['notes', 'Notes', (p) => p.note || ''],
+  ['why', 'Claude’s notes', (p) => p.why || ''],
 ];
 const ALL_LOG_FIELDS = LOG_FIELDS.concat(LINE_FIELDS.filter(([f]) => !LOG_FIELDS.some((d) => d[0] === f)),
   PAIR_FIELDS.filter(([f]) => !LOG_FIELDS.some((d) => d[0] === f) && !LINE_FIELDS.some((d) => d[0] === f)));
@@ -7214,6 +7229,7 @@ function dressOpenDialog(mode) {
   $('openBody').hidden = mode !== 'drink';
   /* Only a line that exists can be removed. */
   $('openRemoveZone').hidden = mode !== 'edit';
+  $('openPair').hidden = mode !== 'edit';
   $('openRemoveZone').open = false;
   obLookupStop();
   obLookupLast = null;
@@ -7257,8 +7273,23 @@ function openBottleEdit(id) {
   fillOpenDialog(o);
   bottlePhoto.reset(o);
   renderWineHistory(o, 'bottleHistory', 'bottleHistoryList');
+  $('openPair').textContent = state.pairings.some((p) => p.openedId === o.id) ? 'Open Its Pairing' : 'Pair With a Meal';
   openModal($('openDialog'));
+  openFormAtOpen = openFormSnap();
 }
+/* The bottle window's boxes as they stand, to ask before leaving edits behind. */
+let openFormAtOpen = '';
+const openFormSnap = () => JSON.stringify([...$('openDialog').querySelectorAll('input:not([type="file"]), select, textarea')]
+  .map((el) => el.value));
+$('openPair').addEventListener('click', () => {
+  const o = state.opened.find((x) => x.id === editingBottleId);
+  if (!o) { $('openDialog').close(); render(); return; }
+  if (openFormSnap() !== openFormAtOpen
+      && !confirm('Leave this bottle’s window without saving what you changed here?')) return;
+  const had = state.pairings.find((p) => p.openedId === o.id);
+  $('openDialog').close();
+  if (had) openPairing(had.id); else openPairing(null, o);
+});
 function openLogBottle() {
   drinkingId = null;
   editingBottleId = null;
@@ -8122,15 +8153,11 @@ function buildPairRequest(meal, wines, today, opts) {
       + '\n\nThe meal:\n' + text + '\n\nPick from the cellar, then call recommend_wines.' }],
   };
 }
-/* One meal, start to finish. Resolves to the tool input (unchecked —
-   readPairing is the boundary), the ids that were sent, and what it cost. */
-async function pairMeal(meal, key, opts) {
-  const o = opts || {};
-  const yr = thisYear(), soon = state.settings.soonYears;
-  const wines = o.wines || pairWines(state, yr, soon);
-  const planned = {};
-  state.pairings.forEach((p) => { if (p.status === 'planned' && p.wineId) planned[p.wineId] = (planned[p.wineId] || 0) + 1; });
-  const body = buildPairRequest(meal, wines, todayISO(), { soon: soon, planned: planned, model: o.model, effort: o.effort });
+/* One call that must end in ONE named tool, for Pair Meal and Claude's
+   pairing notes alike: resumes a pause_turn, nudges a silent finish once.
+   Resolves to the tool input (unchecked — each reader is its own boundary)
+   and what it cost. `what` names it in an error ("The pairing failed …"). */
+async function callTool(body, tool, key, o, what) {
   const usage = { input: 0, cacheRead: 0, cacheWrite: 0, output: 0, rounds: 0 };
   let nudged = false;
   for (let round = 0; round < PAIR_MAX_ROUNDS; round++) {
@@ -8145,23 +8172,35 @@ async function pairMeal(meal, key, opts) {
     }
     let data = null;
     try { data = await res.json(); } catch (e) { data = null; }
-    if (!res.ok || !data) throw new Error(lookupErrorMessage(res.status, data).replace('The lookup failed', 'The pairing failed'));
+    if (!res.ok || !data) throw new Error(lookupErrorMessage(res.status, data).replace('The lookup failed', 'The ' + what + ' failed'));
     const u = data.usage || {};
     usage.input += Number(u.input_tokens) || 0;
     usage.cacheRead += Number(u.cache_read_input_tokens) || 0;
     usage.cacheWrite += Number(u.cache_creation_input_tokens) || 0;
     usage.output += Number(u.output_tokens) || 0;
-    if (data.stop_reason === 'refusal') throw new Error('Claude declined to pair this one.');
+    if (data.stop_reason === 'refusal') throw new Error('Claude declined to answer this one.');
     const content = Array.isArray(data.content) ? data.content : [];
-    const call = content.find((b) => b && b.type === 'tool_use' && b.name === 'recommend_wines');
-    if (call) return { found: call.input, sent: wines.map((w) => w.id), usage: usage };
+    const call = content.find((b) => b && b.type === 'tool_use' && b.name === tool);
+    if (call) return { found: call.input, usage: usage };
     body.messages.push({ role: 'assistant', content: content });
     if (data.stop_reason === 'pause_turn') continue;
     if (nudged) break;
     nudged = true;
-    body.messages.push({ role: 'user', content: 'Record your advice with recommend_wines now.' });
+    body.messages.push({ role: 'user', content: 'Record your answer with ' + tool + ' now.' });
   }
-  throw new Error('Claude did not come back with pairings for this meal.');
+  throw new Error('Claude did not come back with an answer.');
+}
+/* One meal, start to finish. Resolves to the tool input (unchecked —
+   readPairing is the boundary), the ids that were sent, and what it cost. */
+async function pairMeal(meal, key, opts) {
+  const o = opts || {};
+  const yr = thisYear(), soon = state.settings.soonYears;
+  const wines = o.wines || pairWines(state, yr, soon);
+  const planned = {};
+  state.pairings.forEach((p) => { if (p.status === 'planned' && p.wineId) planned[p.wineId] = (planned[p.wineId] || 0) + 1; });
+  const body = buildPairRequest(meal, wines, todayISO(), { soon: soon, planned: planned, model: o.model, effort: o.effort });
+  const got = await callTool(body, 'recommend_wines', key, o, 'pairing');
+  return { found: got.found, sent: wines.map((w) => w.id), usage: got.usage };
 }
 /* The boundary for what came back. A pick is a NUMBER in the list that was
    sent; anything else — out of range, not whole, repeated — is dropped, and
@@ -8186,6 +8225,91 @@ function readPairing(found, sent) {
     picks: picks,
     ifNone: picks.length ? '' : clipWords(f.if_none, 200),
   };
+}
+
+/* ── Claude's notes on a pairing YOU chose ──────────────────────────────────
+   (Charles, 2026-10-31: a pepperoni pizza with a past-window 2009 Cab, "have
+   claude provide the pairing notes"). Pair Meal picks a wine; this one is
+   told the wine and says how it suits the dish. Same model, effort and
+   one-strict-tool shape as Pair Meal; no web search, no caching (a one-off).
+   Sent: the bottle as the app knows it, the meal, and — when they are filled
+   in — the owner's note and Held Up on the bottle and their pairing rating
+   and note, so the notes agree with what was actually in the glass.
+   privacy.html says so. */
+const JUDGE_TOOL = {
+  name: 'note_pairing',
+  description: 'Record your notes on this pairing. Call this exactly once, as your last step.',
+  strict: true,
+  input_schema: {
+    type: 'object',
+    additionalProperties: false,
+    properties: {
+      meal_name: { type: 'string', description: 'A short name for the dish, under 60 characters.' },
+      food_kind: PAIR_TOOL.input_schema.properties.food_kind,
+      /* Words, not characters: measured 2026-10-31, "under 250 characters"
+         came back ~280 and was clipped mid-sentence. BASIS_MAX still guards. */
+      notes: { type: 'string', description: 'At most two short sentences, about 35 words in all: how THIS '
+        + 'bottle suits the dish - what works, what fights - allowing for its age and condition.' },
+    },
+    required: ['meal_name', 'food_kind', 'notes'],
+  },
+};
+const JUDGE_SYSTEM = [
+  'You write pairing notes for a personal cellar app. The owner has chosen a bottle for a meal -',
+  'often one they already had - and wants to know how the two go together.',
+  '',
+  'Judge THIS bottle at its age, not the grape in general: a wine past its window has softer',
+  'tannin and quieter fruit. Weigh what dominates the plate - sauce, fat, acid, salt, sweetness,',
+  'spice. Be honest and specific; a so-so match is fine to call so-so. If the owner described the',
+  'bottle or rated the pairing, let your notes agree with what they found. Then call note_pairing once.',
+].join('\n');
+/* The bottle as one line: an opened line says when and how old; a cellar
+   wine its status. `color` comes from its wine when the line has none. */
+function judgeBottle(b, yr, soon) {
+  const line = !!b.date;
+  const st = line ? null : statusOf(b, yr, soon);
+  const age = line ? ageAtOpening(b) : null;
+  return cleanLine(b.label || wineLabel(b), 100) + ' — ' + [
+    COLOR_LABEL[b.color] || '',
+    cleanLine(b.grape, 60),
+    cleanLine(b.region, 60) + (b.subregion ? ' (' + cleanLine(b.subregion, 60) + ')' : ''),
+    line ? 'opened ' + b.date + (age != null ? ' at ' + plural(age, 'year') + ' old' : '')
+      + (timingOf(b) !== 'none' ? ', ' + TIMING[timingOf(b)].label.toLowerCase() + ' (drink ' + fmtWindow(b) + ')' : '')
+      : STATUS[st].label + (st !== 'none' ? ' (drink ' + fmtWindow(b) + ')' : ''),
+  ].filter(Boolean).join(' · ');
+}
+/* Pure and pinned. `told` is what the owner said: { bottleNote, heldUp, rating, note }. */
+function buildJudgeRequest(meal, bottle, today, told, opts) {
+  const o = opts || {}, t = told || {};
+  const yr = Number(String(today).slice(0, 4)) || thisYear();
+  const said = [
+    t.bottleNote ? 'Their note on the bottle: ' + cleanLine(t.bottleNote, NOTES_MAX) : '',
+    t.heldUp && HELD_UP[t.heldUp] ? 'How it held up: ' + HELD_UP[t.heldUp].label : '',
+    t.rating ? 'They rated the pairing ' + t.rating + ' of 5.' : '',
+    t.note ? 'Their note on the pairing: ' + cleanLine(t.note, NOTES_MAX) : '',
+  ].filter(Boolean).join('\n');
+  return {
+    model: o.model || PAIR_MODEL,
+    max_tokens: 2000,
+    output_config: { effort: o.effort || PAIR_EFFORT },
+    fallbacks: 'default',
+    system: JUDGE_SYSTEM,
+    tools: [JUDGE_TOOL],
+    tool_choice: { type: 'auto' },
+    messages: [{ role: 'user', content: 'Today is ' + today + '.\n\nThe bottle:\n' + judgeBottle(bottle, yr, o.soon == null ? 1 : o.soon)
+      + (said ? '\n' + said : '') + '\n\nThe meal:\n' + cleanNote(meal, PAIR_TEXT_MAX)
+      + '\n\nSay how they go together, then call note_pairing.' }],
+  };
+}
+/* The boundary for the answer. */
+function readJudge(found) {
+  const f = found && typeof found === 'object' ? found : {};
+  return { meal: cleanLine(f.meal_name, PAIR_MEAL_MAX), food: cleanFood(f.food_kind), notes: clipWords(f.notes, BASIS_MAX) };
+}
+async function judgePairing(meal, bottle, told, key, opts) {
+  const o = opts || {};
+  const body = buildJudgeRequest(meal, bottle, todayISO(), told, { soon: state.settings.soonYears, model: o.model, effort: o.effort });
+  return callTool(body, 'note_pairing', key, o, 'pairing notes');
 }
 
 /* ── The Pair Meal window ────────────────────────────────────────────────
@@ -8311,8 +8435,10 @@ $('pairResults').addEventListener('click', (e) => {
 
 /* A new pairing for a Cellar wine. A PLANNED one is noted on the wine's
    History, with the meal; a had one is noted by Opened One's own entry. */
+/* From an opened line, `p.label` is the line's — the name as it was — and
+   `w` may be null when its wine is gone. */
 function addPairing(w, p) {
-  const rec = { id: uid(), wineId: w.id, label: cleanLine(wineLabel(w), 100),
+  const rec = { id: uid(), wineId: w ? w.id : null, label: cleanLine(p.label || (w ? wineLabel(w) : ''), 100) || 'A deleted wine',
     meal: cleanLine(p.meal, PAIR_MEAL_MAX) || 'A meal', food: cleanFood(p.food), date: p.date || '', status: p.status === 'had' ? 'had' : 'planned',
     rating: p.rating || null, note: cleanLine(p.note, NOTES_MAX), openedId: p.openedId || null,
     why: clipWords(p.why, BASIS_MAX), at: nowStamp(), log: [] };
@@ -8320,7 +8446,7 @@ function addPairing(w, p) {
   logTo(rec, { at: rec.at, k: rec.status === 'planned' ? 'plan' : rec.openedId ? 'open' : 'add',
     c: diffPairing({}, rec) });
   state.pairings.push(rec);
-  if (rec.status === 'planned') logTo(w, { at: rec.at, k: 'plan', c: [{ f: 'meal', n: mealWhen(rec) }] });
+  if (rec.status === 'planned' && w) logTo(w, { at: rec.at, k: 'plan', c: [{ f: 'meal', n: mealWhen(rec) }] });
   return rec;
 }
 /* "Short ribs, Nov 1, 2026" — a meal and its day, as History prints it. */
@@ -8555,7 +8681,7 @@ const PAIRING_COLUMNS = [
   { key: 'status', label: 'Status', desc: false },
   { key: 'rating', label: 'Rating', desc: true },
   { key: 'note',   label: 'Note',   desc: false },
-  { key: 'why',    label: 'Why Claude Picked It', desc: false },
+  { key: 'why',    label: 'Claude’s Notes', desc: false },
 ];
 let pairingSortKey = null, pairingSortDir = 'desc';
 function pairingStatus(p, today) {
@@ -8630,7 +8756,7 @@ function renderPairingList() {
         + '<td class="num nowrap" data-label="Rating">' + (p.rating ? '<span aria-hidden="true" class="stars">'
             + starsOf(p.rating) + '</span> ' + p.rating + '/5' : '—') + '</td>'
         + '<td data-label="Note">' + esc(p.note) + '</td>'
-        + '<td data-label="Why Claude Picked It">' + esc(p.why) + '</td>'
+        + '<td data-label="Claude’s Notes">' + esc(p.why) + '</td>'
         + '</tr>';
     }).join('')
     + '</tbody></table>';
@@ -8670,21 +8796,28 @@ function pairingWineOptions(p) {
   return (gone ? '<option value="">' + esc(p.label) + ' (no longer in the cellar)</option>' : '')
     + (!p ? '<option value="">Choose a wine…</option>' : '') + opts.join('');
 }
-function openPairing(id) {
+/* `line`, for a NEW pairing only: the opened bottle it is for (Pair With a
+   Meal, 2026-10-31) — had, on the day it was opened, linked by openedId, and
+   its wine fixed, even a wine with no bottles left or one since deleted. */
+let pairingFromLine = null;
+function openPairing(id, line) {
   const p = id ? state.pairings.find((x) => x.id === id) : null;
   if (id && !p) { render(); return; }
   editingPairingId = p ? p.id : null;
-  $('pairingTitle').textContent = p ? 'Edit a Pairing' : 'Add Pairing';
-  $('p_wine').innerHTML = pairingWineOptions(p);
+  pairingFromLine = !p && line ? line.id : null;
+  judgeStop();
+  $('p_askNote').textContent = '';
+  $('pairingTitle').textContent = p ? 'Edit a Pairing' : line ? 'Pair a Meal With This Bottle' : 'Add Pairing';
+  $('p_wine').innerHTML = pairingFromLine ? '<option value="">' + esc(line.label) + '</option>' : pairingWineOptions(p);
+  $('p_wine').disabled = !!pairingFromLine;
   $('p_wine').value = p && state.wines.some((w) => w.id === p.wineId) ? p.wineId : '';
   $('p_meal').value = p ? p.meal : '';
   $('p_food').value = p && p.food ? p.food : '';
-  $('p_status').value = p ? p.status : 'planned';
-  $('p_date').value = p ? p.date : '';
+  $('p_status').value = p ? p.status : line ? 'had' : 'planned';
+  $('p_date').value = p ? p.date : line ? line.date : '';
   $('p_rating').value = p && p.rating ? String(p.rating) : '';
   $('p_note').value = p ? p.note : '';
-  $('p_why').hidden = !(p && p.why);
-  $('p_why').textContent = p && p.why ? 'Why Claude picked it: ' + p.why : '';
+  $('p_why').value = p && p.why ? p.why : '';
   $('pairingWarn').textContent = '';
   $('pairingRemoveZone').hidden = !p;
   $('pairingRemoveZone').open = false;
@@ -8705,21 +8838,26 @@ function readPairingBoxes() {
   if (!meal) { $('pairingWarn').textContent = 'Name the meal.'; $('p_meal').focus(); return null; }
   return { meal: meal, wineId: $('p_wine').value, status: $('p_status').value === 'had' ? 'had' : 'planned',
     date: DATE_RE.test($('p_date').value) ? $('p_date').value : '', food: cleanFood($('p_food').value),
-    rating: cleanRating($('p_rating').value), note: cleanLine($('p_note').value, NOTES_MAX) };
+    rating: cleanRating($('p_rating').value), note: cleanLine($('p_note').value, NOTES_MAX),
+    why: clipWords($('p_why').value, BASIS_MAX) };
 }
 $('pairingSave').addEventListener('click', () => {
   const b = readPairingBoxes();
   if (!b) return;
   const p = editingPairingId && state.pairings.find((x) => x.id === editingPairingId);
   if (editingPairingId && !p) { $('pairingDialog').close(); render(); toast('That pairing has gone since the window opened, so nothing was changed.', 5000); return; }
-  const w = b.wineId ? state.wines.find((x) => x.id === b.wineId) : null;
-  if (!p && !w) { $('pairingWarn').textContent = 'Choose the wine.'; $('p_wine').focus(); return; }
+  const line = pairingFromLine && state.opened.find((o) => o.id === pairingFromLine);
+  if (pairingFromLine && !line) { $('pairingDialog').close(); render(); toast('That bottle has gone since the window opened, so nothing was saved.', 5000); return; }
+  const w = line ? state.wines.find((x) => x.id === line.wineId) || null
+    : b.wineId ? state.wines.find((x) => x.id === b.wineId) : null;
+  if (!p && !w && !line) { $('pairingWarn').textContent = 'Choose the wine.'; $('p_wine').focus(); return; }
   $('pairingDialog').close();
   if (!p) {
-    addPairing(w, b);
+    /* From an opened bottle: its label (the name as it was) and a link to it. */
+    addPairing(w, line ? Object.assign({}, b, { label: line.label, openedId: line.id }) : b);
   } else {
     const was = Object.assign({}, p);
-    Object.assign(p, { meal: b.meal, food: b.food, status: b.status, date: b.date, rating: b.rating, note: b.note });
+    Object.assign(p, { meal: b.meal, food: b.food, status: b.status, date: b.date, rating: b.rating, note: b.note, why: b.why });
     /* A wine chosen again is copied again; a gone one keeps its old name. */
     if (w) { p.wineId = w.id; p.label = cleanLine(wineLabel(w), 100); }
     /* What the window changed, as History — nothing, no entry. */
@@ -8730,6 +8868,61 @@ $('pairingSave').addEventListener('click', () => {
   toast('Saved');
 });
 $('pairingCancel').addEventListener('click', () => $('pairingDialog').close());
+
+/* Ask Claude — notes on THIS wine with THIS meal (2026-10-31). The bottle is
+   the opened line when there is one (its age, window, note and Held Up are
+   the facts of the night), else the chosen Cellar wine. It fills Claude's
+   Notes, and the kind of food only while that is still Not said; nothing is
+   saved until Save. Closing the window stops it. */
+let judgeCtl = null;
+function judgeStop() {
+  if (judgeCtl) judgeCtl.abort();
+  judgeCtl = null;
+  $('p_ask').innerHTML = '<span aria-hidden="true">✦</span> Ask Claude';
+}
+function pairingBottle() {
+  const p = editingPairingId && state.pairings.find((x) => x.id === editingPairingId);
+  const lineId = pairingFromLine || (p && p.openedId);
+  const line = lineId && state.opened.find((o) => o.id === lineId);
+  if (line) {
+    const w = state.wines.find((x) => x.id === line.wineId);
+    return { bottle: Object.assign({}, line, { color: w ? w.color : '' }),
+             told: { bottleNote: line.note, heldUp: line.heldUp } };
+  }
+  const w = state.wines.find((x) => x.id === ($('p_wine').value || (p && p.wineId)));
+  return w ? { bottle: w, told: {} } : null;
+}
+$('p_ask').addEventListener('click', async () => {
+  if (judgeCtl) { judgeStop(); $('p_askNote').textContent = 'Stopped.'; return; }
+  const key = lookupKey();
+  if (!key) { $('p_askNote').textContent = 'Add your Claude API key in Settings first.'; return; }
+  const meal = $('p_meal').value.trim();
+  if (!meal) { $('p_askNote').textContent = 'Name the meal first.'; $('p_meal').focus(); return; }
+  const it = pairingBottle();
+  if (!it) { $('p_askNote').textContent = 'Choose the wine first.'; $('p_wine').focus(); return; }
+  it.told.rating = cleanRating($('p_rating').value);
+  it.told.note = $('p_note').value.trim();
+  const ctl = new AbortController();
+  judgeCtl = ctl;
+  $('p_ask').textContent = 'Stop';
+  $('p_askNote').textContent = 'Asking Claude…';
+  const t0 = Date.now();
+  try {
+    const got = await judgePairing(meal, it.bottle, it.told, key, { signal: ctl.signal });
+    if (judgeCtl !== ctl) return;
+    const r = readJudge(got.found);
+    if (!r.notes) throw new Error('Claude came back without notes — try again.');
+    $('p_why').value = r.notes;
+    if (!$('p_food').value && r.food) $('p_food').value = r.food;
+    $('p_askNote').textContent = 'Answered in ' + plural(Math.round((Date.now() - t0) / 1000), 'second')
+      + ' — keep the notes, edit them, or clear them, then Save.';
+  } catch (e) {
+    if (judgeCtl !== ctl) return;
+    $('p_askNote').textContent = e && e.name === 'AbortError' ? 'Stopped.' : String(e && e.message || e);
+  } finally {
+    if (judgeCtl === ctl) judgeStop();
+  }
+});
 $('p_status').addEventListener('change', () => {
   /* A pairing marked had with no day is had today. */
   if ($('p_status').value === 'had' && !$('p_date').value) $('p_date').value = todayISO();
@@ -8742,7 +8935,7 @@ $('pairingHad').addEventListener('click', () => {
   const b = readPairingBoxes();
   if (!b) return;
   const was = Object.assign({}, p);
-  Object.assign(p, { meal: b.meal, food: b.food, rating: b.rating, note: b.note });
+  Object.assign(p, { meal: b.meal, food: b.food, rating: b.rating, note: b.note, why: b.why });
   const hand = diffPairing(was, p);
   if (hand.length) { logTo(p, { at: nowStamp(), k: 'edit', c: hand }); save(); }
   $('pairingDialog').close();
@@ -9392,7 +9585,7 @@ document.addEventListener('keydown', (e) => {
    attribute rather than the `close` event, which some engines never deliver
    (the family's rule for a hook whose failure is silent). */
 [['wineDialog', () => lookupStop()], ['openDialog', () => obLookupStop()], ['pasteDialog', () => pasteLookupStop()],
- ['checkDialog', () => checkEnd()], ['pairDialog', () => pairStop()]]
+ ['checkDialog', () => checkEnd()], ['pairDialog', () => pairStop()], ['pairingDialog', () => judgeStop()]]
   .forEach(([id, stop]) => {
     new MutationObserver(() => { if (!$(id).open) stop(); })
       .observe($(id), { attributes: true, attributeFilter: ['open'] });
@@ -9916,7 +10109,7 @@ const SYNC_FIELD = {
     grape: 'Grape', paid: 'Price paid', drinkFrom: 'Drinking window', drinkTo: 'Drinking window',
     date: 'Date opened', rating: 'Rating', heldUp: 'Held up', note: 'Tasting note', place: 'Where opened', photoAt: 'Label photo' },
   pairings: { wineId: 'Wine', label: 'Wine', meal: 'Meal', food: 'Food', date: 'Day', status: 'Planned or had',
-    rating: 'Rating', note: 'Note', openedId: 'Opened bottle', why: 'Claude’s reason', at: 'When picked' },
+    rating: 'Rating', note: 'Note', openedId: 'Opened bottle', why: 'Claude’s notes', at: 'When picked' },
 };
 const SYNC_SETTING = { soonYears: 'Drink soon within', showFinished: 'Show wines with no bottles left' };
 function syncRecord(plans, list, id) {
@@ -10231,6 +10424,7 @@ window.__wineTestHooks = {
   wineFacts: wineFacts, dealOf: dealOf, fmtPaid: fmtPaid, fmtDate: fmtDate, cleanAdded: cleanAdded, lookupDiffs: lookupDiffs, applyLookupTo: applyLookupTo, checkWines: checkWines, coreOf: coreOf, cleanChecked: cleanChecked, fmtChecked: fmtChecked, stampChecked: stampChecked, cleanLogEntry: cleanLogEntry, lookupEntry: lookupEntry, logTo: logTo, diffFields: diffFields, computeHistory: computeHistory, LOG_CAP: LOG_CAP, LOOKUP_TOOL: LOOKUP_TOOL,
   LOOKUP_KEY_STORE: LOOKUP_KEY_STORE, SHARE_MAX_BYTES: SHARE_MAX_BYTES, b64urlEncode: b64urlEncode,
   buildPairRequest: buildPairRequest, pairMeal: pairMeal, readPairing: readPairing, pairWines: pairWines,
+  buildJudgeRequest: buildJudgeRequest, readJudge: readJudge, judgePairing: judgePairing,
   PAIR_TOOL: PAIR_TOOL, PAIR_TEXT_MAX: PAIR_TEXT_MAX, PAIR_MEAL_MAX: PAIR_MEAL_MAX, FOOD: FOOD,
   setDrinkPairing: setDrinkPairing, computePairings: computePairings, computeMakeup: computeMakeup, facetKey: facetKey, facetMatch: facetMatch, __pairLast: (v) => { pairLast = v; renderPairResults(); },
 };

@@ -82,7 +82,7 @@ footer { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; }
        stays an ordinary <div> rather than becoming the <main>. -->
   <main>
     <h1>Wine Cellar — Privacy Policy</h1>
-    <p class="meta">Effective October 23, 2026 · updated October 26, 2026: Pair Meal sends the meal you type and a short list of your wines; pairings are stored with your cellar</p>
+    <p class="meta">Effective October 23, 2026 · updated October 31, 2026: Ask Claude sends one pairing's meal, its wine and what you noted about them</p>
 
     <p>Wine Cellar runs entirely in your browser. This page sets out exactly what data exists,
     where it goes, and who can see it.</p>
@@ -93,9 +93,9 @@ footer { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; }
     from, the day it was added, any notes, and its History (when it was added, changed, looked up,
     opened or undone, and what changed — the last 20 of those, never the text of your notes,
     and never sent to Claude or put in a share link); for each bottle you mark as opened or log, the day,
-    your rating, a short note, where you opened it and a copy of that wine's details; for each
-    pairing, the meal's short name, the wine, the day, whether it is planned or had, your rating
-    and note for the pairing, Claude's reason for the pick (never the recipe you typed) and its
+    your rating, how it held up, a short note, where you opened it and a copy of that wine's details; for each
+    pairing, the meal's short name, the kind of food, the wine, the day, whether it is planned or had, your rating
+    and note for the pairing, Claude's notes on it (never the recipe you typed) and its
     History (planned, had, changed or undone — the last 20) —
     plus your settings, your colour theme and which tab you had open. There is no profile and
     no usage tracking of any kind. No account is needed to use the app.</p>
@@ -143,6 +143,13 @@ footer { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; }
       Anthropic's Claude API, billed to your API account. Never your notes, prices, where a wine is
       kept, photos or History. The recipe is not kept; if you plan or open a bottle for the meal,
       only its short name is saved, with the pairing.</p>
+      <p><strong>Ask Claude on a pairing (optional, same key).</strong> When you press <strong>Ask
+      Claude</strong> in a pairing's window, the meal you typed and that one wine are sent — its
+      vintage, name, colour, grape, region and sub-region, and either its status and drinking window
+      or, for a bottle already opened, the day it was opened, its age and its window then — together
+      with your note and Held Up on that opened bottle and your rating and note for the pairing, if
+      you have filled them in. Never its price, where it is kept or was opened, photos or History.
+      Claude's answer is only put in the window; it is saved with the pairing when you press Save.</p>
       <p><strong>Label photos (optional).</strong> If you add a photo of a wine's label, Look Up
       (and Check Wines, for each wine that has one) sends that photo to Anthropic too, so
       Claude can read the label. A small copy is kept with

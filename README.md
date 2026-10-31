@@ -143,6 +143,8 @@ cellar on your other devices.
 - **✦ Pair Meal** (on the **Pairings** tab) — type or paste what you're eating and Claude picks up to three bottles from
   your cellar for it; plan one for later or open it, and rate the pairing on the **Pairings** tab —
   see below.
+- **Pair With a Meal** (in an opened bottle's window) — note what you ate with a bottle you've
+  already opened, and **✦ Ask Claude** writes a short note on how the two went together — see below.
 - **↩ Undo** (⌘Z / Ctrl+Z) walks back through this sitting's changes, one Save at a time —
   Money Map's undo, ported. Up to twenty steps; an edit, an Opened One, a pasted list, a
   restore and even Delete All Data are each one step. The button asks first, because there
@@ -331,7 +333,7 @@ dinner. Type a dish — "grilled lamb chops with rosemary" — or paste a whole 
   those pairings, planned ones included. Find never changes either card; the Planned / Overdue / Had tiles narrow What Pairs Well (it counts only had pairings, so Planned alone dims it all).
 - **The list** has every pairing: planned ones first (soonest day first, undecided
   last, a day gone by marked *Was planned*), then the ones you've had, newest first. Find
-  searches meals, wines, notes and Claude's reasons. Press a line
+  searches meals, wines, notes and Claude's notes. Press a line
   to change it, **rate how the pairing went** (separate from the bottle's own rating on the Opened
   tab) and add a note. A planned pairing has **We Had It — Opened One**, which opens the bottle
   and marks the pairing had, linked to that opened line. **＋ Add Pairing** notes one without
@@ -342,6 +344,17 @@ dinner. Type a dish — "grilled lamb chops with rosemary" — or paste a whole 
   photos or History. A pasted recipe is cut at 4,000 characters. Prompt caching is deliberately
   off: a cache write costs more than plain input and only pays back if you ask again within five
   minutes.
+- **Pair With a Meal** is for the other way round — the bottle came first. Open the bottle's line
+  on the **Opened** tab and press **Pair With a Meal**: the pairing window opens with that bottle
+  fixed, marked had, dated the day you opened it. Type the meal ("pepperoni pizza") and press
+  **✦ Ask Claude** — it writes **Claude's Notes**, two short sentences on how this bottle, at its
+  age and as you said it held up, suited the dish, and picks the kind of food if you haven't.
+  The notes are yours to edit; nothing is saved until **Save**, and the pairing links to the
+  opened line (the button then reads **Open Its Pairing**). Claude is told the meal, the wine's
+  name, vintage, grape, region and drinking window, when it was opened and how old it was, and
+  your Held Up, rating and note for the bottle — never its price or where you bought it. About
+  **1–2¢ and 4–10 seconds** a note (measured 2026-10-31). **Claude's Notes** is also editable on
+  any pairing, and History records that it changed (not what it said).
 - Uses the same API key as Look Up. The recipe is never stored; a pairing keeps only the meal's
   short name. Pairings sync and back up with the rest of the cellar but never go in a share link,
   and a shared snapshot shows no Pairings tab.

@@ -233,6 +233,21 @@ the family doesn't.
   one is the best?" It picked the three newest and silently dropped the rest; don't bring a
   ranked top-N back. Only HAD pairings; a pairing's grape is its opened line's copy, else its
   wine's, else blank (counted in the warn line).
+  **Pair With a Meal + Ask Claude (2026-10-31, Charles had a 2009 Stags' Leap Cab with frozen
+  pizza and wanted notes).** No SCHEMA bump: `why` already existed — it is now an editable
+  textarea (`#p_why`, "Claude's Notes", maxlength 250) and is LOGGED (`why` in LOG_CODES and
+  PAIR_FIELDS, values never recorded — like notes). `#openPair` in `#openDialog` (edit mode only)
+  calls `openPairing(id, line)`: `pairingFromLine` set, `p_wine` disabled, status had, date = the
+  line's; Save goes through `addPairing` with `label` + `openedId` from the line (`addPairing` now
+  takes `w` null and writes the wine's log only when there is one). The button reads **Open Its
+  Pairing** when a pairing already has that `openedId`. **✦ Ask Claude** (`#p_ask`) →
+  `judgePairing` → `callTool(body, 'note_pairing', …)` — `callTool` is Pair Meal's call loop pulled
+  out and shared. `JUDGE_TOOL` {meal_name, food_kind enum, notes}; `buildJudgeRequest` sends meal,
+  `judgeBottle` (name/vintage/grape/region/window + opened date, age, timing) and `told`
+  {bottleNote, heldUp, rating, note} — **never price or place**. Fills `p_why`, and `p_food` only
+  while Not said; nothing saved until Save; `judgeStop` on dialog close. Measured on the real
+  bottle: ~1050 in / ~465 out, 4–10 s, ~1–2¢. **Ask for WORDS, not characters**: "under 250
+  characters" came back at ~280 and got clipped mid-sentence; "about 35 words" came back whole.
 
 - **Lookup `confidence` is WHICH bottle, nothing else** (2026-10-25, Charles). The schema and
   `LOOKUP_SYSTEM` both say so; how firm the value/window are lives in `value_is_estimate` and
@@ -573,6 +588,6 @@ was a one-line version of the cellar rule.
 
 ## Tests
 
-`tests.html`, `EXPECTED = 343`. Run it headless (Playwright) rather than in the Browser pane:
+`tests.html`, `EXPECTED = 345`. Run it headless (Playwright) rather than in the Browser pane:
 the pane throttles hidden timers and its focus heuristics turn the 705px keyboard-focus check
 red on untouched code.
