@@ -835,16 +835,26 @@
   #makeupCard .likes, #likeCard .likes, #pairLikeCard .likes { display: block; columns: 23rem; column-gap: var(--sp-5); }
   #likeCard .likes, #pairLikeCard .likes { columns: 300px; }
   #makeupCard .likes > *, #likeCard .likes > *, #pairLikeCard .likes > * { break-inside: avoid; margin: 0 0 var(--sp-5); }
-  /* Each table its own panel (Charles, 2026-10-31: "make the tables stand
-     apart from each other"): a ruled box sunk to the page colour, its heading
-     row a band in the card's colour. Existing tokens only — no new colour —
-     and no shadow (pack rule 14). Hover and a picked row keep --surface-alt,
-     a step lighter than either, so a pick still reads. */
-  :is(#makeupCard, #likeCard, #pairLikeCard) .likes > .table-scroll:not([hidden]) {
-    border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg); }
-  :is(#makeupCard, #likeCard, #pairLikeCard) .likes > .table-scroll thead th { background: var(--surface); }
-  :is(#makeupCard, #likeCard, #pairLikeCard) .likes > .table-scroll tbody tr:last-child :is(th, td) { border-bottom: 0; }
-  :is(#makeupCard, #likeCard, #pairLikeCard) .likes > .table-scroll > p.empty { margin: var(--sp-3); }
+  /* The content well (Charles, 2026-10-31: tiles, grouping tables, the grid
+     and the wine cards should all be ONE colour, in every theme). Each is a
+     ruled box filled with --surface-alt — the tiles' and the cards' fill —
+     never --bg: the pack's surfaces climb bg < surface < surfaceAlt in
+     Midnight and Dark but sit surfaceAlt ≈ bg < surface in Light and Sepia,
+     so --bg matched in Light and fell a step darker in the dark themes. The
+     pack gates every text and status colour at 4.5:1 on surfaceAlt (its
+     rule: the content well), so nothing new needs measuring. Inside a well
+     the heading band, hover and a picked row are --surface — the old hover
+     colour IS the well now — so in the dark themes a hovered row goes a
+     shade darker. Never --accent-bg behind these rows: muted text on it is
+     3.43 in Dark. The grid is a well only as a grid; as cards each wine is
+     its own surface-alt card and the wrapper stays bare. No shadow (rule 14). */
+  :is(:is(#makeupCard, #likeCard, #pairLikeCard) .likes > .table-scroll, #listWrap:has(> table:not(.cardview))):not([hidden]) {
+    border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface-alt); }
+  :is(:is(#makeupCard, #likeCard, #pairLikeCard) .likes > .table-scroll, #listWrap:has(> table:not(.cardview))) thead th { background: var(--surface); }
+  :is(:is(#makeupCard, #likeCard, #pairLikeCard) .likes > .table-scroll, #listWrap:has(> table:not(.cardview))) :is(tbody tr:hover, tr.rowlink:hover :is(th, td), tr.facetrow:hover :is(th, td), tr.facetrow.picked :is(th, td)) { background: var(--surface); }
+  :is(:is(#makeupCard, #likeCard, #pairLikeCard) .likes > .table-scroll, #listWrap:has(> table:not(.cardview))) tr.facetrow.dead:hover :is(th, td) { background: none; }
+  :is(:is(#makeupCard, #likeCard, #pairLikeCard) .likes > .table-scroll, #listWrap:has(> table:not(.cardview))) tbody tr:last-child :is(th, td) { border-bottom: 0; }
+  :is(:is(#makeupCard, #likeCard, #pairLikeCard) .likes > .table-scroll, #listWrap:has(> table:not(.cardview))) > p.empty { margin: var(--sp-3); }
   /* And on a phone the fifth column still needs ~45px more than the screen
      has: the cells lose half their side padding and the headings their
      letter spacing, so all five fit unscrolled (measured at 375px). */
@@ -1026,7 +1036,7 @@
       border: 1px solid var(--border); border-radius: var(--radius-sm);
       background: var(--surface-alt); padding: 12px 14px; margin-bottom: 10px; }
     table.cards.cardview tbody tr:hover, table.cards.cardview tr.rowlink:hover th, table.cards.cardview tr.rowlink:hover td { background: none; }
-    table.cards.cardview tbody tr:hover { background: var(--surface-alt); }
+    table.cards.cardview tbody tr:hover { background: var(--surface); }
     /* A card that opens something answers the pointer the way a tile does: its
        edge comes up to --text-muted (the base button hover). The fill could not
        say it — a card already rests on --surface-alt (Charles, 2026-10-24). */

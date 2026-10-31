@@ -151,10 +151,14 @@ the family doesn't.
   Where It Is, then the two Group by tables. Columns balance in ORDER, so the bottoms are uneven;
   a JS shortest-column packer was considered and declined — it moves table nodes on every redraw
   (focus, scroll, "nothing moves under the finger") for ~10% less height.
-  **Panels (2026-10-31, Charles: "make the tables stand apart"):** each `.likes > .table-scroll`
-  in the three cards is a bordered panel (`--border`, `--radius-sm`) sunk to `--bg`, its thead a
-  `--surface` band; last row loses its rule. Existing tokens only, no shadow (pack rule 14); hover
-  and picked rows keep `--surface-alt`, so they still read inside the sunk panel.
+  **Content wells (2026-10-31, Charles: tiles, grouping tables, grid and cards ONE colour in
+  every theme) — the theme pack's rule 21.** Each grouping table and the wine grid
+  (`#listWrap:has(> table:not(.cardview))`) is a ruled `--surface-alt` box, the tiles' and the
+  cards' fill; heading band, hover and picked rows are `--surface` inside it (the card-view
+  hover too). It was `--bg` for a day: matched in Light, a step darker in Midnight/Dark,
+  because the pack's surfaces stack the other way round there. Never `--accent-bg` behind
+  rows (muted text 3.43 in Dark). As cards, `#listWrap` stays bare. Opened, Pairings and History
+  tables are not wells yet. Pinned by the "Content wells" test in four themes.
   `tablePicker` (was `styleSlots`) runs BEFORE `const $` exists (MAKE_TABLES' place) — it uses
   getElementById; a `$` there was a boot-time TDZ that left the suite with no hooks. Profile fields sit in MAKE_TABLES
   with host null (`makeHost`). Pair Meal: `pairLine` adds "style: …"; PAIR_SYSTEM says match

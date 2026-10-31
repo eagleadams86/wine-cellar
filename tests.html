@@ -51,7 +51,7 @@
    go MISSING look exactly like tests that pass — a suite that quietly shrank to
    three checks still says "all 3 tests pass". RAISE THIS when you add tests, and
    lower it only when you retire one deliberately. */
-const EXPECTED = 351;
+const EXPECTED = 352;
 
 /* ── It refuses to run anywhere but localhost, and that is load-bearing ──────
    GitHub Pages publishes this page BESIDE the app, where the iframe below would
@@ -3226,6 +3226,36 @@ function define() {
     } finally {
       ['food', 'grape'].forEach((f) => { if (pill('pairLike', f).getAttribute('aria-pressed') !== 'true') pill('pairLike', f).click(); });
       W.setTab('cellar'); H.__plant(FIXTURE);
+    }
+  });
+  t('Content wells: tiles, grouping tables, the grid and the wine cards are one fill in every theme', () => {
+    /* Charles, 2026-10-31. The pack's content-well rule: --surface-alt, never
+       --bg (which matched in Light and fell darker in the dark themes) and never
+       a bare --surface (the grid's old look, lighter than the tiles in Light). */
+    const D = W.document, el = D.documentElement, was = el.getAttribute('data-theme');
+    H.__plant(H.sampleData());
+    W.setTab('cellar');
+    const tbl = D.querySelector('#listWrap table'), wasCards = tbl.classList.contains('cardview');
+    const bg = (e) => W.getComputedStyle(e).backgroundColor;
+    try {
+      ['midnight', 'dark', 'light', 'sepia'].forEach((th) => {
+        el.setAttribute('data-theme', th);
+        const well = W.getComputedStyle(el).getPropertyValue('--surface-alt').trim();
+        tbl.classList.remove('cardview');
+        const grid = bg(D.getElementById('listWrap'));
+        tbl.classList.add('cardview');
+        const card = bg(tbl.querySelector('tbody tr')), bare = bg(D.getElementById('listWrap'));
+        tbl.classList.remove('cardview');
+        const panel = [...D.querySelectorAll('#makeupCard .likes > .table-scroll')].find((x) => !x.hidden);
+        const fills = [bg(D.querySelector('.stat')), bg(panel), grid, card];
+        ok(fills.every((f) => f === fills[0]), th + ': all four the same — ' + fills.join(' / '));
+        ok(bg(panel.querySelector('thead th')) !== fills[0], th + ': the heading band stands apart from the well');
+        eq(bare, 'rgba(0, 0, 0, 0)', th + ': as cards the wrapper is bare — each card is its own well');
+        ok(well.length > 0, th + ': --surface-alt resolves');
+      });
+    } finally {
+      tbl.classList.toggle('cardview', wasCards);
+      el.setAttribute('data-theme', was || 'auto'); H.__plant(FIXTURE);
     }
   });
   t('a wine has a style profile — codes only, from Look Up, copied to its opened bottles (SCHEMA 20)', () => {
