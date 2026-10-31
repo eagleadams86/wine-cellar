@@ -3045,12 +3045,12 @@ function define() {
 
       W.setTab('pairings');
       const pRows = () => D.querySelectorAll('#pairingWrap tbody tr').length;
-      const pAll = pRows(), pr = D.querySelector('#pairLikeB tbody tr');
+      const pAll = pRows(), pr = D.querySelector('#pairLike_grape tbody tr');
       if (pr) {
         const planned = D.querySelector('#pairStats [data-pairing-pick="planned"]');
         planned.click();
-        ok(D.querySelectorAll('#pairLikeB tbody tr').length > 0
-           && !D.querySelector('#pairLikeB tbody tr:not(.dead)'),
+        ok(D.querySelectorAll('#pairLike_grape tbody tr').length > 0
+           && !D.querySelector('#pairLike_grape tbody tr:not(.dead)'),
            'Planned alone leaves What Pairs Well all dead — it counts only had pairings');
         planned.click();
         const had = Number(pr.querySelector('td').textContent);
@@ -3074,7 +3074,9 @@ function define() {
     const D = W.document;
     H.__plant(H.sampleData());
     try {
-      eq(D.querySelectorAll('#makeupCard .likes > .table-scroll').length, 6, 'six tables');
+      eq([...D.querySelectorAll('#makeupCard .likes > .table-scroll:not([hidden])')].map((x) => x.id),
+         ['makeGrapes', 'makeColours', 'makeRegions', 'makeSubregions', 'makeDrinkBy', 'makeWhere', 'make_body', 'make_aromas'],
+         'eight tables to start, in the pills\' order');
       const years = [...D.querySelectorAll('#makeDrinkBy tbody th')].map((t) => Number(t.textContent));
       ok(years.length > 1 && years.every((y, i) => !i || y > years[i - 1]), 'calendar order', years.join());
       const counts = [...D.querySelectorAll('#makeGrapes tbody td:nth-of-type(2)')].map((t) => Number(t.textContent));
@@ -3192,29 +3194,39 @@ function define() {
     eq([r.flavour, r.weight, r.heat], ['sweet', 'medium', 'none'], 'Pair Meal reads them back');
     ok(H.SCHEMA >= 19, 'SCHEMA moved on with the new fields');
   });
-  t('What Pairs Well: each table groups by any of the five, and switching lets a hidden pick go', () => {
+  t('Table pills: one per table, pressed = shown, and hiding one lets its pick go', () => {
     const D = W.document;
     H.__plant(H.sampleData());
     W.setTab('pairings');
-    const by = (id, v) => { const sel = D.getElementById(id); sel.value = v; sel.dispatchEvent(new W.Event('change')); };
-    const head = (id) => D.querySelector('#' + id + ' thead th').textContent.trim();
+    const pill = (card, f) => D.querySelector('#' + card + 'Picks [data-show="' + f + '"]');
+    const shown = (card) => [...D.querySelectorAll('#' + card + 'Tables > .table-scroll:not([hidden])')].map((x) => x.id);
+    const rows = () => D.querySelectorAll('#pairingWrap tbody tr').length;
     try {
-      eq([head('pairLikeA'), head('pairLikeB')], ['Food', 'Grape'], 'Food beside Grape by default');
-      eq([...D.getElementById('pairLikeByA').options].map((o) => o.textContent),
-         ['Food', 'Flavour', 'Weight', 'Heat', 'Grape'], 'five to choose from');
-      by('pairLikeByA', 'heat');
-      eq(head('pairLikeA'), 'Heat', 'the left table now groups by heat');
-      const hot = [...D.querySelectorAll('#pairLikeA tbody tr')].find((r) => /Hot/.test(r.textContent));
-      ok(hot, 'the sample has a Hot row');
-      const all = D.querySelectorAll('#pairingWrap tbody tr').length;
-      hot.click();
-      ok(D.querySelectorAll('#pairingWrap tbody tr').length < all, 'and pressing it narrows the list');
-      by('pairLikeByA', 'weight');
-      eq(D.querySelectorAll('#pairingWrap tbody tr').length, all, 'a table switched away lets its pick go');
-      by('pairLikeByA', 'grape');
-      eq([head('pairLikeA'), head('pairLikeB'), D.getElementById('pairLikeByB').value], ['Grape', 'Weight', 'weight'],
-         'choosing the other table\'s field swaps the two');
-    } finally { by('pairLikeByA', 'food'); by('pairLikeByB', 'grape'); W.setTab('cellar'); H.__plant(FIXTURE); }
+      eq([...D.querySelectorAll('#pairLikePicks [data-show]')].map((b) => b.textContent),
+         ['Food', 'Flavour', 'Weight', 'Heat', 'Grape'], 'What Pairs Well: a pill for each of the five');
+      eq(shown('pairLike'), ['pairLike_food', 'pairLike_grape'], 'Food and Grape to start');
+      eq(pill('pairLike', 'heat').getAttribute('aria-pressed'), 'false', 'an unshown table\'s pill says so');
+      pill('pairLike', 'heat').click();
+      eq(shown('pairLike'), ['pairLike_food', 'pairLike_heat', 'pairLike_grape'], 'pressing Heat shows it, in its place');
+      eq(pill('pairLike', 'heat').getAttribute('aria-pressed'), 'true');
+      const all = rows();
+      [...D.querySelectorAll('#pairLike_heat tbody tr')].find((r) => /Hot/.test(r.textContent)).click();
+      ok(rows() < all, 'a Hot row narrows the list');
+      pill('pairLike', 'heat').click();
+      eq([shown('pairLike').indexOf('pairLike_heat'), rows()], [-1, all], 'hiding Heat hides it and lets its pick go');
+      eq(D.getElementById('pairLike_heat').innerHTML, '', 'and empties it');
+      pill('pairLike', 'food').click(); pill('pairLike', 'grape').click();
+      eq(shown('pairLike'), [], 'every pill off');
+      ok(/Press a name above/.test(D.getElementById('pairLikeWarn').textContent), 'says how to bring one back');
+      W.setTab('cellar');
+      eq([...D.querySelectorAll('#makePicks [data-show]')].map((b) => b.textContent),
+         ['Grape', 'Colour', 'Region', 'Sub-region', 'Drink By', 'Where It Is', 'Sweetness', 'Body', 'Acidity', 'Tannin', 'Style', 'Notes'],
+         'Cellar Makeup: twelve, the style profile\'s included');
+      ok(!D.querySelector('#makeupCard select, #likeCard select, #pairLikeCard select'), 'no Group by dropdowns left');
+    } finally {
+      ['food', 'grape'].forEach((f) => { if (pill('pairLike', f).getAttribute('aria-pressed') !== 'true') pill('pairLike', f).click(); });
+      W.setTab('cellar'); H.__plant(FIXTURE);
+    }
   });
   t('a wine has a style profile — codes only, from Look Up, copied to its opened bottles (SCHEMA 20)', () => {
     const P = { sweetness: 'dry', body: 'full', acidity: 'high', tannin: 'medium', style: 'earthy', aromas: ['blackfruit', 'oak'] };
@@ -3246,7 +3258,7 @@ function define() {
     H.applyLookupTo(w, r, ['profile'], '2026-10-31T10:00:00Z');
     eq(w.profile, P, 'Save takes it');
   });
-  t('By Style: notes count under each, a pick narrows the list, Group by swaps and lets go', () => {
+  t('Style tables: notes count under each, a pick narrows the list, hiding one lets it go', () => {
     const D = W.document;
     const c = H.computeOpened(H.normalizeState(H.sampleData()));
     const by = (g, n) => g.rows.find((r) => r.name === n) || {};
@@ -3255,23 +3267,22 @@ function define() {
     ok(c.aromas.blank >= 1, 'the mystery bottle has no profile');
     H.__plant(H.sampleData());
     W.setTab('opened');
-    const sel = (id, v) => { const x = D.getElementById(id); x.value = v; x.dispatchEvent(new W.Event('change')); };
-    const head = (id) => D.querySelector('#' + id + ' thead th').textContent.trim();
     const lines = () => D.querySelectorAll('#openedTable tbody tr, #openedWrap tbody tr').length;
+    const pill = (f) => D.querySelector('#likePicks [data-show="' + f + '"]');
     try {
-      eq([head('likeStyleA'), head('likeStyleB')], ['Style', 'Notes'], 'What You Like: Style beside Notes');
+      eq(['style', 'aromas', 'body'].map((f) => pill(f).getAttribute('aria-pressed')), ['true', 'true', 'false'],
+         'What You Like starts with Style and Notes shown');
       const all = lines();
-      const earthy = [...D.querySelectorAll('#likeStyleA tbody tr')].find((r) => /Earthy/.test(r.textContent));
+      const earthy = [...D.querySelectorAll('#like_style tbody tr')].find((r) => /Earthy/.test(r.textContent));
       earthy.click();
       ok(lines() < all && lines() > 0, 'pressing Earthy narrows the opened list', lines() + ' of ' + all);
-      sel('likeStyleByA', 'tannin');
-      eq(lines(), all, 'a table switched away lets its pick go');
-      sel('likeStyleByA', 'aromas');
-      eq([head('likeStyleA'), head('likeStyleB')], ['Notes', 'Tannin'], 'choosing the other table\'s field swaps them');
+      pill('style').click();
+      eq(lines(), all, 'hiding Style lets its pick go');
+      pill('style').click();
       W.setTab('cellar');
-      eq([head('makeStyleA'), head('makeStyleB')], ['Body', 'Notes'], 'Cellar Makeup: Body beside Notes');
+      ok(!D.getElementById('make_body').hidden && !D.getElementById('make_aromas').hidden, 'Cellar Makeup shows Body and Notes');
       ok(/style profile/.test(D.getElementById('makeWarn').textContent), 'the profile-less bottle is counted out loud');
-    } finally { sel('likeStyleByA', 'style'); sel('likeStyleByB', 'aromas'); W.setTab('cellar'); H.__plant(FIXTURE); }
+    } finally { if (pill('style').getAttribute('aria-pressed') !== 'true') pill('style').click(); W.setTab('cellar'); H.__plant(FIXTURE); }
   });
   t('Pair Meal sends each wine\'s style, and says how to use it', () => {
     const st = H.normalizeState(H.sampleData());
@@ -3502,8 +3513,8 @@ function define() {
       const tile = (k) => D.querySelector('#pairStats [data-pairing-pick="' + k + '"]');
       ['planned', 'overdue', 'had'].forEach((k) => ok(Number(tile(k).querySelector('.v').firstChild.textContent) > 0,
         'sample data reaches the ' + k + ' tile'));
-      eq(D.querySelectorAll('#pairLikeB tbody tr').length, 8, 'and What Pairs Well has a row per grape');
-      ok(D.querySelectorAll('#pairLikeA tbody tr').length >= 6, 'and one per kind of food, beside it');
+      eq(D.querySelectorAll('#pairLike_grape tbody tr').length, 8, 'and What Pairs Well has a row per grape');
+      ok(D.querySelectorAll('#pairLike_food tbody tr').length >= 6, 'and one per kind of food, beside it');
       ok(/no main ingredient/.test(D.getElementById('pairLikeWarn').textContent), 'the warn line counts the untagged one');
       tile('had').focus();
       tile('had').click();
@@ -4991,7 +5002,7 @@ function define() {
         { id: 'pr-only', wineId: 'fx-ready', label: '2019 Alpha Pinot', meal: 'Lamb', date: '',
           status: 'planned', rating: null, note: '', openedId: null, why: '' }] }));
       W.setTab('pairings');
-      eq(D.getElementById('pairLikeB').textContent.trim(), 'No pairing has been had yet.',
+      eq(D.getElementById('pairLike_grape').textContent.trim(), 'No pairing has been had yet.',
          'never that a grape is missing');
     } finally { H.__plant(FIXTURE); W.setTab('cellar'); }
   });

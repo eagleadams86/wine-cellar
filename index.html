@@ -808,12 +808,17 @@
   .likes { display: grid; gap: var(--sp-5); grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
            align-items: start; }
   .likes table { width: 100%; }
-  /* What Pairs Well's "Group by" box over each table (SCHEMA 19). A grid item
-     holding a scroller needs min-width: 0 or a wide table widens the page. */
+  /* A grid item holding a scroller needs min-width: 0 or a wide table widens the page. */
   .likes > div { min-width: 0; }
-  .pairlike-by { display: flex; align-items: center; gap: var(--sp-2); margin: 0 0 var(--sp-2); }
-  .pairlike-by label { margin: 0; }
-  .pairlike-by select { width: auto; }
+  /* The table pills over a grouping card (2026-10-31): the sort pills' shape,
+     pressed = shown. Pressed says so three ways, never colour alone: a ✓,
+     the button fill and a stronger edge. */
+  .tablepicks { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 var(--sp-4); }
+  .tablepicks button { border: 1px solid var(--border-control); border-radius: var(--radius-pill); padding: 4px 10px;
+    min-height: 0; background: transparent; color: var(--text-secondary); font-size: var(--fs-xs);
+    text-transform: uppercase; letter-spacing: var(--ls-label); }
+  .tablepicks button[aria-pressed="true"] { border-color: var(--btn-bg); background: var(--surface-alt); color: var(--text-primary); }
+  .tablepicks button[aria-pressed="true"]::before { content: '✓ '; }
   /* The style profile in the two editors: a fold, five boxes, the notes as tick boxes. */
   details.profilebox { margin: 0 0 var(--sp-4); }
   details.profilebox > summary .profile-sum { color: var(--text-secondary); }
@@ -827,9 +832,9 @@
      under the one before, so the short ones fill the gaps; a table never
      splits across columns. Rows never vanish when a pick is pressed (dead
      rows stay), so nothing reflows under the finger. */
-  #makeupCard .likes, #likeCard .likes { display: block; columns: 23rem; column-gap: var(--sp-5); }
-  #likeCard .likes { columns: 300px; }
-  #makeupCard .likes > *, #likeCard .likes > * { break-inside: avoid; margin: 0 0 var(--sp-5); }
+  #makeupCard .likes, #likeCard .likes, #pairLikeCard .likes { display: block; columns: 23rem; column-gap: var(--sp-5); }
+  #likeCard .likes, #pairLikeCard .likes { columns: 300px; }
+  #makeupCard .likes > *, #likeCard .likes > *, #pairLikeCard .likes > * { break-inside: avoid; margin: 0 0 var(--sp-5); }
   /* And on a phone the fifth column still needs ~45px more than the screen
      has: the cells lose half their side padding and the headings their
      letter spacing, so all five fit unscrolled (measured at 375px). */
@@ -1791,21 +1796,17 @@ html[data-booting] footer { visibility: hidden; }
         <span class="spacer"></span>
         <button type="button" class="link no-print" data-facet-clear style="visibility: hidden">Clear</button>
       </h2>
-      <p class="chart-title">The bottles you have now by grape, region, sub-region, colour, the year their window closes and where they are — and how many of them are ready to open. By Style groups them by Look Up’s style profile. Press a row to narrow the list below.</p>
-      <div class="likes">
+      <p class="chart-title">The bottles you have now — by grape, colour, region, sub-region, the year their window closes, where they are and Look Up’s style profile — and how many of them are ready to open. Press a name to show or hide its table; press a row to narrow the list below.</p>
+      <div class="tablepicks no-print" id="makePicks" role="group" aria-label="Tables to show"></div>
+      <!-- Every table's host; tablePicker adds the style profile's and hides
+           the ones whose pill is off. -->
+      <div class="likes" id="makeTables">
         <div class="table-scroll" id="makeGrapes"></div>
         <div class="table-scroll" id="makeColours"></div>
         <div class="table-scroll" id="makeRegions"></div>
         <div class="table-scroll" id="makeSubregions"></div>
         <div class="table-scroll" id="makeDrinkBy"></div>
         <div class="table-scroll" id="makeWhere"></div>
-        <!-- By Style (SCHEMA 20): two tables over the wine's style profile, each
-             choosing what it groups by, remembered on this device. In the same
-             flow as the rest, so no half-empty second block (Charles, 2026-10-31). -->
-        <div><div class="field pairlike-by"><label for="makeStyleByA">Group by</label><select id="makeStyleByA"></select></div>
-          <div class="table-scroll" id="makeStyleA"></div></div>
-        <div><div class="field pairlike-by"><label for="makeStyleByB">Group by</label><select id="makeStyleByB"></select></div>
-          <div class="table-scroll" id="makeStyleB"></div></div>
       </div>
       <p class="warn-line" id="makeWarn" role="status"></p>
     </div>
@@ -1900,18 +1901,12 @@ html[data-booting] footer { visibility: hidden; }
         <span class="spacer"></span>
         <button type="button" class="link no-print" data-facet-clear style="visibility: hidden">Clear</button>
       </h2>
-      <p class="chart-title">Your opened bottles by grape, by region and by sub-region — and By Style, by the wine’s style profile — best-rated first. Press a row to narrow the list below.</p>
-      <div class="likes">
+      <p class="chart-title">Your opened bottles by grape, region, sub-region and the wine’s style profile, best-rated first. Press a name to show or hide its table; press a row to narrow the list below.</p>
+      <div class="tablepicks no-print" id="likePicks" role="group" aria-label="Tables to show"></div>
+      <div class="likes" id="likeTables">
         <div class="table-scroll" id="likeGrapes"></div>
         <div class="table-scroll" id="likeRegions"></div>
         <div class="table-scroll" id="likeSubregions"></div>
-        <!-- By Style (SCHEMA 20): two tables over the wine's style profile, each
-             choosing what it groups by, remembered on this device. In the same
-             flow as the rest, so no half-empty second block (Charles, 2026-10-31). -->
-        <div><div class="field pairlike-by"><label for="likeStyleByA">Group by</label><select id="likeStyleByA"></select></div>
-          <div class="table-scroll" id="likeStyleA"></div></div>
-        <div><div class="field pairlike-by"><label for="likeStyleByB">Group by</label><select id="likeStyleByB"></select></div>
-          <div class="table-scroll" id="likeStyleB"></div></div>
       </div>
       <p class="warn-line" id="likeWarn" role="status"></p>
     </div>
@@ -1990,17 +1985,11 @@ html[data-booting] footer { visibility: hidden; }
         <span class="spacer"></span>
         <button type="button" class="link no-print" data-facet-clear style="visibility: hidden">Clear</button>
       </h2>
-      <p class="chart-title">The pairings you have had, grouped two ways side by side, best-rated first — how each one went together. Choose what each table groups by; press a row to narrow the list below.</p>
-      <!-- Two tables, each grouping by any of the five (SCHEMA 19, Charles,
-           2026-10-31): main ingredient, leading flavour, weight, heat or the
-           wine's grape. Five side by side would not fit; two is What You
-           Like's width. The choice is remembered on this device only. -->
-      <div class="likes">
-        <div><div class="field pairlike-by"><label for="pairLikeByA">Group by</label><select id="pairLikeByA" data-slot="0"></select></div>
-          <div class="table-scroll" id="pairLikeA"></div></div>
-        <div><div class="field pairlike-by"><label for="pairLikeByB">Group by</label><select id="pairLikeByB" data-slot="1"></select></div>
-          <div class="table-scroll" id="pairLikeB"></div></div>
-      </div>
+      <p class="chart-title">The pairings you have had by the meal’s labels and the wine’s grape, best-rated first — how each one went together. Press a name to show or hide its table; press a row to narrow the list below.</p>
+      <div class="tablepicks no-print" id="pairLikePicks" role="group" aria-label="Tables to show"></div>
+      <!-- One table per pressed pill: food, flavour, weight, heat or grape
+           (Charles, 2026-10-31). tablePicker makes the hosts. -->
+      <div class="likes" id="pairLikeTables"></div>
       <p class="warn-line" id="pairLikeWarn" role="status"></p>
     </div>
 
@@ -4724,45 +4713,66 @@ const MAKE_TABLES = { grape: ['makeGrapes', 'Grape', 'grapes', 'no grape recorde
   color: ['makeColours', 'Colour', 'colours', 'no colour set'],
   drinkTo: ['makeDrinkBy', 'Drink By', 'drinkBy', 'no end to its window'],
   location: ['makeWhere', 'Where It Is', 'places', 'no place recorded'],
-  /* By Style's (SCHEMA 20): no fixed host — makeStyle says which are shown, and where. */
-  ...Object.fromEntries(PROFILE_FIELDS.map((f) => [f, [null, PROFILE_HEAD[f], f,
+  /* The style profile's (SCHEMA 20), hosts made by tablePicker. */
+  ...Object.fromEntries(PROFILE_FIELDS.map((f) => [f, ['make_' + f, PROFILE_HEAD[f], f,
     f === 'aromas' ? 'no notes in the style profile' : 'no ' + PROFILE_HEAD[f].toLowerCase() + ' in the style profile']])) };
-const MAKE_BASE = ['grape', 'region', 'subregion', 'color', 'drinkTo', 'location'];
-/* By Style's two tables on a card: which profile field each shows, chosen in
-   its Group by box and remembered on this device (a viewer's convenience, so
-   localStorage, guarded). Choosing the other table's field swaps them; a
-   field leaving view lets its picks go, so nothing narrows the list from a
-   table you cannot see — What Pairs Well's rules. */
-function styleSlots(prefix, defaults, picks, draw) {
-  const store = 'wine-' + prefix + '-style-by', sel = [prefix + 'StyleByA', prefix + 'StyleByB'];
-  /* Built before `$` exists (MAKE_TABLES' place), so it asks the document itself. */
-  const hosts = [prefix + 'StyleA', prefix + 'StyleB'];
-  let show = defaults;
+/* The order its pills and tables take. */
+const MAKE_ORDER = ['grape', 'color', 'region', 'subregion', 'drinkTo', 'location'].concat(PROFILE_FIELDS);
+/* ── Which tables a grouping card shows (Charles, 2026-10-31: "a little pill
+   at the top that could be selected/unselected, to show that table") ──
+   One pill per table, pressed = shown, in the card's order; the choice is
+   remembered on this device (a viewer's convenience, so localStorage,
+   guarded). A table hidden lets its picks go, so nothing narrows the list
+   from a table you cannot see. Any host not in the markup is made here, in
+   order. Runs before `$` exists (MAKE_TABLES' place), so it asks the
+   document itself. Replaced the By Style "Group by" dropdowns. */
+function tablePicker(o) {
+  const store = 'wine-' + o.id + '-tables', all = o.fields.map((x) => x[0]);
+  let on = new Set(o.defaults);
   try {
     const v = JSON.parse(localStorage.getItem(store) || 'null');
-    if (Array.isArray(v) && v.length === 2 && v[0] !== v[1] && v.every((f) => PROFILE_HEAD[f])) show = v;
+    if (Array.isArray(v)) on = new Set(v.filter((f) => all.indexOf(f) !== -1));
   } catch (e) { /* private window: the default */ }
-  const set = (slot, field) => {
-    if (!PROFILE_HEAD[field] || show[slot] === field) return;
-    const next = show.slice(), other = 1 - slot;
-    if (next[other] === field) next[other] = next[slot];
-    else picks[next[slot]].clear();
-    next[slot] = field;
-    show = next;
-    sel.forEach((id, i) => { document.getElementById(id).value = show[i]; });
-    try { localStorage.setItem(store, JSON.stringify(show)); } catch (e) { /* not kept */ }
-    draw();
-  };
-  sel.forEach((id, i) => {
-    document.getElementById(id).innerHTML = PROFILE_FIELDS.map((f) => '<option value="' + f + '">' + esc(PROFILE_HEAD[f]) + '</option>').join('');
-    document.getElementById(id).value = show[i];
-    document.getElementById(id).addEventListener('change', (e) => set(i, e.target.value));
+  const box = document.getElementById(o.box);
+  o.fields.forEach(([f]) => {
+    let h = document.getElementById(o.host(f));
+    if (!h) { h = document.createElement('div'); h.className = 'table-scroll'; h.id = o.host(f); }
+    box.appendChild(h);   /* every host, in the card's order */
   });
-  return { show: () => show.slice(), host: (f) => hosts[show.indexOf(f)] || null };
+  const row = document.getElementById(o.row);
+  row.innerHTML = o.fields.map(([f, label]) => '<button type="button" data-show="' + esc(f) + '" aria-pressed="'
+    + on.has(f) + '">' + esc(label) + '</button>').join('');
+  row.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-show]');
+    if (!b) return;
+    const f = b.dataset.show;
+    if (on.has(f)) { on.delete(f); if (o.picks[f]) o.picks[f].clear(); } else on.add(f);
+    b.setAttribute('aria-pressed', String(on.has(f)));
+    try { localStorage.setItem(store, JSON.stringify(all.filter((x) => on.has(x)))); } catch (e) { /* not kept */ }
+    o.draw();
+  });
+  return {
+    shown: () => all.filter((f) => on.has(f)),
+    /* Shows the chosen hosts, hides and empties the rest; says the shown ones. */
+    dress: () => {
+      all.forEach((f) => { const h = document.getElementById(o.host(f)); h.hidden = !on.has(f); if (!on.has(f)) h.innerHTML = ''; });
+      return all.filter((f) => on.has(f));
+    },
+  };
 }
-const makeStyle = styleSlots('make', ['body', 'aromas'], makePick, () => FACET_TABS.cellar.draw());
-const likeStyle = styleSlots('like', ['style', 'aromas'], likePick, () => FACET_TABS.opened.draw());
-const makeHost = (f) => MAKE_TABLES[f][0] || makeStyle.host(f);
+const makeTables = tablePicker({ id: 'make', box: 'makeTables', row: 'makePicks', picks: makePick,
+  fields: MAKE_ORDER.map((f) => [f, MAKE_TABLES[f][1]]), host: (f) => MAKE_TABLES[f][0],
+  defaults: ['grape', 'color', 'region', 'subregion', 'drinkTo', 'location', 'body', 'aromas'],
+  draw: () => FACET_TABS.cellar.draw() });
+const LIKE_HOSTS = Object.assign({ grape: 'likeGrapes', region: 'likeRegions', subregion: 'likeSubregions' },
+  Object.fromEntries(PROFILE_FIELDS.map((f) => [f, 'like_' + f])));
+const likeTables = tablePicker({ id: 'like', box: 'likeTables', row: 'likePicks', picks: likePick,
+  fields: [['grape', 'Grape'], ['region', 'Region'], ['subregion', 'Sub-region']].concat(PROFILE_FIELDS.map((f) => [f, PROFILE_HEAD[f]])),
+  host: (f) => LIKE_HOSTS[f], defaults: ['grape', 'region', 'subregion', 'style', 'aromas'],
+  draw: () => FACET_TABS.opened.draw() });
+const makeHost = (f) => MAKE_TABLES[f][0];
+/* Said when every pill is off. */
+const NO_TABLES = 'Press a name above to show its table.';
 const MAKE_LABELS = Object.fromEntries(Object.keys(MAKE_TABLES).map((f) => [f, MAKE_TABLES[f][1]]));
 const LIKE_LABELS = Object.assign({ grape: 'Grape', region: 'Region', subregion: 'Sub-region' }, PROFILE_HEAD);
 const facetNote = (picks, labels) => facetAny(picks) ? ', narrowed to ' + facetSummary(picks, labels) : '';
@@ -4793,12 +4803,14 @@ const makeSort = Object.fromEntries(Object.keys(MAKE_TABLES).map((f) => [f, { ke
 function renderMakeup(c) {
   $('makeupCard').hidden = !c.bottles;
   if (!c.bottles) return;
-  MAKE_BASE.concat(makeStyle.show()).forEach((f) => renderMakeTable(f, c));
+  const shown = makeTables.dress();
+  shown.forEach((f) => renderMakeTable(f, c));
   /* Kept in its place while hidden, so it appearing never re-wraps the
      card's heading on a phone and moves the tables under it. */
   $('makeupCard').querySelector('[data-facet-clear]').style.visibility = facetAny(makePick) ? '' : 'hidden';
   const blanks = [];
-  MAKE_BASE.concat(makeStyle.show()).forEach((f) => {
+  if (!shown.length) blanks.push(NO_TABLES);
+  shown.forEach((f) => {
     const n = c[MAKE_TABLES[f][2]].blank, label = MAKE_TABLES[f][1];
     if (n) blanks.push(plural(n, 'bottle') + ' with ' + MAKE_TABLES[f][3] + ' '
       + (n === 1 ? 'is' : 'are') + ' left out of the ' + label + ' table.');
@@ -4806,8 +4818,7 @@ function renderMakeup(c) {
   $('makeWarn').textContent = blanks.join(' ');
 }
 function renderMakeTable(field, c) {
-  const [, label, k, lacks] = MAKE_TABLES[field], hostId = makeHost(field);
-  if (!hostId) return;
+  const [hostId, label, k, lacks] = MAKE_TABLES[field];
   const g = c[k], srt = makeSort[field], host = $(hostId);
   /* Drink By's own order is the calendar, soonest first — the question it
      answers is when bottles run out of time. The rest: most bottles first. */
@@ -4835,31 +4846,25 @@ function renderMakeTable(field, c) {
 /* What You Like alone — what its view buttons and sort headings change, so
    they redraw nothing else. */
 function renderLikeTables(c) {
-  renderLike('grape', c.grapes, 'Grape');
-  renderLike('region', c.regions, 'Region');
-  renderLike('subregion', c.subregions, 'Sub-region');
-  likeStyle.show().forEach((f) => renderLike(f, c[f], PROFILE_HEAD[f]));
+  const key = { grape: 'grapes', region: 'regions', subregion: 'subregions' };
+  const shown = likeTables.dress();
+  shown.forEach((f) => renderLike(f, c[key[f] || f], LIKE_LABELS[f]));
   /* Kept in its place while hidden, so it appearing never re-wraps the
      card's heading on a phone and moves the tables under it. */
   $('likeCard').querySelector('[data-facet-clear]').style.visibility = facetAny(likePick) ? '' : 'hidden';
-  const blanks = [];
-  [[c.grapes.blank, 'grape', 'Grape'], [c.regions.blank, 'region', 'Region'],
-   [c.subregions.blank, 'sub-region', 'Sub-region']].forEach((b) => {
-    if (b[0]) blanks.push(plural(b[0], 'bottle') + ' with no ' + b[1] + ' recorded '
-      + (b[0] === 1 ? 'is' : 'are') + ' left out of the ' + b[2] + ' table.');
-  });
-  likeStyle.show().forEach((f) => {
-    const n = c[f].blank;
-    if (n) blanks.push(plural(n, 'bottle') + ' with no ' + (f === 'aromas' ? 'notes' : PROFILE_HEAD[f].toLowerCase())
-      + ' in the style profile ' + (n === 1 ? 'is' : 'are') + ' left out of the ' + PROFILE_HEAD[f] + ' table.');
+  const blanks = shown.length ? [] : [NO_TABLES];
+  shown.forEach((f) => {
+    const n = c[key[f] || f].blank;
+    const what = PROFILE_HEAD[f] ? 'no ' + (f === 'aromas' ? 'notes' : PROFILE_HEAD[f].toLowerCase()) + ' in the style profile'
+      : 'no ' + LIKE_LABELS[f].toLowerCase() + ' recorded';
+    if (n) blanks.push(plural(n, 'bottle') + ' with ' + what + ' ' + (n === 1 ? 'is' : 'are')
+      + ' left out of the ' + LIKE_LABELS[f] + ' table.');
   });
   document.getElementById('likeWarn').textContent = blanks.join(' ');
 }
 /* Its own order is best-rated first, unrated last, then the most bottles. */
 function renderLike(field, g, label) {
-  const host = document.getElementById({ grape: 'likeGrapes', region: 'likeRegions', subregion: 'likeSubregions' }[field]
-    || likeStyle.host(field));
-  if (!host) return;
+  const host = document.getElementById(LIKE_HOSTS[field]);
   const cols = likeColumns(label), srt = likeSort[field];
   const key = srt.key || 'avg', sign = (srt.key ? srt.dir : 'desc') === 'asc' ? 1 : -1;
   const blankLast = (x, y, f) => (x == null && y == null) ? 0 : x == null ? 1 : y == null ? -1 : f(x, y) * sign;
@@ -8857,45 +8862,20 @@ const PAIR_LIKE_TABLES = Object.assign(
   Object.fromEntries(TAG_FIELDS.map((f) => [f, [MEAL_TAGS[f][2], f === 'food' ? 'foods' : f + 's', MEAL_TAGS[f][3]]])),
   { grape: ['Grape', 'grapes', 'no grape recorded'] });
 let pairLikeSort = Object.fromEntries(Object.keys(PAIR_LIKE_TABLES).map((f) => [f, { key: null, dir: 'desc' }]));
-/* The two tables' hosts, and which field each shows — remembered on this
-   device (a viewer's convenience, so localStorage, guarded). */
-const PAIR_LIKE_HOSTS = ['pairLikeA', 'pairLikeB'];
-const PAIR_LIKE_KEY = 'wine-pairlike-by';
-let pairLikeShow = (() => {
-  try {
-    const v = JSON.parse(localStorage.getItem(PAIR_LIKE_KEY) || 'null');
-    if (Array.isArray(v) && v.length === 2 && v[0] !== v[1] && v.every((f) => PAIR_LIKE_TABLES[f])) return v;
-  } catch (e) { /* private window: the default */ }
-  return ['food', 'grape'];
-})();
-const pairLikeHost = (field) => PAIR_LIKE_HOSTS[pairLikeShow.indexOf(field)];
-['pairLikeByA', 'pairLikeByB'].forEach((id, i) => {
-  $(id).innerHTML = Object.keys(PAIR_LIKE_TABLES).map((f) => '<option value="' + f + '">'
-    + esc(PAIR_LIKE_TABLES[f][0]) + '</option>').join('');
-  $(id).value = pairLikeShow[i];
-});
-/* Choosing the other table's field swaps the two; a field leaving view lets
-   its picks go, so nothing narrows the list from a table you cannot see. */
-function setPairLikeShow(slot, field) {
-  if (!PAIR_LIKE_TABLES[field] || pairLikeShow[slot] === field) return;
-  const other = 1 - slot, next = pairLikeShow.slice();
-  if (next[other] === field) next[other] = next[slot];
-  else pairLikePick[next[slot]].clear();
-  next[slot] = field;
-  pairLikeShow = next;
-  $('pairLikeByA').value = next[0]; $('pairLikeByB').value = next[1];
-  try { localStorage.setItem(PAIR_LIKE_KEY, JSON.stringify(next)); } catch (e) { /* not kept */ }
-  FACET_TABS.pairings.draw();
-}
-$('pairLikeByA').addEventListener('change', (e) => setPairLikeShow(0, e.target.value));
-$('pairLikeByB').addEventListener('change', (e) => setPairLikeShow(1, e.target.value));
+const pairLikeHost = (field) => 'pairLike_' + field;
+const pairTables = tablePicker({ id: 'pairlike', box: 'pairLikeTables', row: 'pairLikePicks', picks: pairLikePick,
+  fields: Object.keys(PAIR_LIKE_TABLES).map((f) => [f, PAIR_LIKE_TABLES[f][0]]), host: pairLikeHost,
+  defaults: ['food', 'grape'], draw: () => FACET_TABS.pairings.draw() });
 /* Both tables, the Clear link and the warn line. */
 function renderPairLike(c) {
   /* Kept in its place while hidden, so it appearing never re-wraps the
      card's heading on a phone and moves the tables under it. */
   $('pairLikeCard').querySelector('[data-facet-clear]').style.visibility = facetAny(pairLikePick) ? '' : 'hidden';
-  pairLikeShow.forEach((f) => renderPairLikeTable(f, c));
-  $('pairLikeWarn').textContent = pairLikeShow.map((f) => {
+  const shown = pairTables.dress();
+  shown.forEach((f) => renderPairLikeTable(f, c));
+  $('pairLikeWarn').textContent = shown.length ? '' : NO_TABLES;
+  if (!shown.length) return;
+  $('pairLikeWarn').textContent = shown.map((f) => {
     const n = c[PAIR_LIKE_TABLES[f][1]].blank, label = PAIR_LIKE_TABLES[f][0];
     return n ? plural(n, 'had pairing') + ' with ' + PAIR_LIKE_TABLES[f][2] + ' ' + (n === 1 ? 'is' : 'are')
       + ' left out of the ' + label + ' table.' : '';
@@ -8904,7 +8884,6 @@ function renderPairLike(c) {
 /* One table. Its own order is renderLike's: best-rated first, unrated last, then the most. */
 function renderPairLikeTable(field, c) {
   const hostId = pairLikeHost(field), [label, gkey, lacks] = PAIR_LIKE_TABLES[field];
-  if (!hostId) return;
   const g = c[gkey], srt = pairLikeSort[field];
   const key = srt.key || 'avg', sign = (srt.key ? srt.dir : 'desc') === 'asc' ? 1 : -1;
   const blankLast = (x, y, f) => (x == null && y == null) ? 0 : x == null ? 1 : y == null ? -1 : f(x, y) * sign;
@@ -9569,11 +9548,11 @@ const HELP = {
   likes: ['How These Tables Are Worked Out', `<p>Every opened bottle, grouped by its <strong>grape</strong> and, separately, by its <strong>region</strong>, as they were recorded when it was opened. Each name counts as written, ignoring only capitals and extra spaces — so a <strong>Tempranillo blend</strong> has its own row, apart from a straight Tempranillo.</p>
     <p><strong>Sub-region</strong> counts the narrower place inside a region — Stags Leap District inside Napa Valley — for the bottles that have one.</p>
     <p><strong>Bottles</strong> counts them all. <strong>Rated</strong> is how many you gave stars to, and <strong>Avg ★</strong> is the average of those stars, out of 5 — a bottle you didn’t rate never pulls it down. Best-rated comes first, with the most bottles breaking a tie; press a heading to sort by it instead.</p>
-    <p><strong>By Style</strong> groups them by their wine’s style profile from Look Up — sweetness, body, acidity, tannin, style, or its notes; choose two with <strong>Group by</strong>. A bottle with several notes counts under each of them. It is the wine’s typical profile, not that bottle on that night.</p>
+    <p><strong>The style tables</strong> group them by their wine’s style profile from Look Up — sweetness, body, acidity, tannin, style, or its notes; show or hide each with its pill above the tables. A bottle with several notes counts under each of them. It is the wine’s typical profile, not that bottle on that night.</p>
     <p><strong>Press a row</strong> to narrow the Bottles Opened list to those bottles, and the other two tables recount to them — rows in two tables narrow to the bottles in both, two rows in one table to either. Press it again, or <strong>Clear</strong>, to let it go. The timing tiles narrow these tables the same way, though the tiles themselves always count every bottle.</p>`],
   makeup: ['How These Tables Are Worked Out', `<p>Every wine you still have bottles of, grouped by its <strong>grape</strong>, its <strong>region</strong>, its <strong>sub-region</strong>, its <strong>colour</strong>, the year its window closes and where you keep it. Each name counts as written, ignoring only capitals and extra spaces, as What You Like on the Opened tab does.</p>
     <p><strong>Press a row</strong> to narrow the cellar to those bottles: the list below shows only them, and the other tables recount to them. Press rows in two tables and it narrows to the bottles in both; press two rows in one table and either will do. A row with none of the picked bottles stays at 0, dimmed and locked, and pressing a picked row again (or <strong>Clear</strong>) lets it go. The status tiles in At a Glance (and the Cellar's Status box) narrow these tables the same way, though the tiles themselves always count the whole cellar.</p>
-    <p><strong>By Style</strong> groups them by Look Up’s style profile — sweetness, body, acidity, tannin, style, or its notes; choose two with <strong>Group by</strong>. A wine with several notes counts under each, so the Notes table’s shares add up to more than 100%.</p>
+    <p><strong>The style tables</strong> group them by Look Up’s style profile — sweetness, body, acidity, tannin, style, or its notes; show or hide each with its pill above the tables. A wine with several notes counts under each, so the Notes table’s shares add up to more than 100%.</p>
     <p><strong>Drink By</strong> groups bottles by the year their drinking window closes, soonest first — the years when bottles start running out of time; a window with no end is left out and counted. <strong>Where It Is</strong> groups them by the place you keep them, as written (capitals ignored).</p>
     <p><strong>Wines</strong> is how many different wines, <strong>Bottles</strong> how many bottles of them, and <strong>Share</strong> that as a part of every bottle in the cellar. <strong>Ready</strong> counts the bottles you could open this year: Ready, Drink Soon or Past Window. Most bottles come first (Drink By: the soonest year first); press a heading to sort by it instead. Finished wines are never counted, and Find never changes these tables.</p>`],
 };

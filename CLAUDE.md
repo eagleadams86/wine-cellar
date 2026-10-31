@@ -130,9 +130,19 @@ the family doesn't.
   `readProfileBoxes(p)` / `setProfileBoxes(p, prof)`; ticks past four go disabled. **Grouping:
   `facetValues(rec, field)` returns SEVERAL names for `aromas`** — likeGroups / makeupGroups count a
   record under each, facetMatch matches any; Notes' shares can pass 100% (help text says so).
-  By Style = two Group by tables inside Cellar Makeup (`makeStyle`, default Body + Notes) and What
-  You Like (`likeStyle`, Style + Notes), built by `styleSlots(prefix, defaults, picks, draw)` —
-  What Pairs Well's swap/clear rules, localStorage `wine-make-style-by` / `wine-like-style-by`.
+  The style tables first shipped as two "Group by" dropdown slots per card; replaced the same day
+  by table pills (below).
+  **Table pills (same day, Charles: "not a fan of the group by dropdowns"):** every grouping card —
+  Cellar Makeup, What You Like, What Pairs Well — has a `.tablepicks` row (`#makePicks`,
+  `#likePicks`, `#pairLikePicks`), one `aria-pressed` pill per table, pressed = shown, built by
+  `tablePicker({id, box, row, picks, fields, host, defaults, draw})`. It makes any host the markup
+  lacks (`make_<f>`, `like_<f>`, `pairLike_<f>`) and appends EVERY host to the box in the card's
+  order; `dress()` hides + empties the off ones and returns the shown list, which renderMakeup /
+  renderLikeTables / renderPairLike draw and warn over. Hiding a table clears its picks.
+  localStorage `wine-make-tables` / `wine-like-tables` / `wine-pairlike-tables`. All off says
+  `NO_TABLES` in the warn line. The Group by selects, `styleSlots`, `pairLikeShow` and the
+  `pairLikeA/B` hosts are GONE — don't bring a two-slot picker back. Defaults: Cellar = the six +
+  Body + Notes; What You Like = Grape, Region, Sub-region, Style, Notes; Pairs = Food + Grape.
   **Layout (same day, Charles: "organize cellar makeup better"):** By Style is NOT a separate
   block any more — its two slots sit in the same `.likes` as the other tables, and Cellar Makeup
   and What You Like use CSS multi-column (`columns: 23rem` / `300px`, `break-inside: avoid`), not
@@ -141,8 +151,8 @@ the family doesn't.
   Where It Is, then the two Group by tables. Columns balance in ORDER, so the bottoms are uneven;
   a JS shortest-column packer was considered and declined — it moves table nodes on every redraw
   (focus, scroll, "nothing moves under the finger") for ~10% less height.
-  `styleSlots` runs BEFORE `const $` exists (MAKE_TABLES' place) — it uses getElementById; a `$`
-  there was a boot-time TDZ that left the suite with no hooks. Profile fields sit in MAKE_TABLES
+  `tablePicker` (was `styleSlots`) runs BEFORE `const $` exists (MAKE_TABLES' place) — it uses
+  getElementById; a `$` there was a boot-time TDZ that left the suite with no hooks. Profile fields sit in MAKE_TABLES
   with host null (`makeHost`). Pair Meal: `pairLine` adds "style: …"; PAIR_SYSTEM says match
   weight, acid and sweetness, keep tannin from heat. Measured: one real Look Up on the 2009 Stags'
   Leap Cab came back dry / medium body / medium acid / medium tannin / fruit-forward — red fruit,
