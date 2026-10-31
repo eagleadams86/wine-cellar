@@ -57,9 +57,11 @@ cellar on your other devices.
 - **Came from** is your own words — a wine club, a shop, a gift — and the box offers back the
   ones you have used before. (It used to be three fixed choices; those became words.)
 - **Point at a row to see the rest of the wine** — the bubble (Money Map's row tip) lists every
-  field the table has no column for: colour, where it came from and when it was added. Then the
-  wine's notes, if it has any; a small dot after the name still says it has notes. On a phone,
-  tap the wine to see it all in its window.
+  field its window has that the table has no column for: colour, the style profile, where it came
+  from, when it was added and whether a label photo is kept. Then the wine's notes, if it has any;
+  a small dot after the name still says it has notes. The Opened and Pairings lists do the same —
+  an opened bottle's window and style profile, a pairing's four meal labels. On a phone, tap the
+  row to see it all in its window.
 - **Opened tab** — every bottle you have opened, with the date, the wine's region, grape and what
   you paid (copied when you press Opened One, so the log reads the same after the wine is edited
   or deleted; Paid shows once any bottle has one), your 1–5 rating (in half points — a 4.5 is a 4.5) and a note. **Held Up** says how the bottle had

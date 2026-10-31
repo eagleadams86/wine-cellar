@@ -51,7 +51,7 @@
    go MISSING look exactly like tests that pass — a suite that quietly shrank to
    three checks still says "all 3 tests pass". RAISE THIS when you add tests, and
    lower it only when you retire one deliberately. */
-const EXPECTED = 352;
+const EXPECTED = 353;
 
 /* ── It refuses to run anywhere but localhost, and that is load-bearing ──────
    GitHub Pages publishes this page BESIDE the app, where the iframe below would
@@ -2751,6 +2751,23 @@ function define() {
     ok(!W.document.querySelector('#cellarTable [title]'),
        'never a native title as well — it would come up a second after, as a second bubble');
     H.__plant(FIXTURE);
+  });
+  t('the hover carries every field of the edit window that the grid has no column for', () => {
+    /* Charles, 2026-10-31: "any data in the edit windows that aren't on the
+       grid/card, should be in the hover tooltip" — the style profile was not. */
+    const prof = { sweetness: 'dry', body: 'full', acidity: null, tannin: 'high', style: null, aromas: ['blackfruit'] };
+    const f = H.wineFacts({ color: 'red', profile: prof, photoAt: 5, region: 'Napa', subregion: 'Oakville', qty: 2,
+      drinkFrom: 2025, drinkTo: 2030 }, []);
+    ok(/^Style profile: Dry · Full body · High tannin — Black fruit$/m.test(f), 'the style profile, as the window says it');
+    ok(/^Label photo: kept$/m.test(f), 'and that a label photo is kept');
+    ok(/^Region: Napa · Oakville$/m.test(f) && /^Bottles: 2$/m.test(f) && /^Window: /m.test(f),
+       'a table without those columns gets the sub-region, the bottles and the window');
+    const g = H.wineFacts({ color: 'red', region: 'Napa', qty: 2, drinkFrom: 2025, drinkTo: 2030 },
+      ['region', 'qty', 'window']);
+    ok(!/Region|Bottles|Window/.test(g), 'and the Cellar grid, which shows them, does not repeat them');
+    eq(H.pairingFacts({ food: 'redmeat', flavour: null, weight: 'bogus' }).split('\n')[0].indexOf('Main ingredient: '), 0,
+       'a pairing\u2019s tip names its meal labels, which the Pairings grid has no column for');
+    eq(H.pairingFacts({}), '', 'and a pairing with none says nothing');
   });
   t('pointing at the row shows the note; pointing away hides it', () => {
     H.__plant(Object.assign({}, FIXTURE, { wines: FIXTURE.wines.map((w) =>

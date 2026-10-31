@@ -1656,6 +1656,14 @@ html[data-booting] footer { visibility: hidden; }
 :is(.formpanel) :is(input, select, textarea):not([type=checkbox], [type=radio], [type=range], [readonly]) {
   background-color: var(--surface); }
 :is(.formpanel) :is(input, textarea)[readonly] { background-color: transparent; }
+
+/* A PILL SITS ONE STEP OFF WHAT IS BEHIND IT, like a field (theme pack rule 21).
+   A plain pill is --surface-alt, the well's own fill, so inside a well it showed
+   only as an outline. There it takes the card colour; in a hovered row (which
+   goes --surface) it swaps back. :where() keeps this at the weight of `.pill`
+   alone, so a status pill (.pill.ok and friends) keeps its tint. */
+:where(#listWrap, #openedWrap, #pairingWrap, #historyWrap, .likes, .card > h2.boxhead) .pill { background: var(--surface); }
+:where(#listWrap, #openedWrap, #pairingWrap, #historyWrap, .likes, .card > h2.boxhead) :where(tr:hover, tr.rowlink:hover) .pill { background: var(--surface-alt); }
 </style>
 </head>
 <body>
@@ -4420,22 +4428,29 @@ function wineNameCell(w) {
     : '<button type="button" class="rowbtn" data-edit="' + esc(w.id) + '">' + name + '</button>';
 }
 /* A row's hover carries every field its table has NO column for — Charles,
-   2026-10-23 — one "Label: value" per line, then the notes as their own block.
-   `shown` is the table's column keys, so the Cellar grid's tip adds colour,
-   where it came from and when it was added (and Paid while that column is
-   hidden). A blank field is left out. The
+   2026-10-23, and again 2026-10-31: "any data in the edit windows that aren't
+   on the grid/card, should be in the hover tooltip" — one "Label: value" per
+   line, then the notes as their own block. `shown` is the table's column keys,
+   so the Cellar grid's tip adds colour, the style profile, where it came from,
+   when it was added and whether a label photo is kept (and Paid while that
+   column is hidden). A NEW field in the wine window belongs here too, unless
+   the grid shows it. A blank field is left out. The
    labels and words are the wine window's own. The dot still means notes only. */
 function wineFacts(w, shown) {
   const off = (k) => shown.indexOf(k) === -1;
   return [
-    off('region') && w.region ? 'Region: ' + w.region : '',
+    off('region') && (w.region || w.subregion) ? 'Region: ' + [w.region, w.subregion].filter(Boolean).join(' · ') : '',
     off('grape') && w.grape ? 'Grape: ' + w.grape : '',
+    off('qty') && w.qty != null ? 'Bottles: ' + w.qty : '',
     off('value') && w.valueLow != null ? 'Value each: ' + fmtValue(w) : '',
+    off('window') && fmtWindow(w) !== '—' ? 'Window: ' + fmtWindow(w) : '',
     off('paid') && w.paid != null ? 'Paid: ' + fmtPaid(w.paid) + (dealOf(w) ? ' (' + DEAL_WORDS[dealOf(w)] + ')' : '') : '',
     off('location') && w.location ? 'Where: ' + w.location : '',
     COLOR_LABEL[w.color] ? 'Colour: ' + COLOR_LABEL[w.color] : '',
+    profileText(w.profile) ? 'Style profile: ' + profileText(w.profile) : '',
     w.source ? 'Came from: ' + w.source : '',
     fmtAdded(w.added) ? 'Added: ' + fmtAdded(w.added) : '',
+    w.photoAt ? 'Label photo: kept' : '',
   ].filter(Boolean).join('\n');
 }
 /* The facts, then the notes, then the hint LAST (Charles, 2026-10-24): what
@@ -4450,15 +4465,26 @@ const wineTip = (w, shown) => rowTip('',
 function openedFacts(o, shown) {
   const off = (k) => shown.indexOf(k) === -1;
   return [
-    off('region') && o.region ? 'Region: ' + o.region : '',
+    off('region') && (o.region || o.subregion) ? 'Region: ' + [o.region, o.subregion].filter(Boolean).join(' · ') : '',
     off('grape') && o.grape ? 'Grape: ' + o.grape : '',
     fmtWindow(o) !== '—' ? 'Window: ' + fmtWindow(o) : 'Window: none recorded',
     off('paid') && o.paid != null ? 'Paid: ' + fmtPaid(o.paid) : '',
     off('place') && o.place ? 'Where: ' + o.place : '',
+    off('heldup') && HELD_UP[o.heldUp] ? 'Held up: ' + HELD_UP[o.heldUp].label : '',
+    profileText(o.profile) ? 'Style profile: ' + profileText(o.profile) : '',
+    o.photoAt ? 'Label photo: kept' : '',
     !o.wineId ? 'Logged without a Cellar wine'
       : !state.wines.some((w) => w.id === o.wineId) ? 'Its Cellar wine has since been deleted' : 'From your Cellar',
   ].filter(Boolean).join('\n');
 }
+/* A pairing's hover, the same rule (Charles, 2026-10-31: "pairings have edit
+   windows too"): the grid shows when, the meal, the wine, its status, rating
+   and both notes, so the tip carries the four meal labels the window sets,
+   in the window's own words, then the hint. */
+function pairingFacts(p) {
+  return TAG_FIELDS.map((f) => tagName(f, p) ? MEAL_TAGS[f][1] + ': ' + tagName(f, p) : '').filter(Boolean).join('\n');
+}
+const pairingTip = (p) => rowTip('', [pairingFacts(p), viewOnly ? '' : 'Click to edit'].filter(Boolean).join('\n\n'));
 const openedTip = (o, shown) => rowTip('',
   [openedFacts(o, shown), viewOnly ? '' : 'Click to edit'].filter(Boolean).join('\n\n'));
 
@@ -9105,7 +9131,7 @@ function renderPairingList() {
     + sortHead(PAIRING_COLUMNS, pairingSortKey, pairingSortDir) + '</tr></thead><tbody>'
     + rows.map((p) => {
       const s = pairingStatus(p, today);
-      return '<tr' + (viewOnly ? '' : ' class="rowlink" data-pairing="' + esc(p.id) + '"') + '>'
+      return '<tr' + (viewOnly ? '' : ' class="rowlink" data-pairing="' + esc(p.id) + '"') + pairingTip(p) + '>'
         + '<td class="nowrap" data-label="When">' + esc(p.date ? fmtDate(p.date) : 'No day yet') + '</td>'
         + '<th scope="row">' + (viewOnly ? esc(p.meal)
             : '<button type="button" class="rowbtn" data-pairing="' + esc(p.id) + '">' + esc(p.meal) + '</button>') + '</th>'
@@ -10787,7 +10813,7 @@ window.__wineTestHooks = {
   sourceNamesOtherWine: sourceNamesOtherWine, wineWords: wineWords,
   lookupErrorMessage: lookupErrorMessage,
   tickRule: tickRule, windowBasisOf: windowBasisOf,
-  wineFacts: wineFacts, dealOf: dealOf, fmtPaid: fmtPaid, fmtDate: fmtDate, cleanAdded: cleanAdded, lookupDiffs: lookupDiffs, applyLookupTo: applyLookupTo, checkWines: checkWines, coreOf: coreOf, cleanChecked: cleanChecked, fmtChecked: fmtChecked, stampChecked: stampChecked, cleanLogEntry: cleanLogEntry, lookupEntry: lookupEntry, logTo: logTo, diffFields: diffFields, computeHistory: computeHistory, LOG_CAP: LOG_CAP, LOOKUP_TOOL: LOOKUP_TOOL,
+  wineFacts: wineFacts, pairingFacts: pairingFacts, dealOf: dealOf, fmtPaid: fmtPaid, fmtDate: fmtDate, cleanAdded: cleanAdded, lookupDiffs: lookupDiffs, applyLookupTo: applyLookupTo, checkWines: checkWines, coreOf: coreOf, cleanChecked: cleanChecked, fmtChecked: fmtChecked, stampChecked: stampChecked, cleanLogEntry: cleanLogEntry, lookupEntry: lookupEntry, logTo: logTo, diffFields: diffFields, computeHistory: computeHistory, LOG_CAP: LOG_CAP, LOOKUP_TOOL: LOOKUP_TOOL,
   LOOKUP_KEY_STORE: LOOKUP_KEY_STORE, SHARE_MAX_BYTES: SHARE_MAX_BYTES, b64urlEncode: b64urlEncode,
   buildPairRequest: buildPairRequest, pairMeal: pairMeal, readPairing: readPairing, pairWines: pairWines,
   buildJudgeRequest: buildJudgeRequest, readJudge: readJudge, judgePairing: judgePairing,
