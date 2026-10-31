@@ -6407,7 +6407,10 @@ const checkedWithin = (w, days) => !!w.checkedAt && Date.now() - Date.parse(w.ch
    reach every status, an estimate, a wine with no value or window, a finished
    wine, a price paid under, inside and over its value, and the opened log —
    a bottle opened early, in its window and late, an NV one, one with no
-   window, grape or region, and one whose wine has been deleted. Years count
+   window, grape or region, and one whose wine has been deleted. Regions and
+   grapes are written the way Look Up writes them (Charles, 2026-10-31) —
+   "Area, State or Country", one grape or a "… blend" — so the demo groups
+   as a real cellar does. Years count
    from THIS year, so the demo never goes stale.
 
    It is ADDITIVE and destroys nothing — stable `demo-` ids are what make that
@@ -6425,24 +6428,24 @@ function sampleData() {
     added: back(200), notes: '' }, o);
   return {
     wines: [
-      w({ id: 'demo-soon', vintage: Y - 6, name: 'Invented Hills Old Vine Zinfandel', region: 'Lodi',
+      w({ id: 'demo-soon', vintage: Y - 6, name: 'Invented Hills Old Vine Zinfandel', region: 'Lodi, California',
           grape: 'Zinfandel', qty: 2, valueLow: 28, valueHigh: 32, paid: 36, drinkFrom: Y - 3, drinkTo: Y,
           location: 'Rack A', notes: 'Its window closes this year — the one to open first.' }),
-      w({ id: 'demo-ready', vintage: Y - 3, name: 'Example Ridge Pinot Noir', region: 'Sonoma Coast',
+      w({ id: 'demo-ready', vintage: Y - 3, name: 'Example Ridge Pinot Noir', region: 'Sonoma Coast, California',
           grape: 'Pinot Noir', qty: 3, valueLow: 35, valueHigh: 45, valueEst: true, paid: 39.99,
           drinkFrom: Y - 1, drinkTo: Y + 5, location: 'Rack A', source: 'Wine club' }),
-      w({ id: 'demo-hold', vintage: Y - 2, name: 'Sample Estate Cabernet Sauvignon', region: 'Napa Valley', subregion: 'Oakville',
+      w({ id: 'demo-hold', vintage: Y - 2, name: 'Sample Estate Cabernet Sauvignon', region: 'Napa Valley, California', subregion: 'Oakville',
           grape: 'Cabernet Sauvignon', qty: 6, valueLow: 60, valueHigh: 75, paid: 52, drinkFrom: Y + 3,
           drinkTo: Y + 14, location: 'Rack B', notes: 'Bought by the case to open one a year.' }),
-      w({ id: 'demo-past', vintage: Y - 9, name: 'Placeholder Bianco', color: 'white', region: 'Friuli',
+      w({ id: 'demo-past', vintage: Y - 9, name: 'Placeholder Bianco', color: 'white', region: 'Friuli, Italy',
           grape: 'Friulano', qty: 1, valueLow: 18, drinkFrom: Y - 7, drinkTo: Y - 2,
           location: 'Wine fridge' }),
       w({ id: 'demo-sparkling', vintage: null, name: 'Fictional Brut Rosé', color: 'sparkling',
-          region: 'Champagne', grape: 'Pinot Noir, Chardonnay', qty: 2, valueLow: 40,
+          region: 'Champagne, France', grape: 'Champagne blend', qty: 2, valueLow: 40,
           drinkFrom: Y - 1, drinkTo: Y + 3, location: 'Wine fridge', source: 'other' }),
       w({ id: 'demo-none', vintage: Y - 4, name: 'Mystery Bottle From a Friend', qty: 1,
           location: 'Rack B', source: 'other', notes: 'No label we could read — no value, no window.' }),
-      w({ id: 'demo-finished', vintage: Y - 5, name: 'Long Gone Grenache', region: 'Barossa Valley',
+      w({ id: 'demo-finished', vintage: Y - 5, name: 'Long Gone Grenache', region: 'Barossa Valley, Australia',
           grape: 'Grenache', qty: 0, valueLow: 30, drinkFrom: Y - 3, drinkTo: Y + 2, source: 'Wine club' }),
     ],
     opened: [
@@ -6465,10 +6468,10 @@ function sampleData() {
       { id: 'demo-o8', wineId: 'demo-none', date: back(80), rating: null, note: '',
         label: (Y - 4) + ' Mystery Bottle From a Friend' },
       { id: 'demo-o9', wineId: 'demo-gone', date: back(300), rating: 4.5, heldUp: 'great', note: '',
-        label: (Y - 12) + ' Retired Rioja Reserva', region: 'Rioja', grape: 'Tempranillo', paid: null },
+        label: (Y - 12) + ' Retired Rioja Reserva', region: 'Rioja, Spain', grape: 'Tempranillo blend', paid: null },
       /* Logged away from home: no wine behind it, a place, its own snapshot. */
       { id: 'demo-o10', wineId: null, date: back(18), rating: 4, note: 'Ordered off the list with the steak.',
-        label: (Y - 7) + ' Imaginary Cellars Malbec', place: 'A steakhouse downtown', region: 'Mendoza',
+        label: (Y - 7) + ' Imaginary Cellars Malbec', place: 'A steakhouse downtown', region: 'Mendoza, Argentina',
         grape: 'Malbec', paid: 85, vintage: Y - 7, drinkFrom: Y - 3, drinkTo: Y + 4 },
     ],
     /* The Pairings tab's demo: three planned (one with no day yet, one
@@ -6496,8 +6499,7 @@ function sampleData() {
         why: 'Grenache’s red fruit and spice meet the tagine’s cumin and apricot.' },
       /* What Pairs Well's demo (Charles, 2026-10-30: "to get a better feel"):
          enough had pairings that every grape has a row and the averages
-         spread out — Pinot Noir near the top (the Brut Rosé groups under it,
-         As written splits it off), Zinfandel and Cabernet split by one great
+         spread out — Pinot Noir near the top, Zinfandel and Cabernet split by one great
          and one poor match, a pairing rated higher than its bottle (demo-o5),
          one through a deleted wine's line and one logged away from home (both
          take the line's grape), and one with no grape for the warning line. */
@@ -6545,8 +6547,11 @@ function sampleData() {
 function loadSample() {
   const demo = sampleData();
   ['wines', 'opened', 'pairings'].forEach((k) => demo[k].forEach((row) => {
-    const existing = state[k].find((x) => x.id === row.id);
-    if (existing) Object.assign(existing, row);
+    /* REPLACED whole, never merged: a demo opened line leaves its region and
+       grape to be filled from its wine, so a merge kept the OLD copies (the
+       Brut Rosé stayed "Pinot Noir, Chardonnay" after the sample changed). */
+    const at = state[k].findIndex((x) => x.id === row.id);
+    if (at > -1) state[k][at] = Object.assign({}, row);
     else state[k].push(Object.assign({}, row));
   }));
   state = normalizeState(state);
