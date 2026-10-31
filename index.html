@@ -4295,9 +4295,11 @@ const OPENED_COLUMNS = [
   { key: 'place',  label: 'Where',  desc: false },
   { key: 'paid',   label: 'Paid',   desc: true, num: true },
   { key: 'rating', label: 'Rating', desc: true, num: true },
+  /* Age, then Timing, then Held Up (Charles, 2026-10-31): how old it was,
+     whether that was early or late, and how it stood up to it. */
+  { key: 'age',    label: 'Age',    desc: true, num: true },
   { key: 'timing', label: 'Timing', desc: false },
   { key: 'heldup', label: 'Held Up', desc: false },
-  { key: 'age',    label: 'Age',    desc: true, num: true },
   { key: 'note',   label: 'Note',   desc: false },
 ];
 /* What You Like's columns; the first one's key and label are the table's own. */
@@ -4718,9 +4720,9 @@ function renderOpened() {
       + '<td class="num nowrap" data-label="Rating">' + (o.rating ? '<span aria-hidden="true" class="stars">'
           + starsOf(o.rating) + '</span> ' + o.rating + '/5' : '—')
       + '</td>'
+      + '<td class="num nowrap" data-label="Age">' + esc(fmtAge(ageAtOpening(o))) + '</td>'
       + '<td data-label="Timing">' + timingPill(timingOf(o)) + '</td>'
       + (hasHeld ? '<td data-label="Held Up">' + (o.heldUp ? heldUpPill(o.heldUp) : '—') + '</td>' : '')
-      + '<td class="num nowrap" data-label="Age">' + esc(fmtAge(ageAtOpening(o))) + '</td>'
       + '<td data-label="Note">' + esc(o.note) + '</td>'
       + '</tr>').join('')
     + '</tbody></table>';
