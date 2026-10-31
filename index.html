@@ -231,7 +231,7 @@
   :root {
     --chrome-h: 30px;    /* the header row: utilities, not the page's action */
     --control-h: 38.5px; /* every button in the page body and in dialogs */
-    --page-w: 1500px;    /* the family's default; 2400px is the ultra-wide */
+    --page-w: 2400px;    /* Money Map's (Charles, 2026-10-31); the family's default is 1500px */
   }
 
   * { box-sizing: border-box; }
@@ -2984,12 +2984,14 @@ const starsOf = (r) => '★'.repeat(Math.floor(r)) + (r % 1 ? '½' : '');
 /* How well an opened bottle had AGED, kept apart from how good the glass was
    (SCHEMA 17, Charles, 2026-10-31): a modest Pinot merely drinkable at 14 is a
    fine ageing result but a so-so wine, and one number can't say both. A code,
-   never free text; rank orders the column best first. */
+   never free text; rank orders the column best first. A pill like Timing's
+   (Charles, 2026-10-31), in the status tokens already used — the word is
+   the fact, the colour only a second cue (red-green colourblind). */
 const HELD_UP = {
-  great: { label: 'Great', rank: 0 },
-  fine:  { label: 'Fine',  rank: 1 },
-  faded: { label: 'Faded', rank: 2 },
-  gone:  { label: 'Gone',  rank: 3 },
+  great: { label: 'Great', cls: 'ok',   rank: 0 },
+  fine:  { label: 'Fine',  cls: 'hold', rank: 1 },
+  faded: { label: 'Faded', cls: 'warn', rank: 2 },
+  gone:  { label: 'Gone',  cls: 'err',  rank: 3 },
 };
 const cleanHeldUp = (v) => (typeof v === 'string' && Object.prototype.hasOwnProperty.call(HELD_UP, v) ? v : null);
 /* A pairing's meal, as its list shows it: "Short ribs with polenta". The
@@ -4495,6 +4497,10 @@ function timingPill(t) {
   const s = TIMING[t];
   return '<span class="pill' + (s.cls ? ' ' + s.cls : '') + '">' + esc(s.label) + '</span>';
 }
+function heldUpPill(h) {
+  const s = HELD_UP[h];
+  return '<span class="pill ' + s.cls + '">' + esc(s.label) + '</span>';
+}
 const fmtAge = (a) => a == null ? '—' : plural(a, 'yr');
 
 /* ── The Opened tab's dashboard ─────────────────────────────────────────────
@@ -4713,7 +4719,7 @@ function renderOpened() {
           + starsOf(o.rating) + '</span> ' + o.rating + '/5' : '—')
       + '</td>'
       + '<td data-label="Timing">' + timingPill(timingOf(o)) + '</td>'
-      + (hasHeld ? '<td data-label="Held Up">' + (o.heldUp ? esc(HELD_UP[o.heldUp].label) : '—') + '</td>' : '')
+      + (hasHeld ? '<td data-label="Held Up">' + (o.heldUp ? heldUpPill(o.heldUp) : '—') + '</td>' : '')
       + '<td class="num nowrap" data-label="Age">' + esc(fmtAge(ageAtOpening(o))) + '</td>'
       + '<td data-label="Note">' + esc(o.note) + '</td>'
       + '</tr>').join('')

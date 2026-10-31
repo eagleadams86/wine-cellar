@@ -114,7 +114,10 @@ the family doesn't.
   the one printer ("★★★★½"). `heldUp` on an opened line is a CODE from `HELD_UP` (great / fine /
   faded / gone, or null) — how the bottle AGED, kept apart from how good it was, so the rating is
   never a curve for age. History code `heldup`; the Opened list's Held Up column hides until a line
-  has one (Paid/Where's rule); CSV has it; share links carry it.
+  has one (Paid/Where's rule) and is a pill like Timing's, in the status tokens already used
+  (great ok, fine hold, faded warn, gone err — no new colour); CSV has it; share links carry it.
+- **`--page-w` is 2400px, Money Map's** (2026-10-31, Charles: "match money map"), not the family's
+  1500px. The test accepts either.
 
 ## Decisions — Don't Undo
 

@@ -63,7 +63,7 @@ cellar on your other devices.
 - **Opened tab** — every bottle you have opened, with the date, the wine's region, grape and what
   you paid (copied when you press Opened One, so the log reads the same after the wine is edited
   or deleted; Paid shows once any bottle has one), your 1–5 rating (in half points — a 4.5 is a 4.5) and a note. **Held Up** says how the bottle had
-  aged — Great, Fine, Faded or Gone — kept apart from the rating, so the rating can judge the glass the
+  aged — Great, Fine, Faded or Gone, coloured like Timing — kept apart from the rating, so the rating can judge the glass the
   way you would at its peak and an old bottle isn't graded on a curve; the column shows once any
   bottle has one. Pairing ratings take half points too. **Find** narrows
   the list by any of those words, like the Cellar's.
