@@ -113,6 +113,15 @@ the family doesn't.
   in the CSP on the shared origin; don't re-offer it. Synthetic ⌘V in the Browser pane
   fires no paste event; test pastes in headful Playwright with a pasteboard built in JXA.
 
+- **SCHEMA 18 (2026-10-31, Charles): a pairing's `food`** — a `FOOD` code (redmeat, poultry, pork,
+  seafood, veg, spicy, cheese, dessert, other) or null; `cleanFood` is the boundary. Pair Meal's
+  strict tool has a required `food_kind` enum built from the same list (a test pins them equal),
+  `readPairing` → `r.food`, carried by Plan for Later and Opened One (`drinkPairing.food`); the
+  pairing window has `#p_food`. History code `food`. What Pairs Well shows **Food beside Grape**
+  (`PAIR_LIKE_TABLES`, `renderPairLikeTable`, per-table `pairLikeSort`; `pairLikePick` has both
+  fields, AND across) — grape alone averaged a ribeye with a lava cake (Cabernet 2.8). Charles
+  asked for it "next to the existing what pairs well for now": the Grape table may go later.
+  Pairings are not in share links, so no SHARE_PAYLOAD_V bump.
 - **SCHEMA 17 / SHARE_PAYLOAD_V 6 (2026-10-31, Charles): half-point ratings and `heldUp`.** Ratings
   (opened lines AND pairings) are 1–5 in steps of .5 — `cleanRating` is the one boundary, `starsOf`
   the one printer ("★★★★½"). `heldUp` on an opened line is a CODE from `HELD_UP` (great / fine /
@@ -564,6 +573,6 @@ was a one-line version of the cellar rule.
 
 ## Tests
 
-`tests.html`, `EXPECTED = 342`. Run it headless (Playwright) rather than in the Browser pane:
+`tests.html`, `EXPECTED = 343`. Run it headless (Playwright) rather than in the Browser pane:
 the pane throttles hidden timers and its focus heuristics turn the 705px keyboard-focus check
 red on untouched code.

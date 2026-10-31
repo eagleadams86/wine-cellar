@@ -51,7 +51,7 @@
    go MISSING look exactly like tests that pass — a suite that quietly shrank to
    three checks still says "all 3 tests pass". RAISE THIS when you add tests, and
    lower it only when you retire one deliberately. */
-const EXPECTED = 342;
+const EXPECTED = 343;
 
 /* ── It refuses to run anywhere but localhost, and that is load-bearing ──────
    GitHub Pages publishes this page BESIDE the app, where the iframe below would
@@ -3123,7 +3123,7 @@ function define() {
       pairings: [{ id: '<p>', wineId: '"><x>', openedId: '<o>', meal: 'M'.repeat(200), status: 'eaten',
                    rating: 7, date: 'soon', note: 'n'.repeat(900), why: 'w', secret: 1 }] });
     const p = out.pairings[0];
-    eq(Object.keys(p).sort(), ['at', 'date', 'id', 'label', 'log', 'meal', 'note', 'openedId', 'rating', 'status', 'why', 'wineId'],
+    eq(Object.keys(p).sort(), ['at', 'date', 'food', 'id', 'label', 'log', 'meal', 'note', 'openedId', 'rating', 'status', 'why', 'wineId'],
        'a new stored field must be added to normalizeState AND bump SCHEMA');
     ok(H.ID_RE.test(p.id), 'a bad id is replaced');
     eq([p.wineId, p.openedId], [out.wines[0].id, out.opened[0].id], 'and its references follow through the same map');
@@ -3155,6 +3155,19 @@ function define() {
     ok(long.length < H.PAIR_TEXT_MAX + 1000, 'a pasted recipe is cut, not billed in full', long.length);
     ok(!/sk-ant|x-api-key/i.test(JSON.stringify(b)), 'the key is never in the body');
   });
+  t('a pairing\'s kind of food is a code — from Pair Meal, the window, or nothing (SCHEMA 18)', () => {
+    const f = (v) => H.normalizeState({ pairings: [{ id: 'p', food: v }] }).pairings[0].food;
+    eq(f('seafood'), 'seafood'); eq(f('Seafood'), null, 'a code, not a word'); eq(f('<b>'), null);
+    eq(f('constructor'), null, 'not an inherited key'); eq(f(undefined), null);
+    const tool = H.buildPairRequest('Fish', [], '2026-10-31').tools[0].input_schema;
+    eq(tool.properties.food_kind.enum, Object.keys(H.FOOD), 'Claude chooses from exactly the app\'s list');
+    ok(tool.required.indexOf('food_kind') > -1, 'and always names one');
+    eq(H.readPairing({ food_kind: 'spicy', picks: [] }, []).food, 'spicy');
+    eq(H.readPairing({ food_kind: 'brunch', picks: [] }, []).food, null, 'an unknown kind is no kind');
+    eq(['', ...Object.keys(H.FOOD)], [...W.document.getElementById('p_food').options].map((o) => o.value),
+       'the window offers the same list, in its order');
+    ok(H.SCHEMA >= 18, 'SCHEMA moved on with the new field');
+  });
   t('a pick is a number from the list sent — anything else is dropped', () => {
     const r = H.readPairing({ meal_name: 'Lamb', classic_pairings: ['Syrah', '<b>Rioja</b>', 'a', 'b', 'c'],
       picks: [{ wine: 2, why: 'Good', young: false }, { wine: 0, why: 'zero' }, { wine: 9, why: 'out' },
@@ -3167,7 +3180,7 @@ function define() {
     eq(r.classic.length, 4, 'four classic styles at most');
     eq(r.ifNone, '', 'no buying advice once something in the cellar fits');
     eq(H.readPairing({ picks: [], if_none: 'Buy Syrah' }, []).ifNone, 'Buy Syrah');
-    eq(H.readPairing(null, null), { meal: '', classic: [], picks: [], ifNone: '' }, 'nothing back reads as nothing');
+    eq(H.readPairing(null, null), { meal: '', food: null, classic: [], picks: [], ifNone: '' }, 'nothing back reads as nothing');
   });
   t('a silent finish is asked once, and the answer comes back with the ids sent', async () => {
     const replies = [
@@ -3272,6 +3285,12 @@ function define() {
     eq([by('Grenache').bottles, by('Grenache').rated], [2, 1], 'an unrated pairing counts, out of the average');
     ok(by('Malbec').bottles === 1 && by('Tempranillo blend').bottles === 1, 'a logged bottle and a deleted wine take the line’s grape');
     eq(g.blank, 1, 'and one with no grape fills the warning line');
+    /* By food (SCHEMA 18): the ribeye and the lava cake no longer share a row. */
+    const f = H.computePairings(H.normalizeState(H.sampleData()), '2026-10-30').foods;
+    const fd = (n) => f.rows.find((r) => r.name === n) || {};
+    eq(fd('Dessert').avg, 1, 'the lava cake is its own row');
+    ok(fd('Red Meat').avg >= 4.5 && fd('Red Meat').bottles >= 3, 'red meat pairs well', fd('Red Meat').avg);
+    eq(f.blank, 1, 'and the untagged lamb tagine fills the Food warning');
     /* Every sample region is Look Up's "Area, State or Country" shape. */
     const d = H.sampleData();
     d.wines.concat(d.opened).filter((x) => x.region).forEach((x) =>
@@ -3287,6 +3306,8 @@ function define() {
       ['planned', 'overdue', 'had'].forEach((k) => ok(Number(tile(k).querySelector('.v').firstChild.textContent) > 0,
         'sample data reaches the ' + k + ' tile'));
       eq(D.querySelectorAll('#pairLikeGrapes tbody tr').length, 8, 'and What Pairs Well has a row per grape');
+      ok(D.querySelectorAll('#pairLikeFoods tbody tr').length >= 6, 'and one per kind of food, beside it');
+      ok(/no kind of food/.test(D.getElementById('pairLikeWarn').textContent), 'the warn line counts the untagged one');
       tile('had').focus();
       tile('had').click();
       eq(D.querySelectorAll('#pairingTable tbody tr').length, 14, 'Had shows had only');
@@ -3314,14 +3335,15 @@ function define() {
     proto.setItem = function () {};
     try {
       H.__plant(FIXTURE);
-      H.__pairLast({ r: H.readPairing({ meal_name: 'Lamb', classic_pairings: [], picks: [{ wine: 1, why: 'Fits', young: false }] },
+      H.__pairLast({ r: H.readPairing({ meal_name: 'Lamb', food_kind: 'redmeat', classic_pairings: [], picks: [{ wine: 1, why: 'Fits', young: false }] },
         ['fx-ready']), planned: [] });
       W.openPair();
       D.querySelector('[data-pair-plan="fx-ready"]').click();
       D.getElementById('pp_date').value = '2026-12-01';
       D.querySelector('[data-pair-save="fx-ready"]').click();
       let p = H.__state().pairings[0];
-      eq([p.status, p.meal, p.date, p.why, p.wineId], ['planned', 'Lamb', '2026-12-01', 'Fits', 'fx-ready'], 'Plan for Later');
+      eq([p.status, p.meal, p.date, p.why, p.wineId, p.food], ['planned', 'Lamb', '2026-12-01', 'Fits', 'fx-ready', 'redmeat'],
+         'Plan for Later, with the kind of food Claude named');
       const wine = () => H.__state().wines.find((w) => w.id === 'fx-ready');
       eq(wine().log.slice(-1)[0].k, 'plan', 'and the wine’s History says so');
       ok(/Planned/.test(D.getElementById('pairResults').textContent), 'the pick says it is planned');

@@ -323,10 +323,12 @@ dinner. Type a dish — "grilled lamb chops with rosemary" — or paste a whole 
   and your average **Pairing Rating**; press Planned, Overdue or Had to narrow the list to those
   (several at once). The list's **Status** box is the same filter as tick boxes, as on the Cellar
   and Opened tabs — a tile and its box always agree — and **Clear** lets them all go. **What Pairs Well** is the Opened tab's What You Like for
-  pairings: the pairings you've had, grouped by the wine's grape, with how many, how many you
-  rated and the average **pairing** rating — best first, every heading sorts, names as written.
-  Press a grape to narrow the list to
-  pairings with that grape, planned ones included. Find never changes either card; the Planned / Overdue / Had tiles narrow What Pairs Well (it counts only had pairings, so Planned alone dims it all).
+  pairings: the pairings you've had, in two tables side by side — by the **kind of food** (Red
+  Meat, Poultry, Pork, Fish & Seafood, Vegetarian, Spicy, Cheese, Dessert, Other) and by the
+  wine's **grape** — with how many, how many you rated and the average **pairing** rating, best
+  first; every heading sorts, names as written. Pair Meal tags the kind of food for you; a
+  pairing you add or edit has a **Kind of food** dropdown. Press a row to narrow the list to
+  those pairings, planned ones included. Find never changes either card; the Planned / Overdue / Had tiles narrow What Pairs Well (it counts only had pairings, so Planned alone dims it all).
 - **The list** has every pairing: planned ones first (soonest day first, undecided
   last, a day gone by marked *Was planned*), then the ones you've had, newest first. Find
   searches meals, wines, notes and Claude's reasons. Press a line
