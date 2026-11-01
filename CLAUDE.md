@@ -521,6 +521,12 @@ the family doesn't.
   results inside one call; cached, those reads are 5% price. Measured on 4 real wines, same
   answers: $0.137 uncached → $0.056 system mark only → **$0.046 both**. `LOOKUP_COST`/`LOOKUP_SECS`
   drive Check Wines' estimate; `lookupWine` usage counts `cacheRead`/`cacheWrite` apart from input.
+  **Bulk runs are staggered** (2026-11-01, `runLookups`): the 3 workers start `LOOKUP_STAGGER_MS`
+  (3 s) apart. The shared prefix (tools + system) is ~9,000 tokens, and a request sent before the
+  first one's write lands pays its own write. Probed live: 3 at once = 3 writes of 9,016; 3 s apart
+  = 1 write, then reads of 8,926 — about 8.6¢ saved per paste / Check Wines run. The suite sets
+  the gap to 0 (`__stagger`); one test pins the real 3 s and the start order. Note a LONE Look Up
+  more than 5 minutes after the last pays that ~4.5¢ write itself — most of its cost.
   0 of 20 windows came from a named critic, so the note line says "estimate". The terminal test
   harness bridges fetch to Node so the key (`~/.config/anthropic_winecellar_key`) never enters the
   page. privacy.html says what is sent; keep it true if the request changes. **Closing either

@@ -51,7 +51,7 @@
    go MISSING look exactly like tests that pass — a suite that quietly shrank to
    three checks still says "all 3 tests pass". RAISE THIS when you add tests, and
    lower it only when you retire one deliberately. */
-const EXPECTED = 353;
+const EXPECTED = 354;
 
 /* ── It refuses to run anywhere but localhost, and that is load-bearing ──────
    GitHub Pages publishes this page BESIDE the app, where the iframe below would
@@ -324,6 +324,10 @@ async function main() {
 
   W = await bootApp();
   H = W.__wineTestHooks;
+  /* Bulk lookups start seconds apart in the app (so they share one cache
+     write); the suite's fake fetches answer at once, so it runs them together.
+     The stagger itself has its own test. */
+  H.__stagger(0);
   define();
   await runAsync();
   await run();
@@ -4247,6 +4251,17 @@ function define() {
       ok(D.getElementById('photoImg').hidden, 'Remove hides it at once');
       eq(H.__state().wines[0].photoAt, '2026-10-24T12:00:00.000Z', 'but nothing is changed until Save');
     } finally { D.getElementById('wineDialog').close(); H.__photoStore(was); H.__plant(FIXTURE); }
+  });
+  t('a bulk run sets its lookups off apart, so the first one\'s cache write is shared', async () => {
+    eq(H.LOOKUP_STAGGER_MS, 3000, 'three seconds apart in the app');
+    eq(H.LOOKUP_PARALLEL, 3, 'three at once');
+    const t0 = Date.now(), starts = [];
+    await W.runLookups(async () => { starts.push(Date.now() - t0); }, 40);
+    eq(starts.length, 3, 'every worker runs');
+    ok(starts[0] < 30 && starts[1] >= 35 && starts[2] >= 75, 'the first at once, then one gap after another', starts.join(', '));
+    const was = H.__stagger(0);
+    eq(was, 0, 'the suite runs at no gap');
+    H.__stagger(was);
   });
   t('closing the paste window stops every lookup it started', async () => {
     const D = W.document, signals = [];

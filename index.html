@@ -6191,6 +6191,19 @@ const LOOKUP_MAX_ROUNDS = 4;
    seconds of searching; three at a time keeps a 20-wine list to minutes
    without leaning on the account's rate limit. */
 const LOOKUP_PARALLEL = 3;
+/* ...but they set off a few seconds apart. The instructions every wine shares
+   are cached by the FIRST request, and a request sent before that cache exists
+   pays to write its own copy — three at once paid for three. Staggered, the
+   second and third read the first one's copy at 5% of the price. */
+const LOOKUP_STAGGER_MS = 3000;
+let lookupStagger = LOOKUP_STAGGER_MS;   // the suite sets 0 (__stagger), or every bulk test waits
+/* Runs `worker` LOOKUP_PARALLEL times, each one the stagger after the last.
+   A worker started after Stop finds its run cancelled and returns. */
+function runLookups(worker, stagger) {
+  const ms = stagger == null ? lookupStagger : stagger;
+  return Promise.all(Array.from({ length: LOOKUP_PARALLEL },
+    (_, i) => new Promise((done) => setTimeout(done, i * ms)).then(() => worker())));
+}
 
 function lookupKey() {
   try { return (localStorage.getItem(LOOKUP_KEY_STORE) || '').trim(); } catch (e) { return ''; }
@@ -7996,7 +8009,7 @@ $('pasteLookup').addEventListener('click', async () => {
       if (pasteLookupCtl === ctl) { renderPaste(); say(); }
     }
   };
-  await Promise.all(Array.from({ length: LOOKUP_PARALLEL }, worker));
+  await runLookups(worker);
   if (pasteLookupCtl === ctl) {
     pasteLookupStop();
     renderPaste();
@@ -8341,7 +8354,7 @@ $('checkStart').addEventListener('click', async () => {
       if (checkCtl === ctl) { renderCheckOne(w); say(); }
     }
   };
-  await Promise.all(Array.from({ length: LOOKUP_PARALLEL }, worker));
+  await runLookups(worker);
   if (checkCtl === ctl) {
     checkStop();
     renderCheck();
@@ -10785,6 +10798,9 @@ window.__wineTestHooks = {
     render();
   },
   __state: function () { return state; },
+  /* Sets how far apart a bulk run's lookups start; returns the old gap. */
+  __stagger: function (ms) { const was = lookupStagger; lookupStagger = ms; return was; },
+  LOOKUP_STAGGER_MS: LOOKUP_STAGGER_MS, LOOKUP_PARALLEL: LOOKUP_PARALLEL,
   /* Swaps the IndexedDB photo store for the suite's in-memory one, and sets a
      picked photo, so photo tests touch nothing on disk. Returns the old store. */
   __photoStore: function (next) { const was = photoStore; photoStore = next; return was; },

@@ -237,7 +237,7 @@ the web for a wine and come back with its value, drinking window, region, grape 
   and 14–17 seconds each; it was $0.137 uncached). Most of a lookup is Claude reading search results,
   and the search tool re-reads them inside one call — cached, a re-read costs 5% of the normal
   input price. The instructions every wine shares are cached too, so Check Wines and a pasted list
-  reuse them. It is capped at 3 searches and low effort per wine; the paste window runs three lookups at a time. **Closing the window stops
+  reuse them. It is capped at 3 searches and low effort per wine; the paste window runs three lookups at a time, started three seconds apart so the second and third reuse the first one's cache instead of each paying to write their own (about 9¢ saved per run). **Closing the window stops
   them** — Cancel, Escape or a click outside — so nothing keeps running (or billing) behind it.
   A key Claude rejects stops the whole paste at once and says why.
 
