@@ -3845,7 +3845,9 @@ function save() {
      (which must consume history, not mint it), or nothing changed. */
   const core = coreOf(state);
   if (undoBankable(core, undoCore, undoing)) {
-    undoRing = pushSnapshot(undoRing, undoSnapshot, UNDO_CAP);
+    /* A window that saves as you go is ONE step: only its first save banks. */
+    if (!(liveSaving && liveSaving.banked)) undoRing = pushSnapshot(undoRing, undoSnapshot, UNDO_CAP);
+    if (liveSaving) liveSaving.banked = true;
   }
   undoCore = core;
   photoBookkeeping(undoSnapshot, state);
@@ -3886,9 +3888,11 @@ addEventListener('storage', (e) => {
    between the last two states. No redo, and that is the trade: linear and
    predictable beats a two-state seesaw.
 
-   ONE WINDOW IS ONE STEP here without Money Map's latch, because every window
-   in this app saves once, on its own Save — an edit, an Opened One, a whole
-   pasted list, a restore and a Delete All are each a single step back.
+   ONE WINDOW IS ONE STEP. Most windows save once, on their own Save — an
+   Opened One, a whole pasted list, a restore and a Delete All are each a
+   single step back. The three that save as you go (LIVE, below) save on every
+   box, so they carry Money Map's latch: the FIRST save in a window banks the
+   state before it, and the rest of that window's saves bank nothing.
 
    THE RING STARTS OVER when another tab's or another device's cellar is
    adopted (the storage listener and wcAdopt call undoStartOver): every
@@ -3911,6 +3915,12 @@ function coreOf(st) {
 }
 let undoCore = coreOf(state);
 let undoing = false;
+/* The windows that save as you go, while one is EDITING a saved record: dialog
+   id → its context (liveStart). Declared up here, beside the latch save() reads,
+   because undoStartOver runs at boot. `liveSaving` is the context whose save is
+   in progress — set only around that save, so no other save is merged. */
+const LIVE = {};
+let liveSaving = null;
 
 /* Pure, pinned by tests: append and trim to the cap, oldest dropped first. */
 function pushSnapshot(ring, snap, cap) {
@@ -3932,6 +3942,8 @@ function updateUndoBtn() {
    window did not write. */
 function undoStartOver() {
   undoRing = [];
+  /* An open window's next save banks afresh: its old step went with the ring. */
+  Object.values(LIVE).forEach((c) => { c.banked = false; });
   undoSnapshot = JSON.stringify(state);
   undoCore = coreOf(state);
   updateUndoBtn();
@@ -6725,7 +6737,9 @@ function lookupEntry(r, before, after, k, at) {
    turns that same entry (matched by its moment) into what was taken and left,
    rather than writing a second. */
 function logLookup(w, e) {
-  const i = (w.log || []).findIndex((x) => x.k === 'look' && x.at === e.at);
+  /* 'ai' too: a window that saves as you go writes the same answer's entry
+     again on every save, and it must stay ONE entry. */
+  const i = (w.log || []).findIndex((x) => (x.k === 'look' || x.k === 'ai') && x.at === e.at);
   if (i === -1) { logTo(w, e); return; }
   const clean = cleanLogEntry(e);
   if (clean) w.log[i] = clean;
@@ -6961,9 +6975,15 @@ function profileBoxHTML(p) {
     + Object.entries(AROMAS).map(([k, v]) => '<label class="checkline"><input type="checkbox" data-aroma="' + esc(k)
       + '"><span>' + esc(v) + '</span></label>').join('') + '</div></fieldset>';
 }
+/* The notes are strongest FIRST, so the boxes keep that order rather than the
+   list's: the record's own order, then each newly ticked note at the end. Read
+   in list order, opening a wine and saving any box quietly reordered its notes
+   and logged a "profile" change nobody made (found 2026-11-01). */
+const aromaOrder = { f: [], ob: [] };
 function readProfileBoxes(p) {
   const o = Object.fromEntries(PROFILE_SCALES.map((f) => [f, $(p + '_' + f).value || null]));
-  o.aromas = [...$(p + '_profileBox').querySelectorAll('[data-aroma]:checked')].map((b) => b.dataset.aroma);
+  const ticked = new Set([...$(p + '_profileBox').querySelectorAll('[data-aroma]:checked')].map((b) => b.dataset.aroma));
+  o.aromas = aromaOrder[p].filter((a) => ticked.has(a)).concat([...ticked].filter((a) => aromaOrder[p].indexOf(a) === -1));
   return cleanProfile(o);
 }
 function dressProfileBox(p) {
@@ -6976,11 +6996,16 @@ function setProfileBoxes(p, prof) {
   const c = cleanProfile(prof) || { aromas: [] };
   PROFILE_SCALES.forEach((f) => { $(p + '_' + f).value = c[f] || ''; });
   $(p + '_profileBox').querySelectorAll('[data-aroma]').forEach((b) => { b.checked = c.aromas.indexOf(b.dataset.aroma) !== -1; });
+  aromaOrder[p] = c.aromas.slice();
   dressProfileBox(p);
 }
 ['f', 'ob'].forEach((p) => {
   $(p + '_profileBox').innerHTML = profileBoxHTML(p);
-  $(p + '_profileBox').addEventListener('change', () => dressProfileBox(p));
+  $(p + '_profileBox').addEventListener('change', (e) => {
+    const a = e.target.dataset && e.target.dataset.aroma;
+    if (a) aromaOrder[p] = aromaOrder[p].filter((x) => x !== a).concat(e.target.checked ? [a] : []);
+    dressProfileBox(p);
+  });
 });
 
 let editingId = null;
@@ -7039,6 +7064,9 @@ function openWine(id) {
   renderWineHistory(it);
   openModal($('wineDialog'));
   wineFormAtOpen = wineFormSnap();
+  if (it) liveStart('wineDialog', { recId: it.id, before: JSON.parse(JSON.stringify(it)), snap: wineFormSnap,
+    dirty: () => !!(winePhoto.draft || winePhoto.removed), commit: commitWine });
+  else { liveOff('wineDialog'); $('wineSave').textContent = 'Save'; }
 }
 
 /* The image a paste or drop carries, or null. A paste into a TEXT box that
@@ -7154,7 +7182,11 @@ function photoRow(ids) {
     if (problem) { el('note').textContent = problem; return; }
     row.setDraft(got);
     show(got.keep);
-    el('note').textContent = 'Look Up will read the label. The photo is kept when you Save.';
+    /* A window that saves as you go keeps it now. */
+    const live = !!LIVE[ids.dialog];
+    el('note').textContent = live ? 'Saved — Look Up will read the label.'
+      : 'Look Up will read the label. The photo is kept when you Save.';
+    if (live) liveCommit(ids.dialog);
   };
   /* On Save: a new photo is stored before the save that says it exists; a
      removed one is only un-claimed — save() puts it on the gone list, and it
@@ -7181,8 +7213,10 @@ function photoRow(ids) {
     ++row.seq;
     row.draft = null; row.removed = true;
     show(null);
-    el('note').textContent = 'The photo goes when you Save.';
+    const live = !!LIVE[ids.dialog];
+    el('note').textContent = live ? 'Removed — Undo (↩ in the header) brings it back.' : 'The photo goes when you Save.';
     el('btn').focus();
+    if (live) liveCommit(ids.dialog);
   });
   el('dialog').addEventListener('paste', (e) => {
     if (el('btn').offsetParent === null) return;   /* the row is hidden (Opened One copies its wine's) */
@@ -7216,9 +7250,10 @@ const wineFormSnap = () => JSON.stringify([...$('wineDialog').querySelectorAll('
 $('wineDrink').addEventListener('click', () => {
   const it = editingId && state.wines.find((x) => x.id === editingId);
   if (!it) { $('wineDialog').close(); render(); return; }
-  if (wineFormSnap() !== wineFormAtOpen
-      && !confirm('Leave “' + wineLabel(it) + '” without saving your changes?\n\n'
-        + 'Opened One takes a bottle off the saved count; what you changed here is not saved.')) return;
+  /* The window saves as you go, so what was changed here is saved first; a box
+     that disagrees keeps the window open, at that box. */
+  if (!liveCommit('wineDialog', 'done')) return;
+  if (!$('wineDialog').open) return;   /* the wine went meanwhile */
   $('wineDialog').close();
   openDrink(it.id);
 });
@@ -7251,11 +7286,10 @@ $('f_yearOnly').addEventListener('change', () => {
   if ($('f_yearOnly').checked && DATE_RE.test($('f_added').value)) $('f_addedYear').value = $('f_added').value.slice(0, 4);
   dressAdded();
 });
-$('wineSave').addEventListener('click', () => {
-  lookupStop();
-  const warn = $('wineWarn');
-  /* The message NAMES the field that is wrong and moves focus there. */
-  const bad = (msg, id) => { warn.textContent = msg; $(id).focus(); };
+/* The window's boxes as a wine, or what is wrong and where: { fields } or
+   { msg, field }. Save and the as-you-go save both read through here. */
+function readWineForm() {
+  const bad = (msg, id) => ({ msg: msg, field: id });
   const name = cleanLine($('f_name').value, 80);
   if (!name) return bad('Give the wine a name.', 'f_name');
   const vRaw = $('f_vintage').value.trim();
@@ -7289,8 +7323,7 @@ $('wineSave').addEventListener('click', () => {
       if (added > todayISO()) return bad('The day it was added cannot be after today.', 'f_added');
     }
   }
-  let savedId = null, before = {};
-  const fields = {
+  return { fields: {
     vintage: vintage, name: name, color: $('f_color').value,
     region: cleanLine($('f_region').value, 60), subregion: cleanLine($('f_subregion').value, 60),
     grape: cleanLine($('f_grape').value, 60),
@@ -7299,7 +7332,47 @@ $('wineSave').addEventListener('click', () => {
     valueEst: $('f_est').checked, paid: paid, drinkFrom: from, drinkTo: to,
     source: cleanSource($('f_source').value), added: added, notes: cleanNote($('f_notes').value, NOTES_MAX),
     profile: readProfileBoxes('f'),
-  };
+  } };
+}
+/* One as-you-go save of a SAVED wine (liveStart in openWine). */
+function commitWine(ctx) {
+  const f = readWineForm();
+  if (f.msg) return f;
+  const fields = f.fields;
+  const it = state.wines.find((x) => x.id === ctx.recId);
+  if (!it) return { gone: 'That wine was deleted somewhere else, so there was nothing to update.' };
+  /* Taking a wine to NO bottles hides it from the table as finished, so it is
+     asked, as Save asked; a No puts the count back. */
+  if (it.qty > 0 && fields.qty === 0 && !state.settings.showFinished
+      && !confirm('Save “' + wineLabel(fields) + '” with 0 bottles?\n\nIt will be marked finished and '
+        + 'hidden from the Cellar table. (Settings → “Show wines with no bottles left” shows it again.)')) {
+    $('f_qty').value = it.qty;
+    return { skip: true };
+  }
+  const finishing = it.qty > 0 && fields.qty === 0 && !state.settings.showFinished;
+  const renamed = wineKey(fields) !== wineKey(it);
+  Object.assign(it, fields);
+  if (renamed) it.checkedAt = lookupStamp && lookupStamp.key === wineKey(fields) ? lookupStamp.at : null;
+  winePhoto.applyTo(it);
+  /* History: Claude's answer as one entry, rewritten in place; then what was
+     changed by hand since the window opened, as the window's one entry. */
+  const ai = lookupLast ? lookupEntry(lookupLast, ctx.before, it, 'ai', lookupStamp ? lookupStamp.at : null) : null;
+  if (ai) logLookup(it, ai);
+  liveEdit(it, ctx, handEdits(ctx.before, it, ai));
+  state = normalizeState(state);
+  liveStore(ctx);
+  if (finishing) { ctx.saidSo = true; toast('Saved with no bottles left — it is hidden as finished (Settings shows it again)', 6000); }
+  return '';
+}
+$('wineSave').addEventListener('click', () => {
+  if (LIVE.wineDialog) { liveDone('wineDialog'); return; }
+  lookupStop();
+  const warn = $('wineWarn');
+  /* The message NAMES the field that is wrong and moves focus there. */
+  const f = readWineForm();
+  if (f.msg) { warn.textContent = f.msg; $(f.field).focus(); return; }
+  const fields = f.fields;
+  let savedId = null, before = {};
   if (editingId) {
     /* Re-found by id at the moment of saving: another tab or device may have
        replaced `state` while this window was open — and GONE is an answer too.
@@ -7509,8 +7582,10 @@ $('lookupPanel').addEventListener('click', (e) => {
      check just paid for is still this wine's, so its stamp follows the name. */
   if (lookupStamp) lookupStamp.key = wineKey({ vintage: cleanYear($('f_vintage').value), name: cleanLine($('f_name').value, 80) });
   renderLookupPanel(lookupLast);
+  const live = !!LIVE.wineDialog;
   $('lookupNote').textContent = (done.filled.length ? 'Using Claude’s ' + done.filled.join(', ').toLowerCase()
-    + '. ' : '') + 'Nothing is saved until you press Save.';
+    + '. ' : '') + (live ? 'Saved.' : 'Nothing is saved until you press Save.');
+  if (live) liveCommit('wineDialog');
   /* The link pressed has gone with the re-render, so the keyboard goes to the
      next one still offered, or to Save. */
   const next = $('lookupPanel').querySelector('[data-use], #lookupUseAll') || $('wineSave');
@@ -7555,10 +7630,13 @@ $('lookupBtn').addEventListener('click', async () => {
     $('lookupNote').textContent = (read.length ? 'Read the ' + read.join(' and ') + ' from the label. ' : '')
       + (r.confidence === 'low'
       ? 'Claude could not find this exact wine, so nothing changed.'
-      : done.filled.length ? 'Filled ' + done.filled.join(', ').toLowerCase() + '. Check it, then Save.'
+      : done.filled.length ? 'Filled ' + done.filled.join(', ').toLowerCase()
+        + (LIVE.wineDialog ? ' and saved — check it.' : '. Check it, then Save.')
         : done.kept.length ? 'Your boxes were all filled in, so nothing changed — pick what to use below.'
         : 'Claude’s answer matches what you have.');
     renderLookupPanel(r);
+    /* What it filled (and a name or vintage read from the label) is saved now. */
+    liveCommit('wineDialog');
   } catch (e) {
     if (lookupCtl === ctl && !(e && e.name === 'AbortError')) $('lookupNote').textContent = e.message;
   } finally {
@@ -7615,6 +7693,114 @@ document.addEventListener('click', (e) => {
   }
   window.addEventListener('resize', later);
 })();
+
+/* ── Windows that save as you go ─────────────────────────────────────────────
+   (Charles, 2026-11-01: "money map has some windows that save as you go").
+   EDITING a saved wine, opened bottle or pairing writes each box as you leave
+   it, and the window closes on Done; ADDING one keeps Cancel and Save, because
+   "never mind, don't make it" is the one thing saving as you go cannot say.
+   Undo (↩) is what Cancel was. Money Map's four guards, and Wine Cellar's own:
+   - `change`, never `input`: $120 is saved once, not as 1, 12 and 120.
+   - One window is one Undo step (save()'s latch) and ONE History entry: each
+     save rewrites the window's own `edit` entry (liveEdit), measured against
+     the record as the window opened it (`before`), and Look Up's entry is
+     rewritten in place (logLookup matches it by its moment).
+   - Opening a window to LOOK writes nothing: a save happens only when the
+     boxes differ from the last ones saved (or a photo was picked or removed).
+   - Boxes that disagree (a high value under the low one, a window that ends
+     before it starts, a name left empty) are NOT saved, and the window says so
+     where Save's message was — without taking the cursor away mid-edit. Done
+     then refuses and moves there; Escape or a click outside closes anyway and
+     the toast says the last change was not kept.
+   - No `close` event anywhere (it is queued, and some engines never send it):
+     Done, Escape's `cancel` and the backdrop each save before they close.
+   - Every save finds its record again by id; one gone since the window opened
+     closes the window and says so, as Save did. */
+const LIVE_BUTTONS = { wineDialog: ['wineSave', 'wineCancel', 'wineWarn'],
+                       openDialog: ['openSave', 'openCancel', 'openWarn'],
+                       pairingDialog: ['pairingSave', 'pairingCancel', 'pairingWarn'] };
+/* `cfg`: snap() — the boxes as one string; dirty() — a change the boxes don't
+   show (a photo); commit(ctx) — '' once saved, { msg, field } when a box
+   disagrees, { gone } when the record went, { skip } to save nothing;
+   recId and before — the record as the window opened it. */
+function liveStart(id, cfg) {
+  LIVE[id] = Object.assign({ id: id, banked: false, editAt: null, changed: false, problem: '',
+                             dirty: () => false }, cfg);
+  LIVE[id].last = LIVE[id].snap();
+  dressLive(id);
+}
+/* The window is ADDING: Cancel and Save, as before. */
+function liveOff(id) { delete LIVE[id]; dressLive(id); }
+function dressLive(id) {
+  const [save, cancel] = LIVE_BUTTONS[id];
+  if (LIVE[id]) $(save).textContent = 'Done';
+  $(cancel).hidden = !!LIVE[id];
+}
+/* Saves the window's boxes if they changed. `how`: undefined while editing,
+   'done' for Done (a disagreement keeps the window open and goes to its box),
+   'close' for Escape or a click outside. True when the window may close. */
+function liveCommit(id, how) {
+  const ctx = LIVE[id];
+  if (!ctx || !$(id).open || viewOnly) return true;
+  if (ctx.snap() === ctx.last && !ctx.dirty()) { ctx.problem = ''; $(LIVE_BUTTONS[id][2]).textContent = ''; return true; }
+  const r = ctx.commit(ctx);
+  const warn = $(LIVE_BUTTONS[id][2]);
+  if (r && r.gone) {
+    delete LIVE[id];
+    $(id).close();
+    render();
+    toast(r.gone, 5000);
+    return true;
+  }
+  /* Nothing saved on purpose (a No to the 0-bottles question): Done stays. */
+  if (r && r.skip) return how !== 'done';
+  if (r) {
+    ctx.problem = r.msg;
+    warn.textContent = 'Not saved yet: ' + r.msg;
+    if (how === 'done') $(r.field).focus();
+    return how === 'close';
+  }
+  ctx.problem = '';
+  warn.textContent = '';
+  ctx.last = ctx.snap();
+  ctx.changed = true;
+  return true;
+}
+/* The one way a live window writes: save(), with this window's latch held. */
+function liveStore(ctx) {
+  liveSaving = ctx;
+  try { save(); } finally { liveSaving = null; }
+}
+/* The window's own History entry, rewritten on every save: what differs from
+   the record as the window opened it. Nothing differs, no entry. */
+function liveEdit(rec, ctx, hand) {
+  if (ctx.editAt) rec.log = (rec.log || []).filter((e) => !(e.k === 'edit' && e.at === ctx.editAt));
+  if (!hand.length) return;
+  ctx.editAt = ctx.editAt || nowStamp();
+  logTo(rec, { at: ctx.editAt, k: 'edit', c: hand });
+}
+/* Done: save, then close — or stay, at the box that disagrees. */
+function liveDone(id) {
+  const ctx = LIVE[id];
+  if (!liveCommit(id, 'done')) return false;
+  if ($(id).open) $(id).close();
+  if (ctx && ctx.changed && !ctx.saidSo) toast('Saved');
+  return true;
+}
+/* Escape or a click outside: save what agrees, close regardless. */
+function liveLeaving(id) {
+  const ctx = LIVE[id];
+  if (!ctx) return;
+  liveCommit(id, 'close');
+  if (ctx.problem) toast('Closed without your last change — ' + ctx.problem.charAt(0).toLowerCase()
+    + ctx.problem.slice(1), 6000);
+}
+Object.keys(LIVE_BUTTONS).forEach((id) => {
+  /* Bubbling, so a box's own listener (Just the year, the status's day) has
+     already run. A file input is the photo row's, which saves for itself. */
+  $(id).addEventListener('change', (e) => { if (e.target.type !== 'file' && LIVE[id]) liveCommit(id); });
+  $(id).addEventListener('cancel', () => { if (LIVE[id]) liveLeaving(id); });
+});
 
 /* ── Opened One ─────────────────────────────────────────────────────────────── */
 /* One window, three jobs:
@@ -7686,6 +7872,28 @@ function openBottleEdit(id) {
   $('openPair').textContent = state.pairings.some((p) => p.openedId === o.id) ? 'Open Its Pairing' : 'Pair With a Meal';
   openModal($('openDialog'));
   openFormAtOpen = openFormSnap();
+  liveStart('openDialog', { recId: o.id, before: JSON.parse(JSON.stringify(o)), snap: openFormSnap,
+    dirty: () => !!(bottlePhoto.draft || bottlePhoto.removed), commit: commitBottle });
+}
+/* One as-you-go save of an opened line. The window's boxes are read as Save
+   read them, but a window typed backwards is said rather than turned round:
+   mid-edit, the second year may simply not be typed yet. */
+function commitBottle(ctx) {
+  const date = $('o_date').value;
+  if (!DATE_RE.test(date)) return { msg: 'Pick the day you opened it.', field: 'o_date' };
+  const from = cleanYear($('ob_from').value), to = cleanYear($('ob_to').value);
+  if (from != null && to != null && to < from) return { msg: 'The window ends before it starts.', field: 'ob_to' };
+  const wine = readOpenWineBoxes();
+  if (!wine.name) return { msg: 'Type the wine’s name.', field: 'ob_name' };
+  delete wine.name;
+  const o = state.opened.find((x) => x.id === ctx.recId);
+  if (!o) return { gone: 'That line has gone since the window opened, so nothing was changed.' };
+  Object.assign(o, wine, { date: date, rating: cleanRating($('o_rating').value), heldUp: cleanHeldUp($('o_heldup').value),
+    note: cleanLine($('o_note').value, NOTES_MAX), place: cleanLine($('o_place').value, 40) });
+  bottlePhoto.applyTo(o);
+  liveEdit(o, ctx, diffLine(ctx.before, o));
+  liveStore(ctx);
+  return '';
 }
 /* The bottle window's boxes as they stand, to ask before leaving edits behind. */
 let openFormAtOpen = '';
@@ -7694,8 +7902,8 @@ const openFormSnap = () => JSON.stringify([...$('openDialog').querySelectorAll('
 $('openPair').addEventListener('click', () => {
   const o = state.opened.find((x) => x.id === editingBottleId);
   if (!o) { $('openDialog').close(); render(); return; }
-  if (openFormSnap() !== openFormAtOpen
-      && !confirm('Leave this bottle’s window without saving what you changed here?')) return;
+  /* Saved first, as the window saves as you go. */
+  if (!liveCommit('openDialog', 'done') || !$('openDialog').open) return;
   const had = state.pairings.find((p) => p.openedId === o.id);
   $('openDialog').close();
   if (had) openPairing(had.id); else openPairing(null, o);
@@ -7705,6 +7913,7 @@ function openLogBottle() {
   editingBottleId = null;
   loggingBottle = true;
   dressOpenDialog('log');
+  liveOff('openDialog');
   renderWineHistory(null, 'bottleHistory', 'bottleHistoryList');
   fillOpenDialog(null);
   bottlePhoto.reset(null);
@@ -7718,6 +7927,7 @@ function openDrink(id) {
   editingBottleId = null;
   loggingBottle = false;
   dressOpenDialog('drink');
+  liveOff('openDialog');
   renderWineHistory(null, 'bottleHistory', 'bottleHistoryList');
   $('openBody').textContent = wineLabel(w) + ' — ' + plural(w.qty, 'bottle') + ' left. This takes '
     + 'one off the count and adds a line to the Opened tab.';
@@ -7739,6 +7949,7 @@ function readOpenWineBoxes() {
            drinkFrom: from, drinkTo: to, profile: readProfileBoxes('ob') };
 }
 $('openSave').addEventListener('click', () => {
+  if (LIVE.openDialog) { liveDone('openDialog'); return; }
   const date = $('o_date').value;
   if (!DATE_RE.test(date)) { $('openWarn').textContent = 'Pick the day you opened it.'; $('o_date').focus(); return; }
   const told = { date: date, rating: cleanRating($('o_rating').value), heldUp: cleanHeldUp($('o_heldup').value),
@@ -7874,13 +8085,14 @@ $('obLookupBtn').addEventListener('click', async () => {
     if (!$('ob_name').value.trim() && r.labelName) { $('ob_name').value = r.labelName; read.push('name'); }
     if ($('ob_vintage').value === '' && r.labelVintage != null) { $('ob_vintage').value = r.labelVintage; read.push('vintage'); }
     const said = read.length ? 'Read the ' + read.join(' and ') + ' from the label. ' : '';
-    if (r.confidence === 'low') { $('obLookupNote').textContent = said + 'Claude could not find this exact wine.'; return; }
+    if (r.confidence === 'low') { $('obLookupNote').textContent = said + 'Claude could not find this exact wine.'; liveCommit('openDialog'); return; }
     const done = applyObLookup(r, false);
     $('obLookupNote').textContent = said + ((done.filled.length ? 'Filled ' + done.filled.join(', ').toLowerCase() + '.' : '')
       + (done.kept.length ? (done.filled.length ? ' ' : '') + 'Claude has a different '
         + done.kept.join(', ').toLowerCase() + ' — yours is kept.' : '')
       || 'Claude’s answer matches what you have.');
     $('obLookupUse').hidden = !done.kept.length;
+    liveCommit('openDialog');
   } catch (e) {
     if (obLookupCtl === ctl && !(e && e.name === 'AbortError')) $('obLookupNote').textContent = e.message;
   } finally {
@@ -7892,6 +8104,7 @@ $('obLookupUse').addEventListener('click', () => {
   const done = applyObLookup(obLookupLast, true);
   $('obLookupNote').textContent = done.filled.length ? 'Used Claude’s ' + done.filled.join(', ').toLowerCase() + '.' : '';
   $('obLookupUse').hidden = true;
+  liveCommit('openDialog');
 });
 $('openCancel').addEventListener('click', () => $('openDialog').close());
 
@@ -9271,7 +9484,26 @@ function openPairing(id, line) {
   renderWineHistory(p, 'pairingHistory', 'pairingHistoryList');
   dressPairingHad();
   openModal($('pairingDialog'));
-  if (!p) $('p_meal').focus();
+  if (p) liveStart('pairingDialog', { recId: p.id, before: JSON.parse(JSON.stringify(p)), snap: pairingFormSnap,
+    commit: commitPairing });
+  else { liveOff('pairingDialog'); $('pairingSave').textContent = 'Save'; $('p_meal').focus(); }
+}
+const pairingFormSnap = () => JSON.stringify([...$('pairingDialog').querySelectorAll('input, select, textarea')]
+  .map((el) => el.value));
+/* One as-you-go save of a pairing. */
+function commitPairing(ctx) {
+  const b = readPairingBoxes(true);
+  if (!b) return { msg: 'Name the meal.', field: 'p_meal' };
+  const p = state.pairings.find((x) => x.id === ctx.recId);
+  if (!p) return { gone: 'That pairing has gone since the window opened, so nothing was changed.' };
+  const w = b.wineId ? state.wines.find((x) => x.id === b.wineId) : null;
+  Object.assign(p, tagsOf(b), { meal: b.meal, status: b.status, date: b.date, rating: b.rating, note: b.note, why: b.why });
+  /* A wine chosen again is copied again; a gone one keeps its old name. */
+  if (w) { p.wineId = w.id; p.label = cleanLine(wineLabel(w), 100); }
+  liveEdit(p, ctx, diffPairing(ctx.before, p));
+  liveStore(ctx);
+  dressPairingHad();
+  return '';
 }
 /* We Had It shows for a SAVED planned pairing whose wine still has a bottle. */
 function dressPairingHad() {
@@ -9280,9 +9512,9 @@ function dressPairingHad() {
   $('pairingHad').hidden = !(p && p.status === 'planned' && w && w.qty > 0);
 }
 /* The boxes, read the way normalizeState would. Null when something is missing. */
-function readPairingBoxes() {
+function readPairingBoxes(quiet) {
   const meal = cleanLine($('p_meal').value, PAIR_MEAL_MAX);
-  if (!meal) { $('pairingWarn').textContent = 'Name the meal.'; $('p_meal').focus(); return null; }
+  if (!meal) { if (!quiet) { $('pairingWarn').textContent = 'Name the meal.'; $('p_meal').focus(); } return null; }
   return { meal: meal, wineId: $('p_wine').value, status: $('p_status').value === 'had' ? 'had' : 'planned',
     date: DATE_RE.test($('p_date').value) ? $('p_date').value : '',
     ...Object.fromEntries(TAG_FIELDS.map((f) => [f, cleanTag(f, $('p_' + f).value)])),
@@ -9290,6 +9522,7 @@ function readPairingBoxes() {
     why: clipWords($('p_why').value, BASIS_MAX) };
 }
 $('pairingSave').addEventListener('click', () => {
+  if (LIVE.pairingDialog) { liveDone('pairingDialog'); return; }
   const b = readPairingBoxes();
   if (!b) return;
   const p = editingPairingId && state.pairings.find((x) => x.id === editingPairingId);
@@ -9363,7 +9596,9 @@ $('p_ask').addEventListener('click', async () => {
     $('p_why').value = r.notes;
     TAG_FIELDS.forEach((f) => { if (!$('p_' + f).value && r[f]) $('p_' + f).value = r[f]; });
     $('p_askNote').textContent = 'Answered in ' + plural(Math.round((Date.now() - t0) / 1000), 'second')
-      + ' — keep the notes, edit them, or clear them, then Save.';
+      + (LIVE.pairingDialog ? ' and saved — edit the notes or clear them if you like.'
+        : ' — keep the notes, edit them, or clear them, then Save.');
+    liveCommit('pairingDialog');
   } catch (e) {
     if (judgeCtl !== ctl) return;
     $('p_askNote').textContent = e && e.name === 'AbortError' ? 'Stopped.' : String(e && e.message || e);
@@ -9380,12 +9615,8 @@ $('p_status').addEventListener('change', () => {
 $('pairingHad').addEventListener('click', () => {
   const p = state.pairings.find((x) => x.id === editingPairingId);
   if (!p) return;
-  const b = readPairingBoxes();
-  if (!b) return;
-  const was = Object.assign({}, p);
-  Object.assign(p, tagsOf(b), { meal: b.meal, rating: b.rating, note: b.note, why: b.why });
-  const hand = diffPairing(was, p);
-  if (hand.length) { logTo(p, { at: nowStamp(), k: 'edit', c: hand }); save(); }
+  /* What was typed here is saved first, as the window saves as you go. */
+  if (!liveCommit('pairingDialog', 'done') || !$('pairingDialog').open) return;
   $('pairingDialog').close();
   openDrink(p.wineId);
   if ($('openDialog').open) setDrinkPairing({ meal: p.meal, why: p.why, pairingId: p.id });
@@ -10025,8 +10256,14 @@ document.addEventListener('keydown', (e) => {
    is declared further down registers beside its own wiring instead — the share
    dialog in two apps shipped un-dismissable for exactly that reason: adding it
    to a list like this would have read it inside its temporal dead zone. */
-['wineDialog', 'openDialog', 'pasteDialog', 'checkDialog', 'pairDialog', 'pairingDialog', 'settingsDialog', 'dataDialog',
+['pasteDialog', 'checkDialog', 'pairDialog', 'settingsDialog', 'dataDialog',
  'clearDialog', 'shareDialog', 'helpDialog', 'searchDialog'].forEach((id) => closeOnBackdropClick($(id)));
+/* The three that save as you go: a click outside is their Done — it saves what
+   agrees, then closes (an adding window has no LIVE context, so it just closes). */
+['wineDialog', 'openDialog', 'pairingDialog'].forEach((id) => closeOnBackdropClick($(id), () => {
+  liveLeaving(id);
+  if ($(id).open) $(id).close();
+}));
 
 /* A lookup outlives its window unless the CLOSE stops it — and Cancel is only one
    of three ways to close (Escape and a click outside are the others). Left
@@ -10843,6 +11080,8 @@ window.__wineTestHooks = {
     render();
   },
   __state: function () { return state; },
+  /* How many steps Undo holds — the one-window-one-step guard reads it. */
+  __undoDepth: function () { return undoRing.length; },
   /* Sets how far apart a bulk run's lookups start; returns the old gap. */
   __stagger: function (ms) { const was = lookupStagger; lookupStagger = ms; return was; },
   LOOKUP_STAGGER_MS: LOOKUP_STAGGER_MS, LOOKUP_PARALLEL: LOOKUP_PARALLEL, LOOKUP_RETRIES: LOOKUP_RETRIES,

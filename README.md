@@ -137,7 +137,15 @@ cellar on your other devices.
   become a row of **Sort by** buttons. It is layout only: Copy and CSV still export the full table.
 - **Type starts as Not set** — a new wine has no type until you pick one or Look Up finds
   it, so a white saved in a hurry isn't recorded as red.
-- **Closing a wine's window keeps your place** — Save, Cancel, Opened One or a tap outside
+- **Editing saves as you go** — change a box in a saved wine, opened bottle or pairing and it is
+  saved as you leave the box; the window closes on **Done** (or Escape, or a tap outside, which
+  save too). **Undo** (↩ in the header) is the way back, and takes the whole window back as one
+  step; its **History** gets one entry for the window. Boxes that disagree — a high value under
+  the low one, a window that ends before it starts, an emptied name — aren't saved, and the
+  window says "Not saved yet" until they agree. **Adding** a wine, logging a bottle, Opened One
+  and adding a pairing still ask: Cancel or Save, because "never mind" is the one thing saving as
+  you go can't say.
+- **Closing a wine's window keeps your place** — Done, Save, Cancel, Opened One or a tap outside
   leaves the cellar where it was, so you can work down a long list on a phone. Every window
   opens at its top.
 - **Opened One** and **Delete Wine** are in the wine's own window (press its row) — Delete
@@ -200,8 +208,9 @@ the web for a wine and come back with its value, drinking window, region, grape 
 - **It fills only what is empty.** Anything you typed or pasted stays. In the wine window each
   line of Claude's answer — value, window, region, grape, colour — has its own **Use this**, so you
   can take its value and keep your window; a line that already matches says "✓ in the box", and
-  **Use all of Claude's answer** takes everything. Nothing is saved until you press Save
-  or Add, and the wine's **History** records what you took and what you left. Your notes are
+  **Use all of Claude's answer** takes everything. Editing a saved wine, what it fills and what
+  you take is saved straight away (Undo takes it back); adding one, nothing is saved until Save
+  or Add. The wine's **History** records what you took and what you left. Your notes are
   never written to.
 - **It is told where the bottle came from.** What's in **Came from** goes with the question
   ("Came from, in the owner's words: Wine Access"), and Claude searches that shop first — the
@@ -386,7 +395,8 @@ dinner. Type a dish — "grilled lamb chops with rosemary" — or paste a whole 
   fixed, marked had, dated the day you opened it. Type the meal ("pepperoni pizza") and press
   **✦ Ask Claude** — it writes **Claude's Notes**, two short sentences on how this bottle, at its
   age and as you said it held up, suited the dish, and fills in the meal's labels you haven't.
-  The notes are yours to edit; nothing is saved until **Save**, and the pairing links to the
+  The notes are yours to edit (a new pairing is saved by **Save**; an existing one saves as you
+  go), and the pairing links to the
   opened line (the button then reads **Open Its Pairing**). Claude is told the meal, the wine's
   name, vintage, grape, region and drinking window, when it was opened and how old it was, and
   your Held Up, rating and note for the bottle — never its price or where you bought it. About

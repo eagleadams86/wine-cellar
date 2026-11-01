@@ -51,7 +51,7 @@
    go MISSING look exactly like tests that pass — a suite that quietly shrank to
    three checks still says "all 3 tests pass". RAISE THIS when you add tests, and
    lower it only when you retire one deliberately. */
-const EXPECTED = 356;
+const EXPECTED = 365;
 
 /* ── It refuses to run anywhere but localhost, and that is load-bearing ──────
    GitHub Pages publishes this page BESIDE the app, where the iframe below would
@@ -4263,6 +4263,8 @@ function define() {
     const D = W.document, mem = new Map([['ph-1', { data: PHOTO, at: '2026-10-24T12:00:00.000Z' }]]);
     const was = H.__photoStore({ get: async (id) => mem.get(id) || null, put: async () => true,
                                  del: async () => null, keys: async () => [...mem.keys()] });
+    const proto = W.Storage.prototype, realStore = proto.setItem;
+    proto.setItem = function () {};
     try {
       H.__plant({ wines: [{ id: 'ph-1', name: 'Photo Example', photoAt: '2026-10-24T12:00:00.000Z' }] });
       W.openWine('ph-1');
@@ -4272,8 +4274,9 @@ function define() {
       ok(!D.getElementById('photoRemove').hidden, 'and Remove is offered');
       D.getElementById('photoRemove').click();
       ok(D.getElementById('photoImg').hidden, 'Remove hides it at once');
-      eq(H.__state().wines[0].photoAt, '2026-10-24T12:00:00.000Z', 'but nothing is changed until Save');
-    } finally { D.getElementById('wineDialog').close(); H.__photoStore(was); H.__plant(FIXTURE); }
+      eq(H.__state().wines[0].photoAt, null, 'and, editing a saved wine, it is saved at once');
+      ok(/Undo/.test(D.getElementById('photoNote').textContent), 'saying Undo brings it back');
+    } finally { proto.setItem = realStore; D.getElementById('wineDialog').close(); H.__photoStore(was); H.__plant(FIXTURE); }
   });
   t('a bulk run sets its lookups off apart, so the first one\'s cache write is shared', async () => {
     eq(H.LOOKUP_STAGGER_MS, 3000, 'three seconds apart in the app');
@@ -4882,9 +4885,10 @@ function define() {
       ok(!D.getElementById('wineDialog').open, 'and the window closes');
     } finally { proto.setItem = realStore; W.confirm = realConfirm; H.__plant(FIXTURE); }
   });
-  t('Opened One from the window asks before dropping unsaved changes', () => {
-    const D = W.document, realConfirm = W.confirm;
+  t('Opened One from the window saves what was changed first, and asks nothing', () => {
+    const D = W.document, realConfirm = W.confirm, proto = W.Storage.prototype, realStore = proto.setItem;
     let asked = 0;
+    proto.setItem = function () {};
     try {
       H.__plant(FIXTURE);
       W.confirm = () => { asked++; return false; };
@@ -4897,9 +4901,210 @@ function define() {
       W.openWine('fx-hold');
       D.getElementById('f_location').value = 'Rack Z';
       D.getElementById('wineDrink').click();
-      eq(asked, 1, 'a change typed is asked about');
-      ok(D.getElementById('wineDialog').open && !D.getElementById('openDialog').open, 'and No stays in the window');
-    } finally { W.confirm = realConfirm; D.getElementById('wineDialog').close(); D.getElementById('openDialog').close(); H.__plant(FIXTURE); }
+      eq(asked, 0, 'a change typed is not asked about');
+      eq(H.__state().wines.find((w) => w.id === 'fx-hold').location, 'Rack Z', 'it is saved, then Opened One opens');
+      ok(D.getElementById('openDialog').open && !D.getElementById('wineDialog').open, 'the window moved on');
+      D.getElementById('openDialog').close();
+      W.openWine('fx-hold');
+      D.getElementById('f_low').value = '90'; D.getElementById('f_high').value = '80';
+      D.getElementById('wineDrink').click();
+      ok(D.getElementById('wineDialog').open && !D.getElementById('openDialog').open, 'boxes that disagree keep the window');
+      eq(D.activeElement && D.activeElement.id, 'f_high', 'at the box to fix');
+    } finally { W.confirm = realConfirm; proto.setItem = realStore; D.getElementById('wineDialog').close(); D.getElementById('openDialog').close(); H.__plant(FIXTURE); }
+  });
+
+  group('windows that save as you go (editing a saved wine, bottle or pairing)');
+  /* Each guard below was proved by deleting it and watching its test go red. */
+  const liveSetup = () => {
+    const proto = W.Storage.prototype, realStore = proto.setItem;
+    proto.setItem = function () {};
+    H.__plant(FIXTURE);
+    return () => { proto.setItem = realStore; ['wineDialog', 'openDialog', 'pairingDialog']
+      .forEach((id) => { if (W.document.getElementById(id).open) W.document.getElementById(id).close(); }); H.__plant(FIXTURE); };
+  };
+  const change = (id, v) => { const el = W.document.getElementById(id); el.value = v; el.dispatchEvent(new W.Event('change', { bubbles: true })); };
+  const wineOf = (id) => H.__state().wines.find((w) => w.id === id);
+  t('editing saves on leaving a box — change, never input — and Done closes', () => {
+    const D = W.document, done = liveSetup();
+    try {
+      W.openWine('fx-hold');
+      eq([D.getElementById('wineSave').textContent, D.getElementById('wineCancel').hidden], ['Done', true],
+         'Done, and no Cancel: Undo is what Cancel was');
+      const loc = D.getElementById('f_location');
+      loc.value = 'Rack Q'; loc.dispatchEvent(new W.Event('input', { bubbles: true }));
+      eq(wineOf('fx-hold').location, 'Rack B', 'typing saves nothing — $120 is not saved as 1, 12 and 120');
+      loc.dispatchEvent(new W.Event('change', { bubbles: true }));
+      eq(wineOf('fx-hold').location, 'Rack Q', 'leaving the box saves it');
+      ok(D.getElementById('wineDialog').open, 'and the window stays open');
+      D.getElementById('wineSave').click();
+      ok(!D.getElementById('wineDialog').open, 'Done closes it');
+      ok(/Saved/.test(D.getElementById('toast').textContent), 'and says it was saved');
+    } finally { done(); }
+  });
+  t('adding still asks: Cancel and Save, and nothing is made until Save', () => {
+    const D = W.document, done = liveSetup();
+    try {
+      const n = H.__state().wines.length;
+      W.openWine(null);
+      eq([D.getElementById('wineSave').textContent, D.getElementById('wineCancel').hidden], ['Save', false]);
+      change('f_name', 'Never Saved Example');
+      eq(H.__state().wines.length, n, 'a box left saves nothing');
+      D.getElementById('wineCancel').click();
+      eq(H.__state().wines.length, n, 'and Cancel means never made');
+      W.openLogBottle();
+      eq([D.getElementById('openSave').textContent, D.getElementById('openCancel').hidden], ['Save', false], 'Log Bottle asks too');
+      D.getElementById('openDialog').close();
+      W.openDrink('fx-hold');
+      eq(D.getElementById('openSave').textContent, 'Take One Off the Count', 'and so does Opened One');
+      D.getElementById('openDialog').close();
+      W.openPairing(null);
+      eq([D.getElementById('pairingSave').textContent, D.getElementById('pairingCancel').hidden], ['Save', false], 'and Add Pairing');
+    } finally { done(); }
+  });
+  t('one window is ONE Undo step and ONE History entry', () => {
+    const D = W.document, done = liveSetup();
+    try {
+      const depth = H.__undoDepth(), logs = (wineOf('fx-hold').log || []).length;
+      W.openWine('fx-hold');
+      change('f_location', 'Rack Q');
+      change('f_notes', 'First note');
+      change('f_notes', 'Second note');
+      D.getElementById('wineSave').click();
+      eq(H.__undoDepth(), depth + 1, 'three saves, one step');
+      const log = wineOf('fx-hold').log;
+      eq(log.length, logs + 1, 'and one History entry');
+      eq(log[log.length - 1].c.map((d) => d.f).sort(), ['location', 'notes'], 'naming every box the window changed');
+      W.openWine('fx-hold');
+      change('f_location', 'Rack R');
+      D.getElementById('wineSave').click();
+      eq(H.__undoDepth(), depth + 2, 'the next window is the next step');
+      eq(wineOf('fx-hold').log.length, logs + 2, 'and its own entry');
+      W.openWine('fx-hold');
+      change('f_location', 'Rack S');
+      change('f_location', 'Rack R');
+      D.getElementById('wineSave').click();
+      eq(wineOf('fx-hold').log.length, logs + 2, 'a change taken back in the same window leaves no entry');
+    } finally { done(); }
+  });
+  t('opening a window to look writes nothing', () => {
+    const D = W.document, done = liveSetup(), realSave = W.save;
+    let saves = 0;
+    W.save = () => { saves++; realSave(); };
+    try {
+      W.openWine('fx-ready'); D.getElementById('wineSave').click();
+      W.openBottleEdit('fx-o1'); D.getElementById('openSave').click();
+      W.openWine('fx-hold');
+      D.getElementById('wineDialog').dispatchEvent(new W.Event('cancel'));
+      D.getElementById('wineDialog').close();
+      eq(saves, 0, 'Done, Escape: nothing saved, nothing banked');
+    } finally { W.save = realSave; done(); }
+  });
+  t('boxes that disagree are not saved, and the window says so without taking the cursor', () => {
+    const D = W.document, done = liveSetup();
+    try {
+      W.openWine('fx-hold');
+      D.getElementById('f_notes').focus();
+      D.getElementById('f_low').value = '90';
+      change('f_high', '80');
+      ok(/^Not saved yet: The high value is below the low one/.test(D.getElementById('wineWarn').textContent), 'said where Save said it');
+      eq(wineOf('fx-hold').valueLow, FIXTURE.wines[0].valueLow == null ? null : FIXTURE.wines[0].valueLow, 'nothing stored');
+      eq(D.activeElement && D.activeElement.id, 'f_notes', 'the cursor stays where it is');
+      D.getElementById('wineSave').click();
+      ok(D.getElementById('wineDialog').open && D.activeElement.id === 'f_high', 'Done refuses, at the box');
+      change('f_name', '');
+      ok(/name/.test(D.getElementById('wineWarn').textContent), 'an emptied name is refused, not saved as a blank');
+      eq(wineOf('fx-hold').name, 'Charlie Cabernet');
+      D.getElementById('wineDialog').dispatchEvent(new W.Event('cancel'));
+      D.getElementById('wineDialog').close();
+      ok(/Closed without your last change/.test(D.getElementById('toast').textContent), 'Escape closes anyway, and says what was not kept');
+    } finally { done(); }
+  });
+  t('a click outside saves before it closes; a record gone meanwhile closes and says so', () => {
+    const D = W.document, done = liveSetup();
+    try {
+      W.openWine('fx-hold');
+      const dlg = D.getElementById('wineDialog');
+      D.getElementById('f_location').value = 'Rack Out';   /* typed, not yet left */
+      dlg.dispatchEvent(new W.MouseEvent('mousedown', { clientX: 1, clientY: 1, bubbles: true }));
+      dlg.dispatchEvent(new W.MouseEvent('click', { clientX: 1, clientY: 1, bubbles: true }));
+      ok(!dlg.open, 'outside the box, it closes');
+      eq(wineOf('fx-hold').location, 'Rack Out', 'with the box still being typed in saved');
+      W.openWine('fx-hold');
+      H.__state().wines = H.__state().wines.filter((w) => w.id !== 'fx-hold');
+      change('f_location', 'Nowhere');
+      ok(!dlg.open && /deleted somewhere else/.test(D.getElementById('toast').textContent), 'gone: closed, and said');
+      ok(!H.__state().wines.some((w) => w.id === 'fx-hold'), 'and never brought back');
+    } finally { done(); }
+  });
+  t('an opened bottle and a pairing save as you go too, each as one entry', () => {
+    const D = W.document, done = liveSetup();
+    try {
+      W.openBottleEdit('fx-o1');
+      eq([D.getElementById('openSave').textContent, D.getElementById('openCancel').hidden], ['Done', true]);
+      change('o_place', 'Home');
+      change('o_note', 'Better the next day');
+      const o = H.__state().opened.find((x) => x.id === 'fx-o1');
+      eq([o.place, o.note], ['Home', 'Better the next day'], 'saved box by box');
+      D.getElementById('openSave').click();
+      eq(o.log.filter((e) => e.k === 'edit').length, 1, 'one History entry');
+      H.__plant(Object.assign({}, FIXTURE, { pairings: [{ id: 'fx-pa', wineId: 'fx-ready', label: '2019 Alpha Pinot',
+        meal: 'Salmon', status: 'planned', date: '' }] }));
+      W.openPairing('fx-pa');
+      eq([D.getElementById('pairingSave').textContent, D.getElementById('pairingCancel').hidden], ['Done', true]);
+      change('p_status', 'had');
+      const p = H.__state().pairings.find((x) => x.id === 'fx-pa');
+      eq([p.status, p.date], ['had', H.todayISO ? H.todayISO() : W.todayISO()], 'had, and on today — its own listener ran first');
+      change('p_meal', '');
+      ok(/meal/.test(D.getElementById('pairingWarn').textContent) && p.meal === 'Salmon', 'an emptied meal is refused');
+      change('p_meal', 'Grilled salmon');
+      D.getElementById('pairingSave').click();
+      eq([p.meal, p.log.filter((e) => e.k === 'edit').length], ['Grilled salmon', 1], 'one entry for the window');
+    } finally { done(); }
+  });
+
+  t('Look Up in a live window: what it fills is saved, and its answer stays ONE History entry', async () => {
+    const D = W.document, done = liveSetup();
+    const fake = async () => ({ ok: true, status: 200, json: async () => ({ stop_reason: 'tool_use', usage: {},
+      content: [{ type: 'tool_use', name: 'record_wine', id: 't', input: { matched_wine: 'Lookup Example 2019',
+        label_name: '', label_vintage: null, confidence: 'high', color: 'red', region: 'Sonoma County, California',
+        appellation: '', grape: 'Syrah', value_low: null, value_high: null, value_is_estimate: true, value_basis: '',
+        drink_from: 2022, drink_to: 2030, window_basis: 'estimate', sources: [] } }] }) });
+    try {
+      H.__plant({ wines: [{ id: 'lk', vintage: 2019, name: 'Lookup Example', qty: 1 }] });
+      await withKey(fake, async () => {
+        W.openWine('lk');
+        D.getElementById('lookupBtn').click();
+        for (let i = 0; i < 50 && !/saved/.test(D.getElementById('lookupNote').textContent); i++) await tick();
+        ok(/saved/.test(D.getElementById('lookupNote').textContent), 'it says it saved', D.getElementById('lookupNote').textContent);
+        eq([wineOf('lk').region, wineOf('lk').grape], ['Sonoma County, California', 'Syrah'], 'the boxes it filled are saved');
+        change('f_notes', 'One');
+        change('f_notes', 'Two');
+        D.getElementById('wineSave').click();
+        /* Read before withKey plants the fixture back. */
+        const log = wineOf('lk').log;
+        eq(log.filter((e) => e.k === 'look' || e.k === 'ai').length, 1, 'one entry for the answer, through three saves');
+        eq(log.filter((e) => e.k === 'edit').length, 1, 'and one for what was typed');
+      });
+    } finally { done(); }
+  });
+
+  t('the style notes keep their strongest-first order through the boxes', () => {
+    const D = W.document, done = liveSetup();
+    try {
+      H.__plant({ wines: [{ id: 'ar', name: 'Aroma Example', qty: 1,
+        profile: { sweetness: 'dry', body: 'full', acidity: null, tannin: null, style: null, aromas: ['jammy', 'blackfruit', 'spice'] } }] });
+      W.openWine('ar');
+      eq(W.readProfileBoxes('f').aromas, ['jammy', 'blackfruit', 'spice'], 'read back as saved, not in the list order');
+      change('f_notes', 'A note');
+      eq(wineOf('ar').profile.aromas, ['jammy', 'blackfruit', 'spice'], 'saving another box leaves them be');
+      eq(wineOf('ar').log.filter((e) => e.k === 'edit')[0].c.map((d) => d.f), ['notes'], 'and History names only the note');
+      const box = D.querySelector('#f_profileBox [data-aroma="oak"]');
+      box.checked = true; box.dispatchEvent(new W.Event('change', { bubbles: true }));
+      eq(wineOf('ar').profile.aromas, ['jammy', 'blackfruit', 'spice', 'oak'], 'a new tick goes on the end');
+      const j = D.querySelector('#f_profileBox [data-aroma="jammy"]');
+      j.checked = false; j.dispatchEvent(new W.Event('change', { bubbles: true }));
+      eq(wineOf('ar').profile.aromas, ['blackfruit', 'spice', 'oak'], 'an untick comes out of its place');
+    } finally { done(); }
   });
 
   group('the editor never saves a number the reader did not type');
@@ -4974,8 +5179,10 @@ function define() {
       D.getElementById('wineSave').click();
       eq(asked, 1, 'a confirm, naming the wine');
       eq(H.__state().wines.find((w) => w.id === 'fx-ready').qty, 2, 'cancel saves nothing');
+      eq(D.getElementById('f_qty').value, '2', 'and puts the count back in the box');
       ok(D.getElementById('wineDialog').open, 'and leaves the editor open to fix it');
       W.confirm = () => true;
+      D.getElementById('f_qty').value = '0';
       D.getElementById('wineSave').click();
       eq(H.__state().wines.find((w) => w.id === 'fx-ready').qty, 0, 'yes saves it');
       ok(/hidden as finished/.test(D.getElementById('toast').textContent), 'and the toast says where it went');
@@ -5486,10 +5693,16 @@ function define() {
       set('ob_grape', 'Pinot'); set('ob_paid', '55'); set('ob_from', '2030'); set('ob_to', '2028');
       set('o_place', 'Home'); set('o_rating', '5');
       D.getElementById('openSave').click();
+      ok(D.getElementById('openDialog').open && /Not saved yet: The window ends before it starts/.test(D.getElementById('openWarn').textContent),
+         'a backwards window is said, not turned round — mid-edit the other year may not be typed yet');
+      eq(H.__state().opened.find((x) => x.id === 'fx-o1').place, '', 'and nothing is saved while it disagrees');
+      set('ob_from', '2028'); set('ob_to', '2030');
+      D.getElementById('openSave').click();
+      ok(!D.getElementById('openDialog').open, 'Done closes once it agrees');
       const o = H.__state().opened.find((x) => x.id === 'fx-o1');
       eq([o.label, o.vintage, o.region, o.grape, o.paid, o.drinkFrom, o.drinkTo, o.place, o.rating],
          ['2018 Alpha Pinot Reserve', 2018, 'Russian River', 'Pinot', 55, 2028, 2030, 'Home', 5],
-         'every box, a backwards window turned round');
+         'every box');
       eq(H.timingOf(o), 'early', 'timing follows the edited window');
       eq(JSON.stringify(H.__state().wines), before, 'the Cellar wine is untouched');
       W.openBottleEdit('fx-o1'); set('ob_name', '   '); D.getElementById('openSave').click();

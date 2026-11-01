@@ -546,6 +546,24 @@ the family doesn't.
   window stops its lookups** — a `MutationObserver` on `open`, not the `close` event (which some
   engines never deliver), because Escape and a click outside never pass through Cancel; before
   2026-10-23 a closed paste window went on billing through every row.
+- **Windows that save as you go (2026-11-01, Charles):** EDITING a saved wine (`wineDialog`),
+  opened line (`openDialog` in edit mode) or pairing (`pairingDialog`) writes on every `change`
+  and closes on **Done**; adding (new wine, Log Bottle, Opened One, Add Pairing) keeps
+  Cancel/Save. One shared block, `LIVE` + `liveStart`/`liveOff`/`liveCommit`/`liveDone`/
+  `liveLeaving`, with `commitWine` / `commitBottle` / `commitPairing`. Guards, each red-proofed by
+  deleting it: `change` not `input`; **one window = one Undo step** (`liveSaving` latch in save(),
+  reset by undoStartOver) and **one History entry** (`liveEdit` rewrites the window's `edit`
+  entry against `before`; `logLookup` matches `look` OR `ai` by moment); a glance writes nothing
+  (snapshot compare + `dirty()` for photos); disagreeing boxes store nothing and say "Not saved
+  yet:" without moving focus — Done refuses and focuses, Escape/backdrop close and toast; no
+  `close` event — Done, `cancel` and the backdrop each commit first. The opened window now
+  REFUSES a backwards window where Save silently swapped it. Programmatic fills (Look Up, Use
+  This, the opened window's Look Up, Ask Claude, the photo row) call `liveCommit` themselves —
+  setting `.value` fires no change. Opened One / Open Its Pairing / We Had It save first, then go.
+  Found doing it: the aroma tick boxes read back in LIST order, so any edit reordered a wine's
+  strongest-first notes and logged a phantom `profile` change — `aromaOrder` keeps the record's
+  order now. Do not convert: Paste a List, Check Wines, Pair a Meal, Delete All, sync choice,
+  Share, Back Up.
 - **Enter saves** through ONE document listener and the `ENTER_SAVES` map (dialog id → its save
   button). A window that gains a save button goes in the map; Settings (saves as you go) and
   Delete All (never one key away) stay out on purpose. Skipped: textarea, a focused
@@ -683,6 +701,6 @@ was a one-line version of the cellar rule.
 
 ## Tests
 
-`tests.html`, `EXPECTED = 356`. Run it headless (Playwright) rather than in the Browser pane:
+`tests.html`, `EXPECTED = 365`. Run it headless (Playwright) rather than in the Browser pane:
 the pane throttles hidden timers and its focus heuristics turn the 705px keyboard-focus check
 red on untouched code.
