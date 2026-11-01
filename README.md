@@ -135,7 +135,7 @@ cellar on your other devices.
   text column about two words a line, so it never scrolls sideways or squeezes into tall rows.
   This covers the Cellar, the Opened log and the paste preview. The column headings
   become a row of **Sort by** buttons. It is layout only: Copy and CSV still export the full table.
-- **Colour starts as Not set** — a new wine has no colour until you pick one or Look Up finds
+- **Type starts as Not set** — a new wine has no type until you pick one or Look Up finds
   it, so a white saved in a hurry isn't recorded as red.
 - **Closing a wine's window keeps your place** — Save, Cancel, Opened One or a tap outside
   leaves the cellar where it was, so you can work down a long list on a phone. Every window
@@ -419,7 +419,7 @@ Two shapes are understood:
 
 - **A list with a header row** — CSV (like the Cellar table's own ⬇ CSV), tab-separated or a
   Markdown table. Columns are found by name, in any order: **Wine**, Vintage, Region, Grape,
-  **Bottles**, **Value** (or Value Each / Price), **Window**, **Where**, Colour, Notes. Other
+  **Bottles**, **Value** (or Value Each / Price), **Window**, **Where**, Type (or Colour), Notes. Other
   columns (Status, Verdict) are read past. Quoted cells may contain commas.
 - **Claude's lookup table** with no header needed — **Wine · Approx. value · Drink window ·
   Verdict**, in that order, tab-separated, Markdown, or lined up with spaces.
@@ -435,8 +435,8 @@ Each wine starts with its vintage (`2019 Sample Hill Reserva`, or `NV …`), or 
 - the bottle count from a Bottles column, or `x2` / `(3 bottles)` in the wine cell; one
   bottle otherwise;
 - a Where column per wine — the box in the window fills in only where the list says nothing;
-- the colour from a Colour column, or guessed from the grape and name: Port, Tawny, Sherry
-  → dessert; Champagne, Brut, Prosecco → sparkling; rosé → rosé; Chardonnay, Sauvignon
+- the type from a Type or Colour column, or guessed from the grape and name: Port, Tawny, Sherry,
+  Madeira → fortified; Sauternes, Tokaji, ice wine, late harvest → dessert; Champagne, Brut, Prosecco → sparkling; rosé → rosé; Chardonnay, Sauvignon
   Blanc, Riesling and other white grapes → white; everything else red. The preview shows the
   guess so it can be checked.
 

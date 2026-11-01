@@ -113,6 +113,16 @@ the family doesn't.
   in the CSP on the shared origin; don't re-offer it. Synthetic ⌘V in the Browser pane
   fires no paste event; test pastes in headful Playwright with a pasteboard built in JXA.
 
+- **SCHEMA 21 / SHARE_PAYLOAD_V 8 (2026-11-01, Charles): "Colour" is shown as Type, and
+  "Dessert or fortified" is two choices, `dessert` and `fortified`.** Still stored as `color`
+  (every saved copy reads); only the labels say Type (edit window, What You Like table + pill,
+  tips, Check Wines / paste columns, History, CSV header — import still accepts a Colour column).
+  A save older than 21 moves a `dessert` wine to `fortified` when `FORTIFIED_RE` matches its grape
+  + name (Port styles, Sherry styles, Madeira, Marsala, VDNs) — only then, so a Port the owner
+  later sets to Dessert stays. `guessColor` and LOOKUP_TOOL's enum (with a description saying
+  sparkling rosé is sparkling) know both. MAKE_TABLES' third entry is a computeMakeup KEY
+  (`colours`), not wording — renaming it blanks the whole page at boot.
+
 - **SCHEMA 20 / SHARE_PAYLOAD_V 7 (2026-10-31, Charles: "wine nose and palate characteristics
   like sweetness, body, acidity, tannins…"): a wine's style `profile`.** ONE object or null —
   `{sweetness, body, acidity, tannin, style, aromas[]}` — so it copies, travels, diffs and logs as
@@ -673,6 +683,6 @@ was a one-line version of the cellar rule.
 
 ## Tests
 
-`tests.html`, `EXPECTED = 351`. Run it headless (Playwright) rather than in the Browser pane:
+`tests.html`, `EXPECTED = 356`. Run it headless (Playwright) rather than in the Browser pane:
 the pane throttles hidden timers and its focus heuristics turn the 705px keyboard-focus check
 red on untouched code.

@@ -1829,7 +1829,7 @@ html[data-booting] footer { visibility: hidden; }
     </div>
 
     <!-- What You Like, for the cellar as it stands (Charles, 2026-10-26): every
-         wine with bottles left, by grape, region, sub-region and colour. Worked
+         wine with bottles left, by grape, region, sub-region and type. Worked
          out by computeMakeup — Find narrows the list, never this; the status
          tiles narrow both (rows go dead, never away). Since 2026-10-27 its rows are FILTERS (setFacet): a press narrows
          the list below and the other tables, so it sits ABOVE the list. -->
@@ -1840,7 +1840,7 @@ html[data-booting] footer { visibility: hidden; }
         <span class="spacer"></span>
         <button type="button" class="link no-print" data-facet-clear style="visibility: hidden">Clear</button>
       </h2>
-      <p class="chart-title">The bottles you have now — by grape, colour, region, sub-region, the year their window closes, where they are and Look Up’s style profile — and how many of them are ready to open. Press a name to show or hide its table; press a row to narrow the list below.</p>
+      <p class="chart-title">The bottles you have now — by grape, type, region, sub-region, the year their window closes, where they are and Look Up’s style profile — and how many of them are ready to open. Press a name to show or hide its table; press a row to narrow the list below.</p>
       <div class="tablepicks no-print" id="makePicks" role="group" aria-label="Tables to show"></div>
       <!-- Every table's host; tablePicker adds the style profile's and hides
            the ones whose pill is off. -->
@@ -2200,8 +2200,8 @@ html[data-booting] footer { visibility: hidden; }
              placeholder="blank for non-vintage">
     </div>
     <div class="field">
-      <label for="f_color">Colour</label>
-      <!-- No colour until one is chosen or Look Up finds it (Charles, 2026-10-25):
+      <label for="f_color">Type</label>
+      <!-- No type until one is chosen or Look Up finds it (Charles, 2026-10-25):
            a new wine used to start as Red, and a white saved in a hurry stayed red. -->
       <select id="f_color">
         <option value="">Not set</option>
@@ -2209,7 +2209,8 @@ html[data-booting] footer { visibility: hidden; }
         <option value="white">White</option>
         <option value="rose">Rosé</option>
         <option value="sparkling">Sparkling</option>
-        <option value="dessert">Dessert or fortified</option>
+        <option value="dessert">Dessert</option>
+        <option value="fortified">Fortified</option>
       </select>
     </div>
   </div>
@@ -2486,7 +2487,7 @@ html[data-booting] footer { visibility: hidden; }
     Wine, Region, Grape, Bottles, Value, Window, Where, in any order. Each wine starts with its
     vintage (<em>2019 Sample Hill Reserva</em>, or <em>NV</em>). A Status or Verdict column is
     not stored: the app works the status out from the window, so it stays right as the years go
-    by. Colour is guessed from the grape — check it below.</p>
+    by. Type is guessed from the grape — check it below.</p>
   <div class="field">
     <label for="pasteBox">The list</label>
     <textarea id="pasteBox" rows="7" spellcheck="false"
@@ -2939,8 +2940,11 @@ const TABS        = ['cellar', 'opened', 'pairings', 'history'];
    15 (2026-10-26): `pairings` — a meal and the bottle for it, planned or had,
    with the pairing's own rating and note; History's `plan` kind and `meal`.
    16 (2026-10-26): a pairing keeps its own History (`log`), and History names
-   its wine, status and day. */
-const SCHEMA = 20;
+   its wine, status and day.
+   21 (2026-11-01): a wine's `color` (shown as its Type) may be 'fortified';
+   older code would blank it, and a save older than 21 moves its Ports out of
+   'dessert' (FORTIFIED_RE). */
+const SCHEMA = 21;
 
 /* ── Ids from outside are not trusted ──────────────────────────────────────
    Ids reach `data-id` attributes and <option value>s in a dozen places, so an
@@ -3003,9 +3007,15 @@ function todayISO() {
 }
 function thisYear() { return new Date().getFullYear(); }
 
-const COLORS = ['red', 'white', 'rose', 'sparkling', 'dessert'];
+/* A wine's TYPE (Charles, 2026-11-01: "Colour" named three of the six; Port
+   and Sauternes shared one choice and pair nothing alike). Stored as `color`,
+   as it always was, so every saved copy still reads. */
+const COLORS = ['red', 'white', 'rose', 'sparkling', 'dessert', 'fortified'];
 const COLOR_LABEL = { red: 'Red', white: 'White', rose: 'Rosé', sparkling: 'Sparkling',
-                      dessert: 'Dessert' };
+                      dessert: 'Dessert', fortified: 'Fortified' };
+/* What makes a wine fortified, by its grape and name: Port and its styles,
+   Sherry's, Madeira, Marsala and the French vins doux naturels. */
+const FORTIFIED_RE = /\b(port|tawny|ruby|lbv|colheita|sherry|fino|manzanilla|amontillado|oloroso|palo cortado|pedro xim[eé]nez|madeira|marsala|banyuls|maury|rivesaltes|rutherglen muscat|vin doux naturel)\b/i;
 /* Where a wine came from is the owner's own words since SCHEMA 11 (Charles,
    2026-10-24: "someone else may use this app" — it was three fixed choices,
    one of them a shop's name). The old choices' stored keys become words;
@@ -3617,6 +3627,14 @@ function normalizeState(raw) {
   if (Number(raw.version || 1) < 12) {
     out.wines.forEach((w) => {
       w.notes = w.notes.split('\n').filter((l) => l.indexOf('Looked up ') !== 0).join('\n').trim();
+    });
+  }
+  /* Before SCHEMA 21 "Dessert or fortified" was one choice. A save older than
+     21 moves the wines that are plainly fortified; the rest stay Dessert. Only
+     then, so a Port you set to Dessert yourself afterwards stays Dessert. */
+  if (Number(raw.version || 1) < 21) {
+    out.wines.forEach((w) => {
+      if (w.color === 'dessert' && FORTIFIED_RE.test(w.grape + ' ' + w.name)) w.color = 'fortified';
     });
   }
   out.opened = (Array.isArray(raw.opened) ? raw.opened : [])
@@ -4446,7 +4464,7 @@ function wineFacts(w, shown) {
     off('window') && fmtWindow(w) !== '—' ? 'Window: ' + fmtWindow(w) : '',
     off('paid') && w.paid != null ? 'Paid: ' + fmtPaid(w.paid) + (dealOf(w) ? ' (' + DEAL_WORDS[dealOf(w)] + ')' : '') : '',
     off('location') && w.location ? 'Where: ' + w.location : '',
-    COLOR_LABEL[w.color] ? 'Colour: ' + COLOR_LABEL[w.color] : '',
+    COLOR_LABEL[w.color] ? 'Type: ' + COLOR_LABEL[w.color] : '',
     profileText(w.profile) ? 'Style profile: ' + profileText(w.profile) : '',
     w.source ? 'Came from: ' + w.source : '',
     fmtAdded(w.added) ? 'Added: ' + fmtAdded(w.added) : '',
@@ -4772,7 +4790,7 @@ function renderOpenedDash(c) {
 const MAKE_TABLES = { grape: ['makeGrapes', 'Grape', 'grapes', 'no grape recorded'],
   region: ['makeRegions', 'Region', 'regions', 'no region recorded'],
   subregion: ['makeSubregions', 'Sub-region', 'subregions', 'no sub-region recorded'],
-  color: ['makeColours', 'Colour', 'colours', 'no colour set'],
+  color: ['makeColours', 'Type', 'colours', 'no type set'],
   drinkTo: ['makeDrinkBy', 'Drink By', 'drinkBy', 'no end to its window'],
   location: ['makeWhere', 'Where It Is', 'places', 'no place recorded'],
   /* The style profile's (SCHEMA 20), hosts made by tablePicker. */
@@ -5844,8 +5862,9 @@ const SHARE_FORMAT = 1;
 /* 2: `added` may be blank or a bare year (see SCHEMA). 3: `paid`, when ticked.
    4: an opened line carries its own snapshot — a bottle logged away from home
    has no wine to be filled from — and its place, with the notes.
-   5: a wine's and a line's sub-region. */
-const SHARE_PAYLOAD_V = 7;
+   5: a wine's and a line's sub-region.
+   8 (2026-11-01): a wine's type may be 'fortified' (see SCHEMA 21). */
+const SHARE_PAYLOAD_V = 8;
 const SHARE_WARN_AT = 8000;
 
 const b64urlEncode = (bytes) => {
@@ -6083,11 +6102,13 @@ function guessColor(colorCell, grape, name) {
   const c = String(colorCell || '').toLowerCase();
   if (/ros[eé]/.test(c)) return 'rose';
   if (/sparkl|fizz|bubbl/.test(c)) return 'sparkling';
-  if (/dessert|fortified|sweet|port/.test(c)) return 'dessert';
+  if (/fortified|port|sherry|madeira/.test(c)) return 'fortified';
+  if (/dessert|sweet/.test(c)) return 'dessert';
   if (/white/.test(c)) return 'white';
   if (/red/.test(c)) return 'red';
   const t = grape + ' ' + name;
-  if (/\b(port|tawny|ruby|sherry|madeira|sauternes|tokaji|ice ?wine)\b/i.test(t)) return 'dessert';
+  if (FORTIFIED_RE.test(t)) return 'fortified';
+  if (/\b(sauternes|barsac|tokaji|ice ?wine|eiswein|late harvest|vin santo|trockenbeerenauslese)\b/i.test(t)) return 'dessert';
   if (/champagne|\bbrut\b|prosecco|\bcava\b|cr[eé]mant|sparkling/i.test(t)) return 'sparkling';
   /* Not `\b` after it: é is not a word character to a regex, so `\b` would
      never match there. */
@@ -6270,7 +6291,10 @@ const LOOKUP_TOOL = {
           + '(value_is_estimate and window_basis say that). high: the producer, wine and vintage are certain, read from '
           + 'the attached label or named by a source. medium: probably this wine, but the exact bottling or vintage is '
           + 'unsure. low: could not identify it or find anything about it.' },
-      color: { type: 'string', enum: ['red', 'white', 'rose', 'sparkling', 'dessert'] },
+      color: { type: 'string', enum: ['red', 'white', 'rose', 'sparkling', 'dessert', 'fortified'],
+        description: 'The wine\'s type. dessert: sweet and NOT fortified (Sauternes, Tokaji, ice wine, late harvest). '
+          + 'fortified: Port, Sherry, Madeira, Marsala, a vin doux naturel - whether sweet or dry. sparkling includes '
+          + 'sparkling rosé.' },
       region: { type: 'string', description: 'Exactly two parts, "Area, State or Country": the wine area a drinker '
         + 'would group by, then the US state or the country, spelled out. E.g. "Napa Valley, California", '
         + '"Willamette Valley, Oregon", "Douro, Portugal", "Burgundy, France", "Tuscany, Italy". No sub-district, '
@@ -6594,7 +6618,7 @@ function readLookup(found, asked) {
 const LOG_FIELDS = [
   ['name', 'Name', (w) => w.name || ''],
   ['vintage', 'Vintage', (w) => (w.vintage == null ? 'NV' : String(w.vintage))],
-  ['color', 'Colour', (w) => COLOR_LABEL[w.color] || ''],
+  ['color', 'Type', (w) => COLOR_LABEL[w.color] || ''],
   ['region', 'Region', (w) => w.region || ''],
   ['subregion', 'Sub-region', (w) => w.subregion || ''],
   ['grape', 'Grape', (w) => w.grape || ''],
@@ -7412,7 +7436,7 @@ const LOOKUP_BOXES = [
    (r) => !!r.grape, (r) => sameText($('f_grape').value, r.grape)],
   /* A colour not set yet is filled like any empty box; a chosen one is only
      offered. A NEW wine is filled either way, as it was when it started red. */
-  ['color', 'Colour', () => !editingId || !$('f_color').value, (r) => { $('f_color').value = r.color; },
+  ['color', 'Type', () => !editingId || !$('f_color').value, (r) => { $('f_color').value = r.color; },
    (r) => !!r.color, (r) => $('f_color').value === r.color],
   /* The style profile goes in whole, an empty one filled like any empty box. */
   ['profile', 'Style profile', () => !readProfileBoxes('f'), (r) => { setProfileBoxes('f', r.profile); },
@@ -7917,7 +7941,7 @@ function renderPaste() {
       + (pasted.skipped.length ? ' Not read: line ' + pasted.skipped.join(', ') + '.' : '')
     : '';
   $('pastePreview').innerHTML = pasted.rows.length
-    ? '<table class="cards"><thead><tr><th scope="col">Wine</th><th scope="col">Colour</th>'
+    ? '<table class="cards"><thead><tr><th scope="col">Wine</th><th scope="col">Type</th>'
       + '<th scope="col" class="num">Bottles</th>'
       + '<th scope="col" class="num">Value each</th><th scope="col">Window</th><th scope="col">Status</th>'
       + '</tr></thead><tbody>' + pasted.rows.map((r, i) => {
@@ -7926,7 +7950,7 @@ function renderPaste() {
            ONE wine — the preview has to say so, or it promises two. */
         const twice = !had && pasted.rows.slice(0, i).some((p) => sameWine(p, r));
         return '<tr><th scope="row">' + esc(wineLabel(r)) + '</th>'
-          + '<td data-label="Colour">' + esc(COLOR_LABEL[r.color]) + '</td>'
+          + '<td data-label="Type">' + esc(COLOR_LABEL[r.color]) + '</td>'
           + '<td class="num" data-label="Bottles">' + esc(r.qty) + '</td>'
           + '<td class="num" data-label="Value">' + esc(fmtValue(r)) + '</td>'
           + '<td class="nowrap" data-label="Window">' + esc(fmtWindow(r)) + '</td><td data-label="Status">'
@@ -8085,7 +8109,7 @@ const LOOKUP_FIELDS = [
    (w, r) => sameText(w.subregion, r.subregion), (w) => w.subregion, (w, r) => { w.subregion = r.subregion; }],
   ['grape', 'Grape', (w) => !String(w.grape || '').trim(), (r) => !!r.grape,
    (w, r) => sameText(w.grape, r.grape), (w) => w.grape, (w, r) => { w.grape = r.grape; }],
-  ['color', 'Colour', (w) => !w.color, (r) => !!r.color,
+  ['color', 'Type', (w) => !w.color, (r) => !!r.color,
    (w, r) => w.color === r.color, (w) => COLOR_LABEL[w.color] || '', (w, r) => { w.color = r.color; }],
   /* An empty profile starts ticked; a different one is left — a second
      reading of the same wine is not better evidence. */
@@ -9646,7 +9670,7 @@ const HELP = {
     <p><strong>Bottles</strong> counts them all. <strong>Rated</strong> is how many you gave stars to, and <strong>Avg ★</strong> is the average of those stars, out of 5 — a bottle you didn’t rate never pulls it down. Best-rated comes first, with the most bottles breaking a tie; press a heading to sort by it instead.</p>
     <p><strong>The style tables</strong> group them by their wine’s style profile from Look Up — sweetness, body, acidity, tannin, style, or its notes; show or hide each with its pill above the tables. A bottle with several notes counts under each of them. It is the wine’s typical profile, not that bottle on that night.</p>
     <p><strong>Press a row</strong> to narrow the Bottles Opened list to those bottles, and the other two tables recount to them — rows in two tables narrow to the bottles in both, two rows in one table to either. Press it again, or <strong>Clear</strong>, to let it go. The timing tiles narrow these tables the same way, though the tiles themselves always count every bottle.</p>`],
-  makeup: ['How These Tables Are Worked Out', `<p>Every wine you still have bottles of, grouped by its <strong>grape</strong>, its <strong>region</strong>, its <strong>sub-region</strong>, its <strong>colour</strong>, the year its window closes and where you keep it. Each name counts as written, ignoring only capitals and extra spaces, as What You Like on the Opened tab does.</p>
+  makeup: ['How These Tables Are Worked Out', `<p>Every wine you still have bottles of, grouped by its <strong>grape</strong>, its <strong>region</strong>, its <strong>sub-region</strong>, its <strong>type</strong>, the year its window closes and where you keep it. Each name counts as written, ignoring only capitals and extra spaces, as What You Like on the Opened tab does.</p>
     <p><strong>Press a row</strong> to narrow the cellar to those bottles: the list below shows only them, and the other tables recount to them. Press rows in two tables and it narrows to the bottles in both; press two rows in one table and either will do. A row with none of the picked bottles stays at 0, dimmed and locked, and pressing a picked row again (or <strong>Clear</strong>) lets it go. The status tiles in At a Glance (and the Cellar's Status box) narrow these tables the same way, though the tiles themselves always count the whole cellar.</p>
     <p><strong>The style tables</strong> group them by Look Up’s style profile — sweetness, body, acidity, tannin, style, or its notes; show or hide each with its pill above the tables. A wine with several notes counts under each, so the Notes table’s shares add up to more than 100%.</p>
     <p><strong>Drink By</strong> groups bottles by the year their drinking window closes, soonest first — the years when bottles start running out of time; a window with no end is left out and counted. <strong>Where It Is</strong> groups them by the place you keep them, as written (capitals ignored).</p>
@@ -9749,7 +9773,7 @@ $('exportBtn').addEventListener('click', () => downloadBackup($('backupPhotos').
    view. Both go through the SAME csvCell/toCsv as the table exports. */
 function csvWines(st) {
   const yr = thisYear();
-  const rows = [['Vintage', 'Wine', 'Colour', 'Region', 'Sub-region', 'Grape', 'Bottles', 'Value low', 'Value high',
+  const rows = [['Vintage', 'Wine', 'Type', 'Region', 'Sub-region', 'Grape', 'Bottles', 'Value low', 'Value high',
                  'Estimate', 'Paid', 'Drink from', 'Drink by', 'Status', 'Where', 'Came from', 'Added', 'Notes']]
     .concat(st.wines.slice().sort((a, b) => wineLabel(a).localeCompare(wineLabel(b))).map((w) => [
       w.vintage == null ? 'NV' : w.vintage, w.name, COLOR_LABEL[w.color] || '', w.region, w.subregion, w.grape, w.qty,
@@ -10527,7 +10551,7 @@ function sameCellar(a, b) { return syncStable(syncNormal(a)) === syncStable(sync
    the record is named from whichever copy still has it. A short value is shown
    only for a count or a rating; anything else just says the two differ. */
 const SYNC_FIELD = {
-  wines: { name: 'Name', vintage: 'Vintage', color: 'Colour', region: 'Region', subregion: 'Sub-region',
+  wines: { name: 'Name', vintage: 'Vintage', color: 'Type', region: 'Region', subregion: 'Sub-region',
     grape: 'Grape', qty: 'Bottle count', valueLow: 'Value', valueHigh: 'Value', valueEst: 'Value',
     paid: 'Price paid', drinkFrom: 'Drinking window', drinkTo: 'Drinking window', location: 'Location',
     source: 'Came from', added: 'Added', notes: 'Notes', photoAt: 'Label photo', profile: 'Style profile' },
@@ -10831,7 +10855,7 @@ window.__wineTestHooks = {
   __photoDraft: function (d, which) { (which === 'opened' ? bottlePhoto : winePhoto).setDraft(d); },
   cleanPhoto: cleanPhoto, photoIdsGone: photoIdsGone, backupPhotoEntries: backupPhotoEntries,
   __lookupStampKey: () => (lookupStamp ? lookupStamp.key : ''), photoContent: photoContent, imageFromTransfer: imageFromTransfer, photoFit: photoFit, clipWords: clipWords, labelNameFor: labelNameFor, heicBrand: heicBrand, isHeic: isHeic, readPicked: readPicked, PHOTO_MAX: PHOTO_MAX, PHOTO_SEND_MAX: PHOTO_SEND_MAX,
-  SCHEMA: SCHEMA, ID_RE: ID_RE, STORAGE_KEY: STORAGE_KEY, THEME_KEY: THEME_KEY,
+  SCHEMA: SCHEMA, COLOR_LABEL: COLOR_LABEL, ID_RE: ID_RE, STORAGE_KEY: STORAGE_KEY, THEME_KEY: THEME_KEY,
   TAB_KEY: TAB_KEY, TABS: TABS, SHARE_FORMAT: SHARE_FORMAT, SHARE_PAYLOAD_V: SHARE_PAYLOAD_V, starsOf: starsOf,
   blankState: blankState, normalizeState: normalizeState, defaultSettings: defaultSettings,
   sampleData: sampleData, computeAll: computeAll, buildSharePayload: buildSharePayload,
