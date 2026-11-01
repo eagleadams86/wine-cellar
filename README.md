@@ -237,7 +237,7 @@ the web for a wine and come back with its value, drinking window, region, grape 
   and 14–17 seconds each; it was $0.137 uncached). Most of a lookup is Claude reading search results,
   and the search tool re-reads them inside one call — cached, a re-read costs 5% of the normal
   input price. The instructions every wine shares are cached too, so Check Wines and a pasted list
-  reuse them. It is capped at 3 searches and low effort per wine; the paste window runs three lookups at a time, started three seconds apart so the second and third reuse the first one's cache instead of each paying to write their own (about 9¢ saved per run). **Closing the window stops
+  reuse them. It is capped at 3 searches and low effort per wine; the paste window and Check Wines run eight lookups at a time — the cost is per wine, so more at once is only faster (40 wines take about 2 minutes, not 4½). The first starts alone and the rest three seconds later, so they reuse its cache instead of each paying to write their own. A "too many requests" answer is waited out and retried twice before that wine is marked failed. **Closing the window stops
   them** — Cancel, Escape or a click outside — so nothing keeps running (or billing) behind it.
   A key Claude rejects stops the whole paste at once and says why.
 
@@ -294,7 +294,7 @@ photo from the iPhone works directly. The window says which of these happened.
 ### Check Wines
 
 **✦ Check Wines** at the top of the Cellar runs the same lookup on the wines you pick — any
-wine with bottles left (finished wines are skipped), three at a time. It offers the **style
+wine with bottles left (finished wines are skipped), eight at a time. It offers the **style
 profile** like any other line: ticked when the wine has none, left alone when it has a different
 one (a second reading of the same wine is not better evidence). A wine with a label photo sends its kept
 copy with the question, as Look Up does, so the label settles which bottle it is (about a cent

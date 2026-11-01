@@ -51,7 +51,7 @@
    go MISSING look exactly like tests that pass — a suite that quietly shrank to
    three checks still says "all 3 tests pass". RAISE THIS when you add tests, and
    lower it only when you retire one deliberately. */
-const EXPECTED = 354;
+const EXPECTED = 355;
 
 /* ── It refuses to run anywhere but localhost, and that is load-bearing ──────
    GitHub Pages publishes this page BESIDE the app, where the iframe below would
@@ -328,6 +328,7 @@ async function main() {
      write); the suite's fake fetches answer at once, so it runs them together.
      The stagger itself has its own test. */
   H.__stagger(0);
+  H.__retryWait(() => 0);   // a 429's wait, likewise; its own test checks the seconds asked
   define();
   await runAsync();
   await run();
@@ -4254,14 +4255,47 @@ function define() {
   });
   t('a bulk run sets its lookups off apart, so the first one\'s cache write is shared', async () => {
     eq(H.LOOKUP_STAGGER_MS, 3000, 'three seconds apart in the app');
-    eq(H.LOOKUP_PARALLEL, 3, 'three at once');
+    eq(H.LOOKUP_PARALLEL, 8, 'eight at once');
     const t0 = Date.now(), starts = [];
     await W.runLookups(async () => { starts.push(Date.now() - t0); }, 40);
-    eq(starts.length, 3, 'every worker runs');
-    ok(starts[0] < 30 && starts[1] >= 35 && starts[2] >= 75, 'the first at once, then one gap after another', starts.join(', '));
+    eq(starts.length, 8, 'every worker runs');
+    ok(starts[0] < 30 && starts.slice(1).every((x) => x >= 35 && x < 120),
+       'the first at once, the rest together one gap later', starts.join(', '));
     const was = H.__stagger(0);
     eq(was, 0, 'the suite runs at no gap');
     H.__stagger(was);
+  });
+  t('a 429 waits what the API asks and tries again — twice, then says why', async () => {
+    const ok200 = { ok: true, status: 200, json: async () => ({ stop_reason: 'tool_use', usage: { input_tokens: 10, output_tokens: 5 },
+      content: [{ type: 'tool_use', id: 't', name: 'record_wine', input: { matched_wine: 'X' } }] }) };
+    const busy = (after) => ({ ok: false, status: 429, headers: { get: (h) => (h === 'retry-after' ? after : null) },
+      json: async () => ({ error: { message: 'rate limited' } }) });
+    const waits = [], was = H.__retryWait((sec) => { waits.push(sec); return 0; });
+    try {
+      let n = 0;
+      const got = await W.lookupWine({ name: 'Retry Example', vintage: 2019 }, 'sk-ant-test',
+        { names: { regions: [], grapes: [] }, fetch: async () => (++n === 1 ? busy('7') : ok200) });
+      eq([n, got.found.matched_wine], [2, 'X'], 'one busy answer, then the wine');
+      eq(waits, [7], 'after the seconds retry-after asked');
+      waits.length = 0; n = 0;
+      let err = null;
+      try {
+        await W.lookupWine({ name: 'Retry Example', vintage: 2019 }, 'sk-ant-test',
+          { names: { regions: [], grapes: [] }, fetch: async () => { n++; return busy('999'); } });
+      } catch (e) { err = e; }
+      eq(n, 1 + H.LOOKUP_RETRIES, 'tried three times in all, never more');
+      eq(waits, [30, 30], 'a long retry-after is capped at 30 seconds');
+      ok(err && /spend limit|Too many/.test(err.message), 'then the plain reason', err && err.message);
+      const ctl = new W.AbortController();
+      H.__retryWait(() => 10000);
+      setTimeout(() => ctl.abort(), 20);
+      err = null;
+      try {
+        await W.lookupWine({ name: 'Retry Example', vintage: 2019 }, 'sk-ant-test',
+          { names: { regions: [], grapes: [] }, signal: ctl.signal, fetch: async () => busy(null) });
+      } catch (e) { err = e; }
+      eq(err && err.name, 'AbortError', 'Stop ends the wait at once');
+    } finally { H.__retryWait(was); }
   });
   t('closing the paste window stops every lookup it started', async () => {
     const D = W.document, signals = [];
@@ -4539,7 +4573,7 @@ function define() {
       D.getElementById('checkBtn').click();
       D.getElementById('checkStart').click();
       await tick();
-      ok(signals.length === 3, 'three at a time', signals.length);
+      ok(signals.length === 4, 'all four at once — fewer wines than LOOKUP_PARALLEL', signals.length);
       D.getElementById('checkDialog').close();
       await tick();
       ok(signals.every((s) => s.aborted), 'all of them aborted by the close');

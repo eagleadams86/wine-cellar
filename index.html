@@ -6187,22 +6187,61 @@ const LOOKUP_URL = 'https://api.anthropic.com/v1/messages';
 /* Claude pausing a long search ("pause_turn") is resumed this many times
    before the lookup gives up, so one wine can never loop forever. */
 const LOOKUP_MAX_ROUNDS = 4;
-/* How many wines the paste window looks up at once. Each lookup takes tens of
-   seconds of searching; three at a time keeps a 20-wine list to minutes
-   without leaning on the account's rate limit. */
-const LOOKUP_PARALLEL = 3;
-/* ...but they set off a few seconds apart. The instructions every wine shares
-   are cached by the FIRST request, and a request sent before that cache exists
-   pays to write its own copy — three at once paid for three. Staggered, the
-   second and third read the first one's copy at 5% of the price. */
+/* How many wines a paste or Check Wines looks up at once. Each lookup takes
+   tens of seconds of searching, and the cost is per wine however many run
+   together, so more at once is only faster. Eight is far inside the account's
+   rate limit (read 2026-11-01: 4,000 requests and 2M input tokens a minute;
+   eight lookups use a few dozen requests), and a 429 is retried (postClaude). */
+const LOOKUP_PARALLEL = 8;
+/* ...but the rest wait a few seconds for the first. The instructions every
+   wine shares are cached by the FIRST request, and a request sent before that
+   cache exists pays to write its own copy — three at once paid for three
+   (probed 2026-11-01). Three seconds later the rest read the first one's copy
+   at 5% of the price. */
 const LOOKUP_STAGGER_MS = 3000;
 let lookupStagger = LOOKUP_STAGGER_MS;   // the suite sets 0 (__stagger), or every bulk test waits
-/* Runs `worker` LOOKUP_PARALLEL times, each one the stagger after the last.
-   A worker started after Stop finds its run cancelled and returns. */
+/* Runs `worker` LOOKUP_PARALLEL times: one at once, the rest together one
+   stagger later. A worker started after Stop finds its run cancelled and returns. */
 function runLookups(worker, stagger) {
   const ms = stagger == null ? lookupStagger : stagger;
   return Promise.all(Array.from({ length: LOOKUP_PARALLEL },
-    (_, i) => new Promise((done) => setTimeout(done, i * ms)).then(() => worker())));
+    (_, i) => new Promise((done) => setTimeout(done, i ? ms : 0)).then(() => worker())));
+}
+
+/* A 429 is "too many at once" (or the key's spend limit): wait what the API
+   asks — retry-after, in seconds, capped — and try again, at most twice, so a
+   busy minute doesn't fail a wine but a real spend cap still stops the run. */
+const LOOKUP_RETRIES = 2, LOOKUP_RETRY_MAX_S = 30;
+let lookupRetryWait = (s) => s * 1000;   // the suite makes this 0 (__retryWait)
+function waitOrAbort(ms, signal) {
+  return new Promise((done, fail) => {
+    if (signal && signal.aborted) return fail(new DOMException('Stopped', 'AbortError'));
+    const id = setTimeout(done, ms);
+    if (signal) signal.addEventListener('abort', () => { clearTimeout(id); fail(new DOMException('Stopped', 'AbortError')); }, { once: true });
+  });
+}
+/* One POST to Claude. Resolves to { res, data }; a failure to connect is a
+   plain sentence, and Stop is passed on as the AbortError it is. */
+async function postClaude(body, key, o) {
+  for (let tries = 0; ; tries++) {
+    let res;
+    try {
+      res = await (o.fetch || fetch)(LOOKUP_URL, { method: 'POST', headers: LOOKUP_HEADERS(key),
+        body: JSON.stringify(body), signal: o.signal });
+    } catch (e) {
+      if (e && e.name === 'AbortError') throw e;
+      throw new Error('Could not reach Claude — check the connection.');
+    }
+    if (res.status === 429 && tries < LOOKUP_RETRIES) {
+      const after = Number(res.headers && res.headers.get && res.headers.get('retry-after'));
+      const s = Math.min(LOOKUP_RETRY_MAX_S, Number.isFinite(after) && after > 0 ? after : 5 * (tries + 1));
+      await waitOrAbort(lookupRetryWait(s), o.signal);
+      continue;
+    }
+    let data = null;
+    try { data = await res.json(); } catch (e) { data = null; }
+    return { res: res, data: data };
+  }
 }
 
 function lookupKey() {
@@ -6446,16 +6485,7 @@ async function lookupWine(w, key, opts) {
   let nudged = false;
   for (let round = 0; round < LOOKUP_MAX_ROUNDS; round++) {
     usage.rounds++;
-    let res;
-    try {
-      res = await (o.fetch || fetch)(LOOKUP_URL, { method: 'POST', headers: LOOKUP_HEADERS(key),
-        body: JSON.stringify(body), signal: o.signal });
-    } catch (e) {
-      if (e && e.name === 'AbortError') throw e;
-      throw new Error('Could not reach Claude — check the connection.');
-    }
-    let data = null;
-    try { data = await res.json(); } catch (e) { data = null; }
+    const { res, data } = await postClaude(body, key, o);
     if (!res.ok || !data) throw new Error(lookupErrorMessage(res.status, data));
     const u = data.usage || {};
     usage.input += Number(u.input_tokens) || 0;
@@ -7982,7 +8012,7 @@ $('pasteLookup').addEventListener('click', async () => {
   $('pasteAdd').disabled = true;
   let done = 0, failed = 0, next = 0, lastError = '';
   const say = () => { $('pasteNote').textContent = 'Looking up ' + Math.min(done + 1, todo.length) + ' of '
-    + todo.length + '… (each takes up to a minute; three run at once)'
+    + todo.length + '… (each takes up to a minute; ' + LOOKUP_PARALLEL + ' run at once)'
     + (failed ? ' ' + plural(failed, 'lookup') + ' failed: ' + lastError : ''); };
   say();
   const worker = async () => {
@@ -8262,7 +8292,7 @@ function renderCheckIntro() {
   $('checkIntro').textContent = !wines.length ? 'There are no wines with bottles left to check.'
     : todo ? 'Claude looks up the ' + plural(todo, 'wine') + ' selected below — about $'
       + (todo * LOOKUP_COST).toFixed(2) + ' from your API account and ' + plural(mins, 'minute')
-      + ', three at a time. Lines start ticked when Claude’s answer is better evidence — an empty box, '
+      + ', ' + LOOKUP_PARALLEL + ' at a time. Lines start ticked when Claude’s answer is better evidence — an empty box, '
       + 'current prices over an estimate, a published window over an estimate — and each says why; '
       + 'change any of them. Nothing changes until you save.'
     : wines.some((w) => checkAnswer(w)) ? 'Tick what to change, then save'
@@ -8543,16 +8573,7 @@ async function callTool(body, tool, key, o, what) {
   let nudged = false;
   for (let round = 0; round < PAIR_MAX_ROUNDS; round++) {
     usage.rounds++;
-    let res;
-    try {
-      res = await (o.fetch || fetch)(LOOKUP_URL, { method: 'POST', headers: LOOKUP_HEADERS(key),
-        body: JSON.stringify(body), signal: o.signal });
-    } catch (e) {
-      if (e && e.name === 'AbortError') throw e;
-      throw new Error('Could not reach Claude — check the connection.');
-    }
-    let data = null;
-    try { data = await res.json(); } catch (e) { data = null; }
+    const { res, data } = await postClaude(body, key, o);
     if (!res.ok || !data) throw new Error(lookupErrorMessage(res.status, data).replace('The lookup failed', 'The ' + what + ' failed'));
     const u = data.usage || {};
     usage.input += Number(u.input_tokens) || 0;
@@ -10800,7 +10821,9 @@ window.__wineTestHooks = {
   __state: function () { return state; },
   /* Sets how far apart a bulk run's lookups start; returns the old gap. */
   __stagger: function (ms) { const was = lookupStagger; lookupStagger = ms; return was; },
-  LOOKUP_STAGGER_MS: LOOKUP_STAGGER_MS, LOOKUP_PARALLEL: LOOKUP_PARALLEL,
+  LOOKUP_STAGGER_MS: LOOKUP_STAGGER_MS, LOOKUP_PARALLEL: LOOKUP_PARALLEL, LOOKUP_RETRIES: LOOKUP_RETRIES,
+  /* Swaps how long a 429 waits (seconds → ms); returns the old one. */
+  __retryWait: function (fn) { const was = lookupRetryWait; lookupRetryWait = fn; return was; },
   /* Swaps the IndexedDB photo store for the suite's in-memory one, and sets a
      picked photo, so photo tests touch nothing on disk. Returns the old store. */
   __photoStore: function (next) { const was = photoStore; photoStore = next; return was; },

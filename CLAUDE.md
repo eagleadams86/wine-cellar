@@ -521,8 +521,11 @@ the family doesn't.
   results inside one call; cached, those reads are 5% price. Measured on 4 real wines, same
   answers: $0.137 uncached → $0.056 system mark only → **$0.046 both**. `LOOKUP_COST`/`LOOKUP_SECS`
   drive Check Wines' estimate; `lookupWine` usage counts `cacheRead`/`cacheWrite` apart from input.
-  **Bulk runs are staggered** (2026-11-01, `runLookups`): the 3 workers start `LOOKUP_STAGGER_MS`
-  (3 s) apart. The shared prefix (tools + system) is ~9,000 tokens, and a request sent before the
+  **Bulk runs: 8 at once, staggered** (2026-11-01, `runLookups`): `LOOKUP_PARALLEL` 8 (was 3 —
+  account limits read 2026-11-01: 4,000 RPM, 2M ITPM, so 8 is far inside). Worker 1 starts alone,
+  the rest together `LOOKUP_STAGGER_MS` (3 s) later. `postClaude` (shared by Look Up and the pairing
+  calls) retries a 429 up to `LOOKUP_RETRIES` (2) times after `retry-after` (capped 30 s, abortable);
+  the suite zeroes that wait with `__retryWait`. Why the stagger: The shared prefix (tools + system) is ~9,000 tokens, and a request sent before the
   first one's write lands pays its own write. Probed live: 3 at once = 3 writes of 9,016; 3 s apart
   = 1 write, then reads of 8,926 — about 8.6¢ saved per paste / Check Wines run. The suite sets
   the gap to 0 (`__stagger`); one test pins the real 3 s and the start order. Note a LONE Look Up
