@@ -2575,7 +2575,7 @@ html[data-booting] footer { visibility: hidden; }
   <h2 id="pairingTitle">Edit a Pairing</h2>
   <div class="field">
     <label for="p_meal">Meal</label>
-    <input type="text" id="p_meal" maxlength="60" autocomplete="off" placeholder="e.g. Short ribs with polenta">
+    <input type="text" id="p_meal" maxlength="200" autocomplete="off" placeholder="e.g. Short ribs with polenta">
   </div>
   <!-- The meal's four labels (SCHEMA 18 + 19): What Pairs Well groups by
        them, and Claude fills any left Not said. The options come from
@@ -3188,7 +3188,7 @@ function profileValues(rec, field) {
 const cleanHeldUp = (v) => (typeof v === 'string' && Object.prototype.hasOwnProperty.call(HELD_UP, v) ? v : null);
 /* A pairing's meal, as its list shows it: "Short ribs with polenta". The
    recipe itself is never kept. Up here because normalizeState reads it. */
-const PAIR_MEAL_MAX = 60;
+const PAIR_MEAL_MAX = 200;
 /* cleanLine, but a line too long ends on a whole WORD with "…" — Claude's
    explanation of a value or window was cut at 100 mid-word ("the ow",
    Charles, 2026-10-25). */

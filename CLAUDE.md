@@ -289,7 +289,7 @@ the family doesn't.
   150) — Claude answers by NUMBER and `readPairing` maps it back to the id sent, dropping strays,
   repeats and anything past 3. Recipe cut at `PAIR_TEXT_MAX` 4000 and never stored; `pairLast` is
   page-life. Measured on 4 real meals: ~1600 in / ~450 out, **$0.013–0.017**, 5–10 s.
-  `state.pairings[]` `{id, wineId, label, meal ≤PAIR_MEAL_MAX 60, date '' or day, status
+  `state.pairings[]` `{id, wineId, label, meal ≤PAIR_MEAL_MAX 200 (was 60 until 2026-11-05), date '' or day, status
   planned|had, rating, note, openedId, why, at}` — `label` snapshots the wine like an opened line;
   the PAIRING's rating is how the food and wine went together, never the bottle's. Pairings tab is
   fourth in `TABS` (before History), hidden in a shared view like History, not in share links.
