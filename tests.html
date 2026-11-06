@@ -51,7 +51,7 @@
    go MISSING look exactly like tests that pass — a suite that quietly shrank to
    three checks still says "all 3 tests pass". RAISE THIS when you add tests, and
    lower it only when you retire one deliberately. */
-const EXPECTED = 365;
+const EXPECTED = 368;
 
 /* ── It refuses to run anywhere but localhost, and that is load-bearing ──────
    GitHub Pages publishes this page BESIDE the app, where the iframe below would
@@ -911,6 +911,16 @@ function define() {
     const css = (stripComments(src).match(/<style>([\s\S]*?)<\/style>/) || [])[1] || '';
     ok(/#shareDialog\s*\{[^}]*max-width:\s*1100px/.test(css),
        '1100px, which is what the other four open Share at');
+  });
+  t('a repeated record id is made unique; references follow the first', () => {
+    const st = H.normalizeState({ wines: [{ id: 'w1', name: 'First', qty: 1 }, { id: 'w1', name: 'Second', qty: 1 }],
+      opened: [{ id: 'w1', wineId: 'w1', label: 'First', date: '2026-01-01' }] });
+    const ids = st.wines.map((w) => w.id).concat(st.opened.map((o) => o.id));
+    eq(new Set(ids).size, 3, 'three records, three ids');
+    eq(st.wines[0].id, 'w1', 'the first keeps its id');
+    eq(st.opened[0].wineId, 'w1', 'and the bottle still points at it');
+    const again = H.normalizeState(st);
+    eq(again.wines.map((w) => w.id), st.wines.map((w) => w.id), 'and the fix is stable on the next pass');
   });
   t('a share link chooses its wines, and says so', () => {
     const st = H.normalizeState(FIXTURE);
@@ -2406,6 +2416,15 @@ function define() {
     const w = r.rows[0];
     eq([w.vintage, w.name, w.valueLow, w.valueHigh, w.valueEst, w.drinkFrom, w.drinkTo],
        [2022, 'Château Exemple Saint-Émilion', 25, 35, true, 2027, 2034], 'every column, accents intact');
+  });
+  t('a data row with a cell starting “Wine” is not taken for a second header', () => {
+    const csv = ['Wine,Region,Grape,Bottles,Value each,Window,Status,Where',
+      '2019 Sample Ridge Zinfandel,Sonoma,Zinfandel,2,$45,2022–2030,Ready,Wine fridge',
+      '2016 Placeholder Musar,Bekaa,Blend,1,$60,2024–2036,Ready,Rack B'].join('\n');
+    const r = H.parseWineList(csv, 2026);
+    eq(r.rows.map((w) => [w.vintage, w.name, w.qty, w.location]),
+       [[2019, 'Sample Ridge Zinfandel', 2, 'Wine fridge'], [2016, 'Placeholder Musar', 1, 'Rack B']],
+       'both rows read against the real header');
   });
   t('“Now” is this year, and a street price beats a list price', () => {
     const w = H.parseWineList(CLAUDE_TABLE, 2026).rows[1];
@@ -6035,6 +6054,18 @@ function define() {
         mRec(m.merged, 'opened', 'demo-o4').note], ['Renamed Here', 'Rack B', 'Typed on this device.']);
     ok(m.merged.pairings.some((x) => x.id === 'px-new'), 'the pairing planned on the other device arrives');
     ok(!W.sameCellar(m.merged, L) && !W.sameCellar(m.merged, R), 'and the result is neither copy alone');
+  });
+  t('a History entry one side rewrote in place is not merged back as a stale twin', () => {
+    const base = mSample(), L = mSample(), R = mSample();
+    const v1 = { at: '2026-11-01T10:00:00.000Z', k: 'edit', c: [{ f: 'notes', o: '', n: 'a' }] };
+    const v2 = { at: '2026-11-01T10:00:00.000Z', k: 'edit', c: [{ f: 'notes', o: '', n: 'a' }, { f: 'location', o: '', n: 'b' }] };
+    [base, R].forEach((s) => { mRec(s, 'wines', 'demo-ready').log = [v1]; });
+    mRec(L, 'wines', 'demo-ready').log = [v2];
+    mRec(R, 'wines', 'demo-hold').location = 'Rack C';
+    const m = W.mergeCellars(base, L, R, 'local');
+    eq(m.conflicts, []);
+    eq(mRec(m.merged, 'wines', 'demo-ready').log.length, 1, 'one entry for one moment');
+    eq(mRec(m.merged, 'wines', 'demo-ready').log[0].c.length, 2, 'and it is the rewritten one');
   });
   t('a field both changed is ONE conflict, named with both ratings, and the choice decides only it', () => {
     const base = mSample(), L = mSample(), R = mSample();

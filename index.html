@@ -3571,6 +3571,17 @@ function normalizeState(raw) {
     if (!map.has(key)) map.set(key, uid());
     return map.get(key);
   };
+  /* A record's OWN id is unique across wines, opened lines and pairings
+     (photos are keyed by it): a repeat — a hand-edited backup, a built share
+     link — gets a fresh one, so one Delete never takes two. References keep
+     following the first record that had it. */
+  const taken = new Set();
+  const ownId = (id) => {
+    let v = fixId(id);
+    if (taken.has(v)) v = uid();
+    taken.add(v);
+    return v;
+  };
   const rawWines = (Array.isArray(raw.wines) ? raw.wines : []).filter((it) => it && typeof it === 'object');
   out.wines = rawWines
     .map((it) => {
@@ -3581,7 +3592,7 @@ function normalizeState(raw) {
       if (from != null && to != null && to < from) { const t = from; from = to; to = t; }
       const qty = Number(it.qty);
       return {
-        id: fixId(it.id),
+        id: ownId(it.id),
         vintage: cleanYear(it.vintage),
         name: cleanLine(it.name, 80) || 'Unnamed wine',
         /* '' is "not set" (SCHEMA 13): never guessed as red at the boundary. */
@@ -3651,7 +3662,7 @@ function normalizeState(raw) {
     .filter((it) => it && typeof it === 'object')
     .map((it) => {
       return {
-        id: fixId(it.id),
+        id: ownId(it.id),
         /* Rewritten through the SAME map as the wines' ids, so a reference to a
            wine whose id was replaced still points at it. */
         wineId: it.wineId == null || it.wineId === '' ? null : fixId(it.wineId),
@@ -3721,7 +3732,7 @@ function normalizeState(raw) {
     .filter((it) => it && typeof it === 'object')
     .map((it) => {
       return {
-        id: fixId(it.id),
+        id: ownId(it.id),
         wineId: it.wineId == null || it.wineId === '' ? null : fixId(it.wineId),
         label: cleanLine(it.label, 100) || 'A deleted wine',
         meal: cleanLine(it.meal, PAIR_MEAL_MAX) || 'A meal',
@@ -4327,7 +4338,8 @@ function computeAll(st, yr) {
    than leaving an empty app with no way back to the three choices. Never in a
    shared view: somebody else's snapshot is not this browser's first run. */
 function renderWelcome() {
-  const virgin = !viewOnly && !state.wines.length && !state.opened.length;
+  /* Pairings count: a pairing outliving its wine must stay reachable. */
+  const virgin = !viewOnly && !state.wines.length && !state.opened.length && !state.pairings.length;
   document.getElementById('welcomeCard').hidden = !virgin;
   document.documentElement.toggleAttribute('data-welcome', virgin);
   /* Nothing loaded, nothing to search. */
@@ -6151,7 +6163,10 @@ function parseWineList(text, yr) {
     const cells = splitCells(line, mode);
     /* The header row: its columns become the map for every line after it. */
     const head = headerMap(cells);
-    if (head && !/\d{4}/.test(cells[head.wine] || '')) { cols = head; return; }
+    /* A header has no figures in it. Checking only the wine cell let a data
+       row whose Where cell said "Wine fridge" become a new header, and every
+       row after it was read against the wrong columns. */
+    if (head && !cells.some((c) => /\d{4}|\$\s*\d/.test(c))) { cols = head; return; }
     const at = (k, fallback) => {
       const ix = cols ? cols[k] : fallback;
       return ix == null ? '' : String(cells[ix] == null ? '' : cells[ix]).trim();
@@ -7203,9 +7218,18 @@ function photoRow(ids) {
      is deleted on the next load, past Undo. Call before save(). */
   row.applyTo = (rec) => {
     if (row.draft) {
+      const prev = rec.photoAt || null;
       rec.photoAt = nowStamp();
-      const keep = row.draft.keep, at = rec.photoAt;
-      photoStore.put(rec.id, keep, at).then(() => photoQueue(rec.id));
+      const keep = row.draft.keep, at = rec.photoAt, id = rec.id;
+      /* A refused write (storage full, blocked, private mode) must not leave
+         the record claiming a photo that exists nowhere: the claim goes back
+         to what it was, and the owner is told. */
+      photoStore.put(id, keep, at).then((ok) => {
+        if (ok) { photoQueue(id); return; }
+        const cur = photoRecs(state).find((x) => x.id === id && x.photoAt === at);
+        if (cur) { cur.photoAt = prev; save(); render(); }
+        toast('The label photo could not be kept on this device — its storage may be full or blocked.', 7000);
+      });
     } else if (row.removed) {
       rec.photoAt = null;
     }
@@ -7371,6 +7395,9 @@ function commitWine(ctx) {
   liveEdit(it, ctx, handEdits(ctx.before, it, ai));
   state = normalizeState(state);
   liveStore(ctx);
+  /* The count may have just changed: Opened One follows it. */
+  const now = state.wines.find((x) => x.id === ctx.recId);
+  $('wineDrink').disabled = !(now && now.qty);
   if (finishing) { ctx.saidSo = true; toast('Saved with no bottles left — it is hidden as finished (Settings shows it again)', 6000); }
   return '';
 }
@@ -8164,6 +8191,7 @@ function withLookup(row, r) {
   if (!out.subregion) out.subregion = r.subregion;
   if (!out.grape) out.grape = r.grape;
   if (!out.colorKnown && r.color) out.color = r.color;
+  if (!out.profile && r.profile) out.profile = r.profile;
   out.looked = r.confidence;
   return out;
 }
@@ -8224,7 +8252,9 @@ $('pasteAdd').addEventListener('click', () => {
       }
       if (had.drinkFrom == null && had.drinkTo == null) { had.drinkFrom = r.drinkFrom; had.drinkTo = r.drinkTo; }
       if (!had.region) had.region = r.region;
+      if (!had.subregion && r.subregion) had.subregion = r.subregion;
       if (!had.grape) had.grape = r.grape;
+      if (!had.profile && r.profile) had.profile = cleanProfile(r.profile);
       if (had.paid == null && r.paid != null) had.paid = r.paid;
       const c = diffFields(before, had);
       if (c.length) logTo(had, { at: nowStamp(), k: 'paste', c: c });
@@ -8233,7 +8263,7 @@ $('pasteAdd').addEventListener('click', () => {
     }
     /* A Where column in the list beats the box in the window: it is per wine. */
     const w = { id: uid(), vintage: r.vintage, name: r.name, color: r.color, region: r.region,
-      subregion: r.subregion || '',
+      subregion: r.subregion || '', profile: cleanProfile(r.profile),
       grape: r.grape, qty: r.qty, valueLow: r.valueLow, valueHigh: r.valueHigh, valueEst: r.valueEst,
       paid: r.paid,
       drinkFrom: r.drinkFrom, drinkTo: r.drinkTo, location: r.location || location, source: source,
@@ -9023,7 +9053,8 @@ function renderPairResults() {
             + '<button type="button" class="primary" data-pair-save="' + esc(w.id) + '">Save Plan</button></span></div>'
           : '<div class="row-actions pairacts">'
             + '<button type="button" data-pair-plan="' + esc(w.id) + '">Plan for Later</button>'
-            + '<button type="button" data-pair-drink="' + esc(w.id) + '">Opened One</button>'
+            /* No bottle left, no Opened One: openDrink would close this window and do nothing. */
+            + (w.qty ? '<button type="button" data-pair-drink="' + esc(w.id) + '">Opened One</button>' : '')
             + '<button type="button" class="link" data-pair-open="' + esc(w.id) + '">Open Wine</button></div>')
         + '</div>';
     }).join('')
@@ -9207,7 +9238,11 @@ function renderPairingDash(c) {
         + pairingPick.has(x[3]) + '">' + inner + '</button>'
       : '<div class="stat">' + inner + '</div>';
   }).join('');
-  if ($('pairStats').innerHTML !== html) $('pairStats').innerHTML = html;
+  /* Compared as the browser would write it back: a meal with an apostrophe is
+     &#39; in `html` but a plain ' in innerHTML, so a raw compare never matched. */
+  const tpl = document.createElement('template');
+  tpl.innerHTML = html;
+  if ($('pairStats').innerHTML !== tpl.innerHTML) $('pairStats').innerHTML = html;
   const unrated = c.rating.had - c.rating.rated;
   $('pairGlanceWarn').textContent = unrated ? plural(unrated, 'had pairing') + ' with no rating '
     + (unrated === 1 ? 'is' : 'are') + ' left out of the rating.' : '';
@@ -9499,9 +9534,13 @@ function openPairing(id, line) {
   judgeStop();
   $('p_askNote').textContent = '';
   $('pairingTitle').textContent = p ? 'Edit a Pairing' : line ? 'Pair a Meal With This Bottle' : 'Add Pairing';
-  $('p_wine').innerHTML = pairingFromLine ? '<option value="">' + esc(line.label) + '</option>' : pairingWineOptions(p);
-  $('p_wine').disabled = !!pairingFromLine;
-  $('p_wine').value = p && state.wines.some((w) => w.id === p.wineId) ? p.wineId : '';
+  /* A pairing tied to an opened bottle names that bottle as it was: its wine
+     is not a choice, or the label and the line it reads would disagree. */
+  const tied = !!pairingFromLine || !!(p && p.openedId);
+  $('p_wine').innerHTML = pairingFromLine ? '<option value="">' + esc(line.label) + '</option>'
+    : tied ? '<option value="">' + esc(p.label) + '</option>' : pairingWineOptions(p);
+  $('p_wine').disabled = tied;
+  $('p_wine').value = !tied && p && state.wines.some((w) => w.id === p.wineId) ? p.wineId : '';
   $('p_meal').value = p ? p.meal : '';
   TAG_FIELDS.forEach((f) => { $('p_' + f).value = p && p[f] ? p[f] : ''; });
   $('p_status').value = p ? p.status : line ? 'had' : 'planned';
@@ -9529,8 +9568,9 @@ function commitPairing(ctx) {
   if (!p) return { gone: 'That pairing has gone since the window opened, so nothing was changed.' };
   const w = b.wineId ? state.wines.find((x) => x.id === b.wineId) : null;
   Object.assign(p, tagsOf(b), { meal: b.meal, status: b.status, date: b.date, rating: b.rating, note: b.note, why: b.why });
-  /* A wine chosen again is copied again; a gone one keeps its old name. */
-  if (w) { p.wineId = w.id; p.label = cleanLine(wineLabel(w), 100); }
+  /* A wine chosen again is copied again; a gone one keeps its old name; one
+     tied to an opened bottle keeps the bottle's. */
+  if (w && !p.openedId) { p.wineId = w.id; p.label = cleanLine(wineLabel(w), 100); }
   liveEdit(p, ctx, diffPairing(ctx.before, p));
   liveStore(ctx);
   dressPairingHad();
@@ -9570,8 +9610,9 @@ $('pairingSave').addEventListener('click', () => {
   } else {
     const was = Object.assign({}, p);
     Object.assign(p, tagsOf(b), { meal: b.meal, status: b.status, date: b.date, rating: b.rating, note: b.note, why: b.why });
-    /* A wine chosen again is copied again; a gone one keeps its old name. */
-    if (w) { p.wineId = w.id; p.label = cleanLine(wineLabel(w), 100); }
+    /* A wine chosen again is copied again; a gone one keeps its old name; one
+       tied to an opened bottle keeps the bottle's. */
+    if (w && !p.openedId) { p.wineId = w.id; p.label = cleanLine(wineLabel(w), 100); }
     /* What the window changed, as History — nothing, no entry. */
     const hand = diffPairing(was, p);
     if (hand.length) logTo(p, { at: nowStamp(), k: 'edit', c: hand });
@@ -10085,8 +10126,9 @@ $('importFile').addEventListener('change', () => {
       toast('That file has no wines in it.'); return;
     }
     /* SAY WHAT THE FILE HOLDS before replacing anything. */
-    if (!confirm('Restore ' + plural(incoming.wines.length, 'wine') + ' and '
-               + plural(incoming.opened.length, 'opened bottle') + '?\n\n'
+    if (!confirm('Restore ' + plural(incoming.wines.length, 'wine') + ', '
+               + plural(incoming.opened.length, 'opened bottle') + ' and '
+               + plural(incoming.pairings.length, 'pairing') + '?\n\n'
                + 'This replaces everything currently in this browser'
                + (window.wcSignedIn && window.wcSignedIn() ? ' and on your other signed-in devices.' : '.'))) return;
     state = incoming;
@@ -10107,8 +10149,9 @@ $('clearBtn').addEventListener('click', () => {
   /* Closed first rather than stacked: backing out of a confirmation should not
      drop you into the dialog you started from. */
   $('dataDialog').close();
-  $('clearBody').textContent = 'This deletes ' + plural(state.wines.length, 'wine') + ' and '
-    + plural(state.opened.length, 'opened-bottle record') + '. Your settings, your theme and your Claude key are kept. '
+  $('clearBody').textContent = 'This deletes ' + plural(state.wines.length, 'wine') + ', '
+    + plural(state.opened.length, 'opened-bottle record') + ' and '
+    + plural(state.pairings.length, 'pairing') + '. Your settings, your theme and your Claude key are kept. '
     + (window.wcSignedIn && window.wcSignedIn()
       ? 'You are signed in, so your other devices are cleared too. ' : '')
     + 'Undo (↩ in the header) brings it all back until you reload, close this page or another tab or device changes the cellar — '
@@ -10715,7 +10758,10 @@ function syncMergeCount(b, l, r) {
 }
 function syncMergeField(k, b, l, r, path, out) {
   if (path.length === 2 && syncIsObj(path[1])) {
-    if (k === 'log') return syncSame(l, r) ? l : syncMergeLog(l, r);
+    /* One side's log untouched: the other side's stands as it is — a union
+       would bring back an entry that side rewrote in place (liveEdit,
+       logLookup keep one entry per moment). */
+    if (k === 'log') return syncSame(l, r) || syncSame(b, r) ? l : syncSame(b, l) ? r : syncMergeLog(l, r);
     if (SYNC_NEWEST.has(k)) return syncNewest(b, l, r);
     if (k === 'qty' && path[0] === 'wines') return syncMergeCount(b, l, r);
   }
@@ -11006,7 +11052,10 @@ async function boot() {
     try {
       const p = await decodeShare(shareToken);
       /* `scope` says whether the sender trimmed the list to ready wines. */
-      shareMeta = { sharedAt: p.sharedAt, scope: p.scope };
+      shareMeta = {
+        sharedAt: typeof p.sharedAt === 'string' && DATE_RE.test(p.sharedAt) && !isNaN(Date.parse(p.sharedAt)) ? p.sharedAt : null,
+        scope: p.scope === 'ready' ? 'ready' : null,
+      };
       state = normalizeState({ version: SCHEMA, wines: p.wines, opened: p.opened, settings: p.settings });
     } catch (e) {
       /* A link that cannot be read falls back to this browser's OWN data rather
@@ -11021,8 +11070,12 @@ async function boot() {
   } else {
     load();
   }
-  setTheme(localStorage.getItem(THEME_KEY) || 'auto');
-  setTab(localStorage.getItem(TAB_KEY) || TABS[0]);
+  /* Guarded like every other read: a browser that blocks site data throws
+     here, and an unguarded throw left the page blank. */
+  let savedTheme = null, savedTab = null;
+  try { savedTheme = localStorage.getItem(THEME_KEY); savedTab = localStorage.getItem(TAB_KEY); } catch (e) { /* blocked */ }
+  setTheme(savedTheme || 'auto');
+  setTab(savedTab || TABS[0]);
   /* Every edit surface goes in a shared view. The table already renders
      read-only above; these are the buttons that would write. */
   if (viewOnly) {
@@ -11303,7 +11356,10 @@ function shouldBootSync() {
    not race into two Firebase apps. */
 let initPromise = null;
 function ensureInit() {
-  if (!initPromise) initPromise = init();
+  /* A failed load (offline for a moment) is forgotten, so the next press
+     tries again rather than failing until a reload. It fails before
+     initializeApp, so a retry can't make a second Firebase app. */
+  if (!initPromise) initPromise = init().catch((e) => { initPromise = null; throw e; });
   return initPromise;
 }
 
@@ -11628,7 +11684,15 @@ function chooseSyncSource(local, remote, remoteUpdatedAt, opts) {
     deviceBtn.textContent = opts.conflicts ? 'Keep This Device’s Version' : 'Keep This Device\'s';
     googleBtn.textContent = opts.conflicts ? 'Keep Google’s Version' : 'Keep the Google One';
     const preventCancel = (e) => e.preventDefault();
+    /* Chrome lets a page refuse `cancel` only once per user activation, so a
+       second Escape closes the window anyway — and then nothing ever answers,
+       sync waits forever. A close before an answer opens it again. Watched as
+       the `open` attribute: the close event is not delivered everywhere. */
+    let done = false;
+    const watch = new MutationObserver(() => { if (!done && !dlg.open) openModal(dlg); });
     function finish(keepGoogle) {
+      done = true;
+      watch.disconnect();
       deviceBtn.removeEventListener('click', onDevice);
       googleBtn.removeEventListener('click', onGoogle);
       dlg.removeEventListener('cancel', preventCancel);
@@ -11641,6 +11705,7 @@ function chooseSyncSource(local, remote, remoteUpdatedAt, opts) {
     googleBtn.addEventListener('click', onGoogle);
     dlg.addEventListener('cancel', preventCancel);
     openModal(dlg);
+    watch.observe(dlg, { attributes: true, attributeFilter: ['open'] });
   });
 }
 
@@ -11698,6 +11763,9 @@ function baseCopy() {
 let keptNews = '';
 async function settleTwoCopies(d) {
   const local = window.wcGet(), remote = d && d.state, at = d && d.updatedAt;
+  /* A copy from a NEWER build is never offered to be overwritten by this
+     older one: it is taken, so wcAdopt's halt keeps it untouched and says so. */
+  if (remote && Number(remote.version) > SCHEMA) return true;
   const localAt = localTs();
   const has = (s) => !!(s && ((Array.isArray(s.wines) ? s.wines.length : 0) + (Array.isArray(s.opened) ? s.opened.length : 0)));
   const full = has(local) && has(remote);

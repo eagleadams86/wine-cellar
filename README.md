@@ -382,7 +382,8 @@ dinner. Type a dish — "grilled lamb chops with rosemary" — or paste a whole 
   searches meals, wines, notes and Claude's notes. Press a line
   to change it, **rate how the pairing went** (separate from the bottle's own rating on the Opened
   tab) and add a note. A planned pairing has **We Had It — Opened One**, which opens the bottle
-  and marks the pairing had, linked to that opened line. **＋ Add Pairing** notes one without
+  and marks the pairing had, linked to that opened line. A pairing linked to an opened bottle
+  keeps that bottle's name, and its wine can't be changed. **＋ Add Pairing** notes one without
   asking Claude.
 - **Cheap on purpose: about 1.5¢ a meal** (measured 2026-10-26 on four real meals, Opus 5.5 at
   low effort, 5–10 seconds each). There is no web search — pairing is knowledge Claude already
@@ -484,7 +485,9 @@ Google: 4 of 5") and your choice settles just those; everything else is kept eit
 device has no remembered copy to compare against (the first sign-in on it, or the first sync
 after this update), the window falls back to choosing a whole copy, but it now shows when each
 copy was last saved, marks the newer one, and lists what is different. The remembered copy stays
-in this browser and is removed by Delete All Data.
+in this browser and is removed by Delete All Data. The window can't be dismissed with Escape — sync waits
+for an answer, so it reopens until you pick one. A copy saved by a **newer** version of the app is
+never offered to be overwritten: it is kept as it is, and this page asks you to reload.
 
 Firebase project **`winecellar-fa733`** (free Spark plan). Set up 2026-10-23:
 

@@ -707,6 +707,6 @@ was a one-line version of the cellar rule.
 
 ## Tests
 
-`tests.html`, `EXPECTED = 365`. Run it headless (Playwright) rather than in the Browser pane:
+`tests.html`, `EXPECTED = 368`. Run it headless (Playwright) rather than in the Browser pane:
 the pane throttles hidden timers and its focus heuristics turn the 705px keyboard-focus check
 red on untouched code.
