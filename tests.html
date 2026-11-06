@@ -3480,10 +3480,28 @@ function define() {
          'Mama Cozzi pepperoni pizza', 'other', 3.5], 'the line’s wine and name, the meal as typed');
       ok(/Soft old tannin/.test(p.why), 'with Claude’s notes');
       W.openBottleEdit('fx-o2');
-      eq(D.getElementById('openPair').textContent, 'Open Its Pairing', 'the next time, the button opens it');
+      eq(D.getElementById('openPair').textContent, 'Pair With Another Meal', 'the next time, it still starts a new pairing');
+      ok(!D.getElementById('openPairings').hidden, 'and the pairing it has is listed above it');
       D.getElementById('openPair').click();
-      eq(D.getElementById('pairingTitle').textContent, 'Edit a Pairing');
+      eq(D.getElementById('pairingTitle').textContent, 'Pair a Meal With This Bottle', 'a second meal for the same bottle');
+      D.getElementById('p_meal').value = 'Leftover lasagne';
+      D.getElementById('pairingSave').click();
+      eq(H.__state().pairings.filter((x) => x.openedId === 'fx-o2').map((x) => x.meal).sort(),
+         ['Leftover lasagne', 'Mama Cozzi pepperoni pizza'], 'one bottle, two pairings, both linked');
+      W.openBottleEdit('fx-o2');
+      const listed = [...D.querySelectorAll('#openPairingsList [data-open-pairing]')];
+      eq(listed.length, 2, 'both are listed in the bottle window');
+      const lasagne = listed.find((x) => /lasagne/.test(x.textContent));
+      lasagne.click();
+      eq([D.getElementById('pairingTitle').textContent, D.getElementById('p_meal').value],
+         ['Edit a Pairing', 'Leftover lasagne'], 'each opens its own pairing');
       D.getElementById('pairingDialog').close();
+      const realConfirm = W.confirm; let said = '';
+      W.confirm = (m) => { said = m; return false; };
+      try { W.openBottleEdit('fx-o2'); D.getElementById('openRemove').click(); } finally { W.confirm = realConfirm; }
+      ok(/2 pairings/.test(said) && /Leftover lasagne/.test(said) && /pepperoni/.test(said),
+         'removing the bottle names every pairing that goes back to planned');
+      D.getElementById('openDialog').close();
       W.openDrink('fx-ready');
       ok(D.getElementById('openPair').hidden, 'Opened One has no such button — there is no line yet');
       D.getElementById('openDialog').close();

@@ -397,7 +397,10 @@ dinner. Type a dish — "grilled lamb chops with rosemary" — or paste a whole 
   age and as you said it held up, suited the dish, and fills in the meal's labels you haven't.
   The notes are yours to edit (a new pairing is saved by **Save**; an existing one saves as you
   go), and the pairing links to the
-  opened line (the button then reads **Open Its Pairing**). Claude is told the meal, the wine's
+  opened line. A bottle can go with more than one meal — dinner and the next day's lunch — so the
+  button always starts a new pairing (it reads **Pair With Another Meal** once there is one), and
+  the meals the bottle has already been paired with are listed above it under **Paired With**,
+  each opening its own pairing. Claude is told the meal, the wine's
   name, vintage, grape, region and drinking window, when it was opened and how old it was, and
   your Held Up, rating and note for the bottle — never its price or where you bought it. About
   **1–2¢ and 4–10 seconds** a note (measured 2026-10-31). **Claude's Notes** is also editable on

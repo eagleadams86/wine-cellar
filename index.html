@@ -1325,6 +1325,9 @@
   details > summary { cursor: pointer; color: var(--accent); font-size: var(--fs-xs); }
   /* A wine's History in its window: a quiet list under the notes. */
   details.winehist { margin: var(--sp-4) 0; }
+  .openpairs { margin: var(--sp-4) 0; }
+  .openpairs-head { margin: 0 0 var(--sp-2); font-weight: var(--fw-semibold); }
+  .openpairs ul { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: var(--sp-2); align-items: flex-start; }
   .histlist { margin: var(--sp-4) 0 0; padding: 0; list-style: none; font-size: var(--fs-sm); color: var(--text-secondary); }
   .histlist li { margin-bottom: var(--sp-3); }
   .histlist strong, .histcell strong { color: var(--text-primary); font-weight: var(--fw-semibold); }
@@ -2457,6 +2460,12 @@ html[data-booting] footer { visibility: hidden; }
     <ul class="histlist" id="bottleHistoryList"></ul>
   </details>
   <p class="warn-line" id="openWarn" role="status"></p>
+  <!-- The meals this bottle went with (2026-11-06): one bottle, any number of
+       pairings — a dinner and the next day's lunch. Each opens its own window. -->
+  <div class="openpairs" id="openPairings" hidden>
+    <p class="openpairs-head" id="openPairingsHead">Paired With</p>
+    <ul aria-labelledby="openPairingsHead" id="openPairingsList"></ul>
+  </div>
   <!-- Folded away like the wine window's Delete (Charles, 2026-10-25). -->
   <details class="danger-zone" id="openRemoveZone" hidden>
     <summary>Remove This Bottle</summary>
@@ -2466,7 +2475,8 @@ html[data-booting] footer { visibility: hidden; }
   </details>
   <div class="row-actions">
     <!-- A meal this bottle went with, and Claude's notes on it (2026-10-31).
-         An opened line only; "Open Its Pairing" once it has one. -->
+         An opened line only; always a NEW pairing — the ones it already has
+         are listed above, each its own button (2026-11-06). -->
     <button type="button" id="openPair" hidden>Pair With a Meal</button>
     <span class="act-end">
       <button type="button" id="openCancel">Cancel</button>
@@ -7825,6 +7835,7 @@ function dressOpenDialog(mode) {
   /* Only a line that exists can be removed. */
   $('openRemoveZone').hidden = mode !== 'edit';
   $('openPair').hidden = mode !== 'edit';
+  if (mode !== 'edit') $('openPairings').hidden = true;
   $('openRemoveZone').open = false;
   obLookupStop();
   obLookupLast = null;
@@ -7869,7 +7880,7 @@ function openBottleEdit(id) {
   fillOpenDialog(o);
   bottlePhoto.reset(o);
   renderWineHistory(o, 'bottleHistory', 'bottleHistoryList');
-  $('openPair').textContent = state.pairings.some((p) => p.openedId === o.id) ? 'Open Its Pairing' : 'Pair With a Meal';
+  renderOpenPairings(o);
   openModal($('openDialog'));
   openFormAtOpen = openFormSnap();
   liveStart('openDialog', { recId: o.id, before: JSON.parse(JSON.stringify(o)), snap: openFormSnap,
@@ -7899,14 +7910,34 @@ function commitBottle(ctx) {
 let openFormAtOpen = '';
 const openFormSnap = () => JSON.stringify([...$('openDialog').querySelectorAll('input:not([type="file"]), select, textarea')]
   .map((el) => el.value));
-$('openPair').addEventListener('click', () => {
+/* The pairings had with this bottle, newest first, one button each. A bottle
+   can go with any number of meals (2026-11-06) — the button below always
+   starts a new one, so it never hides the ones already there. */
+function bottlePairings(o) {
+  return state.pairings.filter((p) => p.openedId === o.id)
+    .sort((a, b) => (b.date || '').localeCompare(a.date || '') || (b.at || '').localeCompare(a.at || ''));
+}
+function renderOpenPairings(o) {
+  const list = bottlePairings(o);
+  $('openPairings').hidden = !list.length;
+  $('openPairingsList').innerHTML = list.map((p) => '<li><button type="button" class="link" data-open-pairing="'
+    + esc(p.id) + '">' + esc(p.meal) + (p.rating ? ' — ' + esc(String(p.rating)) + '★' : '') + '</button></li>').join('');
+  $('openPair').textContent = list.length ? 'Pair With Another Meal' : 'Pair With a Meal';
+}
+/* Saved first, as the window saves as you go; then the pairing window takes over. */
+function leaveBottleFor(go) {
   const o = state.opened.find((x) => x.id === editingBottleId);
   if (!o) { $('openDialog').close(); render(); return; }
-  /* Saved first, as the window saves as you go. */
   if (!liveCommit('openDialog', 'done') || !$('openDialog').open) return;
-  const had = state.pairings.find((p) => p.openedId === o.id);
   $('openDialog').close();
-  if (had) openPairing(had.id); else openPairing(null, o);
+  go(o);
+}
+$('openPair').addEventListener('click', () => leaveBottleFor((o) => openPairing(null, o)));
+$('openPairingsList').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-open-pairing]');
+  if (!b) return;
+  const id = b.dataset.openPairing;
+  leaveBottleFor(() => openPairing(id));
 });
 function openLogBottle() {
   drinkingId = null;
@@ -9684,7 +9715,8 @@ $('openRemove').addEventListener('click', () => {
       + (w ? 'It goes back on the count, as unopened.'
          : o.wineId ? 'The wine itself has been deleted, so there is no count to put it back on.'
          : 'It was logged without a Cellar wine, so there is no count to put it back on.')
-      + (paired.length ? '\n\nIts pairing with “' + paired[0].meal + '” goes back to planned.' : ''))) return;
+      + (paired.length === 1 ? '\n\nIts pairing with “' + paired[0].meal + '” goes back to planned.'
+         : paired.length ? '\n\nIts ' + paired.length + ' pairings (' + paired.map((p) => '“' + p.meal + '”').join(', ') + ') go back to planned.' : ''))) return;
   $('openDialog').close();
   state.opened = state.opened.filter((x) => x.id !== o.id);
   paired.forEach((p) => {

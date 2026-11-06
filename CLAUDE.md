@@ -325,8 +325,14 @@ the family doesn't.
   PAIR_FIELDS, values never recorded — like notes). `#openPair` in `#openDialog` (edit mode only)
   calls `openPairing(id, line)`: `pairingFromLine` set, `p_wine` disabled, status had, date = the
   line's; Save goes through `addPairing` with `label` + `openedId` from the line (`addPairing` now
-  takes `w` null and writes the wine's log only when there is one). The button reads **Open Its
-  Pairing** when a pairing already has that `openedId`. **✦ Ask Claude** (`#p_ask`) →
+  takes `w` null and writes the wine's log only when there is one). **One bottle, any number of
+  pairings (2026-11-06, Charles: "I can only do one pairing per opened bottle").** The data always
+  allowed it; the button used to read **Open Its Pairing** and open the FIRST pairing with that
+  `openedId`, so a second meal could never be added. Now `#openPair` always starts a new pairing
+  (label **Pair With Another Meal** once one exists), and `#openPairings` lists every pairing with
+  the line (`bottlePairings`, newest first), each a `data-open-pairing` button; both go through
+  `leaveBottleFor`, which saves the bottle window first. Remove This Bottle's confirm names every
+  pairing it sends back to planned. No SCHEMA bump — nothing stored changed. **✦ Ask Claude** (`#p_ask`) →
   `judgePairing` → `callTool(body, 'note_pairing', …)` — `callTool` is Pair Meal's call loop pulled
   out and shared. `JUDGE_TOOL` {meal_name, food_kind enum, notes}; `buildJudgeRequest` sends meal,
   `judgeBottle` (name/vintage/grape/region/window + opened date, age, timing) and `told`
@@ -559,7 +565,7 @@ the family doesn't.
   `close` event — Done, `cancel` and the backdrop each commit first. The opened window now
   REFUSES a backwards window where Save silently swapped it. Programmatic fills (Look Up, Use
   This, the opened window's Look Up, Ask Claude, the photo row) call `liveCommit` themselves —
-  setting `.value` fires no change. Opened One / Open Its Pairing / We Had It save first, then go.
+  setting `.value` fires no change. Opened One / Pair With a Meal / a Paired With line / We Had It save first, then go.
   Found doing it: the aroma tick boxes read back in LIST order, so any edit reordered a wine's
   strongest-first notes and logged a phantom `profile` change — `aromaOrder` keeps the record's
   order now. Do not convert: Paste a List, Check Wines, Pair a Meal, Delete All, sync choice,
